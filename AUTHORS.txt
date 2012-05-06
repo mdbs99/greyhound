@@ -1,0 +1,11 @@
+Greyhound Project
+
+Here is a list of people that have contributed in some way towards
+the Greyhound project.
+
+
+Lead Developer and Maintainer
+-----------------------------
+Marcos Douglas <mdbs99@delfire.net>
+ 
+
