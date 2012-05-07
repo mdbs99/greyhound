@@ -52,7 +52,7 @@ type
   end;
   {$ENDIF}
 
-  {$IFDEF MSSQL}
+  {$IFDEF MSSQLLib}
   // especialization for MSSQLServer and Sybase
   TghDBMSSQLLib = class(TghDBSQLdbLib)
   public
