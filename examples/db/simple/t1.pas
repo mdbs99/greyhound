@@ -53,6 +53,7 @@ begin
   co := TghDBConnection.Create;
   try
     // set configurations
+    // using SQLite
     co.SetDBLibClass(TghDBSQLiteLib);
 
     with TghDBSQLdbLib(co.DBLib) do
