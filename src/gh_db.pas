@@ -38,7 +38,7 @@ type
   public
     procedure Lock;
     // Create a param automatically if not exist.
-    function ParamByName(const n: string): TParam; reintroduce;
+    function ParamByName(const AName: string): TParam; reintroduce;
     // An alias less verbose; changed the default property.
     property Param[const AName: string]: TParam read ParamByName; default;
   end;
@@ -59,6 +59,7 @@ type
     procedure CheckTable;
     procedure CreateResultSet;
     function GetAsJSON: string;
+    procedure SetAsJSON(const AValue: string);
   public
     constructor Create(AConn: TghDBConnection; const ATableName: string); reintroduce;
     destructor Destroy; override;
@@ -84,7 +85,7 @@ type
     property Params: TghDBParams read FParams;
     property Reuse: Boolean read FReuse write FReuse;
     property TableName: string read FTableName;
-    property AsJSON: string read GetAsJSON;
+    property AsJSON: string read GetAsJSON write SetAsJSON;
   end;
 
   TghDBStatement = class(TghDBObject)
@@ -187,17 +188,17 @@ begin
   FLock := True;
 end;
 
-function TghDBParams.ParamByName(const n: string): TParam;
+function TghDBParams.ParamByName(const AName: string): TParam;
 var
   p: TParam;
 begin
-  p := FindParam(n);
+  p := FindParam(AName);
   if not Assigned(p) then
   begin
     if FLock then
       raise EghDBError.Create(Self, 'Params were locked.');
     p := TParam.Create(Self);
-    p.Name := n;
+    p.Name := AName;
   end;
   Result := p as TParam;
 end;
@@ -272,6 +273,7 @@ var
   json: TExtjsJSONObjectDataset;
   buf: TStringStream;
 begin
+  CheckTable;
   buf := TStringStream.Create('');
   json := TExtjsJSONObjectDataset.Create(nil);
   try
@@ -294,6 +296,12 @@ begin
     json.Free;
   end;
   FResultSet.First;
+end;
+
+procedure TghDBTable.SetAsJSON(const AValue: string);
+begin
+  CheckTable;
+  /// TODO
 end;
 
 constructor TghDBTable.Create(AConn: TghDBConnection; const ATableName: string);

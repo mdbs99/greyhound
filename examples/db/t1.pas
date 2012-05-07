@@ -129,7 +129,7 @@ begin
     t.Open;
 
     writeln;
-    writeln('Show all records:')
+    writeln('Show all records:');
     while not t.EOF do
     begin
       writeln(t.Columns['name'].AsString);
