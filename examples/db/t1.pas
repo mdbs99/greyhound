@@ -136,9 +136,6 @@ begin
       t.Next;
     end;
 
-    { get JSON }
-    writeln(t.AsJSON);
-
     // drop table
     co.SQL.Script.Text := 'drop table '+TAB_TMP;
     co.SQL.Execute;
