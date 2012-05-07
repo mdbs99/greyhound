@@ -1,4 +1,3 @@
-
 Greyhound Project
 Copyright (c) 2012 by Marcos Douglas
 
@@ -14,7 +13,8 @@ Database module
 ----------------------------------------------------
 - Use one simple interface, but you can choice any Lib (aka Broker) to connect in a DBMS like SQLdb, Zeos or whatever you want;
 - CRUD: TghDBTable class to manipulate one table easily (like a ActiveRecord, but you can work with many records at the same object);
-- Scripts and Tables: TghDBConnection class to manipulate all tables on the DB;
+- Scripts and Tables: TghDBConnection class to manipulate all tables on the DB and execute Script SQL as well;
+- Memory management automatic for many objects;
 - JSON Support to DataSet (FPC 2.6.1);
 
 
