@@ -19,8 +19,6 @@ interface
 uses
   // fpc
   Classes, SysUtils, DB, variants, contnrs, sqldb, fpjsondataset,
-  // laz
-  LazUTF8,
   // gh
   gh_global;
 
@@ -169,14 +167,6 @@ type
     property Password: string read FPassword write FPassword;
     property SQL: TghDBSQL read FSQL;
     property Tables[const AName: string]: TghDBTable read GetTables;
-  end;
-
-  TghDBUTF8FieldHelper = class(TghDBObject)
-  protected
-    procedure DoGetText(Sender: TField; var AText: string; DisplayText: boolean);
-    procedure DoSetText(Sender: TField; const AText: string);
-  public
-    procedure SetEvents(ds: TDataSet);
   end;
 
 implementation
@@ -723,42 +713,6 @@ begin
   except
     FreeAndNil(ADest);
     raise;
-  end;
-end;
-
-{ TghDBUTF8FieldHelper }
-
-procedure TghDBUTF8FieldHelper.DoGetText(Sender: TField; var AText: string;
-  DisplayText: boolean);
-begin
-  case Sender.DataType of
-    ftString, ftWord,
-    ftMemo, ftFmtMemo,
-    ftFixedChar, ftWideString,
-    ftFixedWideChar, ftWideMemo:
-    begin
-      AText := SysToUTF8(Sender.AsString);
-      DisplayText := True;
-    end;
-  end;
-end;
-
-procedure TghDBUTF8FieldHelper.DoSetText(Sender: TField; const AText: string);
-begin
-  Sender.AsString := UTF8ToSys(AText);
-end;
-
-procedure TghDBUTF8FieldHelper.SetEvents(ds: TDataSet);
-var
-  i: integer;
-begin
-  for i := 0 to ds.FieldCount - 1 do
-  begin
-    with ds.Fields[i] do
-    begin
-      OnGetText := @DoGetText;
-      OnSetText := @DoSetText;
-    end;
   end;
 end;
 
