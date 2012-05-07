@@ -18,7 +18,10 @@ interface
 
 uses
   // fpc
-  Classes, SysUtils, DB, variants, contnrs, sqldb, fpjsondataset,
+  Classes, SysUtils, DB, variants, contnrs, sqldb,
+  {$IFDEF HAS_JSON}
+  fpjsondataset,
+  {$ENDIF}
   // gh
   gh_global;
 
@@ -258,6 +261,7 @@ begin
 end;
 
 function TghDBTable.GetAsJSON: string;
+{$IFDEF HAS_JSON}
 var
   i: Integer;
   json: TExtjsJSONObjectDataset;
@@ -286,6 +290,10 @@ begin
     json.Free;
   end;
   FResultSet.First;
+{$ELSE}
+begin
+  raise EghDBError.Create('HAS_JASON not defined.');
+{$ENDIF}
 end;
 
 procedure TghDBTable.SetAsJSON(const AValue: string);
