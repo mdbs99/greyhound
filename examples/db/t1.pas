@@ -118,7 +118,7 @@ begin
 
     ExecSelect;
 
-    { using JSON }
+    { get JSON }
     // insert more itens
     InsertUser(5, 'user5', '1', 'USER5');
     InsertUser(6, 'user6', '1', 'USER6');
@@ -128,6 +128,14 @@ begin
     t.Close;
     // reopen table (get all records)
     t.Open;
+
+    writeln;
+    writeln('Show all records:')
+    while not t.EOF do
+    begin
+      writeln(t.Columns['name'].AsString);
+      t.Next;
+    end;
 
     writeln(t.AsJSON);
 

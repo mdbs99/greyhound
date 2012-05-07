@@ -153,6 +153,7 @@ type
     function Connected: Boolean;
     procedure Disconnect; virtual;
     procedure StartTransaction;
+    function InTransaction: Boolean;
     procedure Commit;
     procedure CommitRetaining;
     procedure Rollback;
@@ -461,32 +462,36 @@ end;
 
 function TghDBSQL.Execute: NativeInt;
 begin
+  with FConn do
   try
-    with FConn do
-    begin
-      DBLib.Script.Assign(Self.Script);
-      DBLib.Params.Assign(Self.Params);
-      Result := DBLib.Execute;
-    end;
+    StartTransaction;
+    DBLib.Script.Assign(Self.Script);
+    DBLib.Params.Assign(Self.Params);
+    Result := DBLib.Execute;
+    CommitRetaining;
   except
     on e: Exception do
+    begin
+      RollbackRetaining;
       raise EghDBError.Create(Self, e.Message);
+    end;
   end;
 end;
 
 procedure TghDBSQL.Open(AOwner: TComponent; out ADataSet: TDataSet);
 begin
+  with FConn do
   try
-    with FConn do
-    begin
-      DBLib.Script.Assign(Self.Script);
-      DBLib.Params.Assign(Self.Params);
-      DBLib.Open(AOwner, ADataSet);
-    end;
+    StartTransaction;
+    DBLib.Script.Assign(Self.Script);
+    DBLib.Params.Assign(Self.Params);
+    DBLib.Open(AOwner, ADataSet);
+    CommitRetaining;
   except
     on e: Exception do
     begin
       FreeAndNil(ADataSet);
+      RollbackRetaining;
       raise EghDBError.Create(Self, e.Message);
     end;
   end;
@@ -513,10 +518,12 @@ begin
   if (Result = nil) or (Result.Active and not Result.Reuse) then
   begin
     Result := TghDBTable.Create(Self, AName);
+    {
     // open table at the first time to get all columns
     // but no resultset is returned
     Result.Select('*').Where('1=2');  /// TODO: need it?
     Result.Open;
+    }
   end;
 end;
 
@@ -597,6 +604,11 @@ begin
     on e: Exception do
       raise EghDBError.Create(e.Message);
   end;
+end;
+
+function TghDBConnection.InTransaction: Boolean;
+begin
+  Result := (FTransCount > 0);
 end;
 
 procedure TghDBConnection.Commit;

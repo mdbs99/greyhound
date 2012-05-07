@@ -106,8 +106,8 @@ end;
 
 procedure TghDBSQLdbLib.StartTransaction;
 begin
-  FTran.Commit;
-  FTran.StartTransaction;
+  if not FTran.Active then
+    FTran.StartTransaction;
 end;
 
 procedure TghDBSQLdbLib.Commit;
@@ -175,10 +175,7 @@ end;
 constructor TghDBSQLiteLib.Create;
 begin
   inherited Create;
-  // redefine FConn because there is no TSQLite3ConnectionDef yet.
-  FreeAndNil(FConn);
-  FConn := TSQLite3Connection.Create(nil);
-  FTran.DataBase := FConn;
+  FConn.ConnectorType := TSQLite3ConnectionDef.TypeName;
 end;
 
 {$ENDIF}
