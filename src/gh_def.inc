@@ -10,10 +10,13 @@
     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
 }
 
-{$ifdef FPC}
-  {$mode objfpc}{$H+}
-  {$interfaces corba}
-  {$define SQLiteLib}
+{$IFDEF FPC}
+  {$MODE objfpc}{$H+}
+  {$INTERFACES corba}
+  {$DEFINE SQLiteLib}
   {.$define MSSQLLib}
-{$endif}
+  {$IF ((FPC_VERSION >= 2) and (FPC_RELEASE >= 6) and (FPC_PATCH >= 1))}
+    {$DEFINE HAS_JSON}
+  {$ENDIF}
+{$ENDIF}
 
