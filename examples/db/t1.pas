@@ -118,7 +118,6 @@ begin
 
     ExecSelect;
 
-    { get JSON }
     // insert more itens
     InsertUser(5, 'user5', '1', 'USER5');
     InsertUser(6, 'user6', '1', 'USER6');
@@ -137,6 +136,7 @@ begin
       t.Next;
     end;
 
+    { get JSON }
     writeln(t.AsJSON);
 
     // drop table
