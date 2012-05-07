@@ -67,11 +67,11 @@ begin
     { using sql }
 	
     // creating a temp table
-    co.SQL.Script.Text := 'create table '+TAB_TMP+' ( '#13
-                        + '  [id] int not null primary key '#13
-                        + ' ,[login] varchar(20) not null '#13
-                        + ' ,[passwd] varchar(30) null '#13
-                        + ' ,[name] varchar(50) null )';
+    co.SQL.Script.Add('create table '+TAB_TMP+' ( ');
+    co.SQL.Script.Add('  [id] int not null primary key ');
+    co.SQL.Script.Add(' ,[login] varchar(20) not null ');
+    co.SQL.Script.Add(' ,[passwd] varchar(30) null ');
+    co.SQL.Script.Add(' ,[name] varchar(50) null )');
     co.SQL.Execute;
     writeln('Table created.');
 
