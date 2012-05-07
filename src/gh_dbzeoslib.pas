@@ -19,6 +19,8 @@ interface
 uses
   // fpc
   Classes, SysUtils, DB,
+  // laz
+  LazUTF8,
   // zeos
   ZConnection, ZDbcIntfs, ZDataset, ZStoredProcedure,
   // gh
@@ -42,6 +44,14 @@ type
     function Execute: NativeInt; override;
     procedure Open(AOwner: TComponent; out ADataSet: TDataSet); override;
     property Connection: TZConnection read FConn;
+  end;
+
+  TghDBUTF8FieldHelper = class(TghDBObject)
+  protected
+    procedure DoGetText(Sender: TField; var AText: string; DisplayText: boolean);
+    procedure DoSetText(Sender: TField; const AText: string);
+  public
+    procedure SetEvents(ds: TDataSet);
   end;
 
 implementation
@@ -89,9 +99,19 @@ begin
   FConn.Commit;
 end;
 
+procedure TghDBZeosLib.CommitRetaining;
+begin
+  Commit;
+end;
+
 procedure TghDBZeosLib.Rollback;
 begin
   FConn.Rollback;
+end;
+
+procedure TghDBZeosLib.RollbackRetaining;
+begin
+  Rollback;
 end;
 
 function TghDBZeosLib.Execute: NativeInt;
@@ -115,7 +135,7 @@ procedure TghDBZeosLib.Open(AOwner: TComponent; out ADataSet: TDataSet);
 var
   q: TZQuery;
 begin
-  ds := nil;
+  ADataSet := nil;
   q := TZQuery.Create(AOwner);
   try
     q.Connection := FConn;
@@ -124,7 +144,7 @@ begin
     if Assigned(FParams) then
       q.Params.Assign(FParams);
     q.Open;
-    ds := q;
+    ADataSet := q;
   except
     q.Free;
   end;
@@ -157,5 +177,40 @@ begin
   end;
 end;
 }
+{ TghDBUTF8FieldHelper }
+
+procedure TghDBUTF8FieldHelper.DoGetText(Sender: TField; var AText: string;
+  DisplayText: boolean);
+begin
+  case Sender.DataType of
+    ftString, ftWord,
+    ftMemo, ftFmtMemo,
+    ftFixedChar, ftWideString,
+    ftFixedWideChar, ftWideMemo:
+    begin
+      AText := SysToUTF8(Sender.AsString);
+      DisplayText := True;
+    end;
+  end;
+end;
+
+procedure TghDBUTF8FieldHelper.DoSetText(Sender: TField; const AText: string);
+begin
+  Sender.AsString := UTF8ToSys(AText);
+end;
+
+procedure TghDBUTF8FieldHelper.SetEvents(ds: TDataSet);
+var
+  i: integer;
+begin
+  for i := 0 to ds.FieldCount - 1 do
+  begin
+    with ds.Fields[i] do
+    begin
+      OnGetText := @DoGetText;
+      OnSetText := @DoSetText;
+    end;
+  end;
+end;
 
 end.
