@@ -59,7 +59,7 @@ begin
     with TghDBSQLdbLib(co.DBLib) do
     begin
       // set params
-      co.Database := 'ghdb.sqlite';
+      co.Database := 'DB.sqlite';
     end;
 
     co.Connect;
