@@ -53,18 +53,17 @@ begin
   co := TghDBConnection.Create;
   try
     // set configurations
-    // using MSSQLServer
-    co.SetDBLibClass(TghDBMSSQLLib);
+    // using SQLite
+    co.SetDBLibClass(TghDBSQLiteLib);
 
     // set params
-    co.Host := 'YOUR_HOST';
-    co.Database := 'YOUR_DATABASE';
-    co.User := 'YOUR_USER';
-    co.Password := 'YOUR_PASSWORD';
+    co.Database := 'ghdb.sqlite';
 
     co.Connect;
     writeln('Connected.');
 
+    { using sql }
+	
     // creating a temp table
     co.SQL.Script.Add('create table '+TAB_TMP+' ( ');
     co.SQL.Script.Add('  [id] int not null primary key ');
@@ -95,6 +94,45 @@ begin
     co.Commit;
 
     ExecSelect;
+
+    { using tables }
+
+    writeln;
+    writeln('Using Table:');
+
+    // get the table object
+    // you do not need to use t.Free
+    t := co.Tables[TAB_TMP];
+
+    // select (optional) and conditionals (optional)
+    t.Select('id,name').WhereFmt('id = %d', [2]).Open;
+    writeln('From table: ' + t.Columns['name'].AsString);
+
+    // editing...
+    t.Edit;
+    t.Columns['name'].AsString := 'Venon';
+    t.Post;
+    t.Apply;
+
+    ExecSelect;
+
+    // insert more itens
+    InsertUser(5, 'user5', '1', 'USER5');
+    InsertUser(6, 'user6', '1', 'USER6');
+    InsertUser(7, 'user7', '1', 'USER7');
+
+    // clear all configurations (select columns, conditionals, etc)
+    t.Close;
+    // reopen table (get all records)
+    t.Open;
+
+    writeln;
+    writeln('Show all records:');
+    while not t.EOF do
+    begin
+      writeln(t.Columns['name'].AsString);
+      t.Next;
+    end;
 
     // drop table
     co.SQL.Script.Text := 'drop table '+TAB_TMP;
