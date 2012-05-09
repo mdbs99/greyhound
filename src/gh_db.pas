@@ -49,6 +49,7 @@ type
     FConn: TghDBConnection;
     FSelectCols: string;
     FConditions: string;
+    FOrderBy: string;
     FResultSet: TSQLQuery;
     FParams: TghDBParams;
     FReuse: Boolean;
@@ -79,6 +80,7 @@ type
     function Select(const AColNames: string): TghDBTable;
     function Where(const AConditions: string): TghDBTable;
     function WhereFmt(const AConditions: string; AArgs: array of const): TghDBTable;
+    function OrderBy(const AColNames: string): TghDBTable;
     property Active: Boolean read GetActive;
     property Columns[const AColName: string]: TghDBColumn read GetColumn;
     property Connection: TghDBConnection read FConn write FConn;
@@ -225,19 +227,23 @@ var
   ds: TDataSet;
   cols: string;
 begin
-  if FSelectCols = '' then
-    cols := '*'
-  else
-    cols := FSelectCols;
+  cols := Iif(FSelectCols = '', '*', FSelectCols);
 
   ds := nil;
   try
     FConn.SQL.Clear;
+
     FConn.SQL.Script.Add('select ' + cols + ' from ' + FTableName);
     FConn.SQL.Script.Add('where 1=1');
+
     if FConditions <> '' then
       FConn.SQL.Script.Add('and ' + FConditions);
+
     FConn.SQL.Params.Assign(FParams);
+
+    if FOrderBy <> '' then
+      FConn.SQL.Script.Add('order by ' + FOrderBy);
+
     FConn.SQL.Open(nil, ds);
   except
     ds.Free;
@@ -366,6 +372,7 @@ begin
   CheckTable;
   FSelectCols := '';
   FConditions := '';
+  FOrderBy := '';
   FParams.Clear;
   if Active then
     FResultSet.Close;
@@ -421,6 +428,12 @@ end;
 function TghDBTable.WhereFmt(const AConditions: string; AArgs: array of const): TghDBTable;
 begin
   FConditions := Format(AConditions, AArgs);
+  Result := Self;
+end;
+
+function TghDBTable.OrderBy(const AColNames: string): TghDBTable;
+begin
+  FOrderBy := AColNames;
   Result := Self;
 end;
 
