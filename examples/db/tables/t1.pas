@@ -84,6 +84,10 @@ begin
     InsertRecord(2, 'dani', '453', 'Daniele B.');
     t.Apply;
 
+    // order by
+    t.Close;
+    t.OrderBy('id').Open;
+
     ShowAllRecords;
 
     writeln;
