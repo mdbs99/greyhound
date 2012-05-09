@@ -34,6 +34,7 @@ type
   public
     constructor Create; virtual;
     destructor Destroy; override;
+    class function Iif(AConditional: Boolean; ATrueValue, AFalseValue: string): string;
   end;
 
 implementation
@@ -64,6 +65,15 @@ end;
 destructor TghObject.Destroy;
 begin
   inherited Destroy;
+end;
+
+class function TghObject.Iif(AConditional: Boolean; ATrueValue,
+  AFalseValue: string): string;
+begin
+  if AConditional then
+    Result := ATrueValue
+  else
+    Result := AFalseValue;
 end;
 
 end.
