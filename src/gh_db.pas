@@ -120,7 +120,7 @@ type
     function Open: TDataSet;
   end;
 
-  TghDBLibBroker = class(TghDBStatement)
+  TghDBLib = class(TghDBStatement)
   public
     procedure Connect(const AHost, ADatabase, AUser, APasswd: string); virtual; abstract;
     function Connected: Boolean; virtual; abstract;
@@ -134,7 +134,7 @@ type
     procedure Open(AOwner: TComponent; out ADataSet: TDataSet); virtual; abstract;
   end;
 
-  TghDBLibBrokerClass = class of TghDBLibBroker;
+  TghDBLibClass = class of TghDBLib;
 
   TghDBConnection = class(TghDBObject)
   strict private
@@ -146,13 +146,13 @@ type
     FSQL: TghDBSQL;
     FTables: TFPHashObjectList;
   protected
-    FDBLib: TghDBLibBroker;
+    FDBLib: TghDBLib;
     procedure CheckDBLib;
     function GetTables(const AName: string): TghDBTable; virtual;
   public
     constructor Create; override;
     destructor Destroy; override;
-    procedure SetDBLibClass(ALib: TghDBLibBrokerClass);
+    procedure SetDBLibClass(ALib: TghDBLibClass);
     procedure Connect; virtual;
     function Connected: Boolean;
     procedure Disconnect; virtual;
@@ -165,7 +165,7 @@ type
     procedure Notify(AObject: TghObject; AOperation: TOperation);
     procedure DataSetToSQLQuery(ASource: TDataSet;
       out ADest: TSQLQuery; AOwner: TComponent = nil);
-    property DBLib: TghDBLibBroker read FDBLib;
+    property DBLib: TghDBLib read FDBLib;
     property Database: string read FDatabase write FDatabase;
     property Host: string read FHost write FHost;
     property User: string read FUser write FUser;
@@ -572,7 +572,7 @@ begin
   inherited Destroy;
 end;
 
-procedure TghDBConnection.SetDBLibClass(ALib: TghDBLibBrokerClass);
+procedure TghDBConnection.SetDBLibClass(ALib: TghDBLibClass);
 begin
   if Assigned(FDBLib) then
     FDBLib.Free;

@@ -25,7 +25,7 @@ uses
   gh_db;
 
 type
-  TghDBSQLdbLib = class(TghDBLibBroker)
+  TghDBSQLdbLib = class(TghDBLib)
   protected
     FConn: TSQLConnector;
     FTran: TSQLTransaction;
