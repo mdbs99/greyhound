@@ -66,6 +66,7 @@ begin
     writeln('Connected.');
 
     // creating a temp table
+    co.SQL.Clear;
     co.SQL.Script.Add('create table '+TAB_TMP+' ( ');
     co.SQL.Script.Add('  [id] int not null primary key ');
     co.SQL.Script.Add(' ,[login] varchar(20) not null ');

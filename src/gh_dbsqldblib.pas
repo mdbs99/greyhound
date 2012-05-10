@@ -27,8 +27,9 @@ uses
 type
   TghDBSQLdbLib = class(TghDBLibBroker)
   protected
-    FTran: TSQLTransaction;
     FConn: TSQLConnector;
+    FTran: TSQLTransaction;
+    FQuery: TSQLQuery;
   public
     constructor Create; override;
     destructor Destroy; override;
@@ -76,10 +77,14 @@ begin
   FTran := TSQLTransaction.Create(nil);
   FTran.DataBase := FConn;
   FConn.Transaction := FTran;
+  FQuery := TSQLQuery.Create(nil);
+  FQuery.DataBase := FConn;
+  FQuery.Transaction := FTran;
 end;
 
 destructor TghDBSQLdbLib.Destroy;
 begin
+  FQuery.Free;
   FTran.Free;
   FConn.Free;
   inherited Destroy;
@@ -134,18 +139,20 @@ function TghDBSQLdbLib.Execute: NativeInt;
 var
   q: TSQLQuery;
 begin
-  q := TSQLQuery.Create(nil);
-  try
-    q.DataBase := FConn;
-    q.Transaction := FTran;
-    q.SQL.Text := FScript.Text;
-    if Assigned(FParams) then
-      q.Params.Assign(FParams);
-    q.ExecSQL;
-    Result := q.RowsAffected;
-  finally
-    q.Free;
+  if not FQuery.SQL.Equals(FScript) then
+  begin
+    FQuery.UnPrepare;
+    FQuery.SQL.Assign(FScript);
   end;
+
+  if not FQuery.Prepared then
+    FQuery.Prepare;
+
+  if Assigned(FParams) then
+    FQuery.Params.Assign(FParams);
+
+  FQuery.ExecSQL;
+  Result := FQuery.RowsAffected;
 end;
 
 procedure TghDBSQLdbLib.Open(AOwner: TComponent; out ADataSet: TDataSet);

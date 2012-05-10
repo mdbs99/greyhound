@@ -14,7 +14,7 @@
   {$MODE objfpc}{$H+}
   {$INTERFACES corba}
   {$DEFINE SQLiteLib}
-  {.$define MSSQLLib}
+  {$DEFINE MSSQLLib}
   {$IF ((FPC_VERSION >= 2) and (FPC_RELEASE >= 6) and (FPC_PATCH >= 1))}
     {$DEFINE HAS_JSON}
   {$ENDIF}
