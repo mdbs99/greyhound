@@ -298,7 +298,8 @@ begin
   FResultSet.First;
 {$ELSE}
 begin
-  raise EghDBError.Create('HAS_JASON not defined.');
+  Result := '';
+  raise EghDBError.Create('HAS_JSON not defined.');
 {$ENDIF}
 end;
 
