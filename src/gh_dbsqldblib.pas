@@ -136,8 +136,6 @@ begin
 end;
 
 function TghDBSQLdbLib.Execute: NativeInt;
-var
-  q: TSQLQuery;
 begin
   if not FQuery.SQL.Equals(FScript) then
   begin
