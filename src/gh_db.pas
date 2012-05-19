@@ -44,24 +44,52 @@ type
     property Param[const AName: string]: TParam read ParamByName; default;
   end;
 
+  TghDBStatement = class(TghDBObject)
+  protected
+    FParams: TghDBParams;
+    FScript: TStrings;
+  public
+    constructor Create; override;
+    destructor Destroy; override;
+    procedure Assign(ASource: TghDBStatement); virtual;
+    procedure Clear; virtual;
+    property Params: TghDBParams read FParams;
+    property Script: TStrings read FScript;
+  end;
+
+  TghDBSQL = class(TghDBStatement)
+  strict private
+    FConn: TghDBConnection;
+    FDataSet: TDataSet;
+  public
+    constructor Create(AConn: TghDBConnection); reintroduce;
+    destructor Destroy; override;
+    // no result set
+    function Execute: NativeInt; virtual; overload;
+    // new dataset: responsibility of the user to release
+    procedure Open(AOwner: TComponent; out ADataSet: TDataSet); virtual; overload;
+    // new dataset: responsibility of the Lib to release.
+    // DO NOT USE .Free for this return!
+    function Open: TDataSet;
+  end;
+
   TghDBTable = class(TghDBObject)
   strict private
     FConn: TghDBConnection;
     FSelectCols: string;
     FConditions: string;
     FOrderBy: string;
-    FResultSet: TSQLQuery;
     FParams: TghDBParams;
     FReuse: Boolean;
     FTableName: string;
+    function GetRecordCount: Longint;
   protected
+    FDataSet: TSQLQuery;
     function GetActive: Boolean;
     function GetColumn(const AColName: string): TghDBColumn;
     function GetEOF: Boolean;
     procedure CheckTable;
     procedure CreateResultSet;
-    function GetAsJSON: string;
-    procedure SetAsJSON(const AValue: string);
   public
     constructor Create(AConn: TghDBConnection; const ATableName: string); reintroduce;
     destructor Destroy; override;
@@ -69,6 +97,7 @@ type
     procedure Append;
     procedure Edit;
     procedure Post;
+    procedure Delete;
     procedure Apply;
     procedure Close;
     procedure Open;
@@ -87,37 +116,18 @@ type
     property EOF: Boolean read GetEOF;
     property Params: TghDBParams read FParams;
     property Reuse: Boolean read FReuse write FReuse;
+    property RecordCount: Longint read GetRecordCount;
     property TableName: string read FTableName;
-    property AsJSON: string read GetAsJSON write SetAsJSON;
   end;
 
-  TghDBStatement = class(TghDBObject)
-  protected
-    FParams: TghDBParams;
-    FScript: TStrings;
+  TghDBExtJSTableSupport = class(TghDBObject)
+  private
+    FTable: TghDBTable;
   public
-    constructor Create; override;
-    destructor Destroy; override;
-    procedure Assign(ASource: TghDBStatement); virtual;
-    procedure Clear; virtual;
-    property Params: TghDBParams read FParams;
-    property Script: TStrings read FScript;
-  end;
-
-  TghDBSQL = class(TghDBStatement)
-  strict private
-    FConn: TghDBConnection;
-    FResultSet: TDataSet;
-  public
-    constructor Create(AConn: TghDBConnection); reintroduce;
-    destructor Destroy; override;
-    // no result set
-    function Execute: NativeInt; virtual; overload;
-    // new dataset: responsibility of the user to release
-    procedure Open(AOwner: TComponent; out ADataSet: TDataSet); virtual; overload;
-    // new dataset: responsibility of the Lib to release.
-    // DO NOT USE .Free in this method!
-    function Open: TDataSet;
+    constructor Create(ATable: TghDBTable); reintroduce;
+    function GetData(SaveMetadata: Boolean): string;
+    procedure SetData(const AValue: string);
+    property Table: TghDBTable read FTable write FTable;
   end;
 
   TghDBLib = class(TghDBStatement)
@@ -198,246 +208,6 @@ begin
   Result := p as TParam;
 end;
 
-{ TghDBTable }
-
-function TghDBTable.GetActive: Boolean;
-begin
-  Result := Assigned(FResultSet) and FResultSet.Active;
-end;
-
-function TghDBTable.GetEOF: Boolean;
-begin
-  Result := FResultSet.EOF;
-end;
-
-function TghDBTable.GetColumn(const AColName: string): TghDBColumn;
-begin
-  CheckTable;
-  Result := TghDBColumn(FResultSet.FieldByName(AColName));
-end;
-
-procedure TghDBTable.CheckTable;
-begin
-  if not Active then
-    raise EghDBError.Create(Self, 'Table not active');
-end;
-
-procedure TghDBTable.CreateResultSet;
-var
-  ds: TDataSet;
-  cols: string;
-begin
-  cols := Iif(FSelectCols = '', '*', FSelectCols);
-
-  ds := nil;
-  try
-    FConn.SQL.Clear;
-
-    FConn.SQL.Script.Add('select ' + cols + ' from ' + FTableName);
-    FConn.SQL.Script.Add('where 1=1');
-
-    if FConditions <> '' then
-      FConn.SQL.Script.Add('and ' + FConditions);
-
-    FConn.SQL.Params.Assign(FParams);
-
-    if FOrderBy <> '' then
-      FConn.SQL.Script.Add('order by ' + FOrderBy);
-
-    FConn.SQL.Open(nil, ds);
-  except
-    ds.Free;
-    raise;
-  end;
-
-  FreeAndNil(FResultSet);
-
-  if ds is TSQLQuery then
-  begin
-    FResultSet := ds as TSQLQuery;
-    Exit;
-  end;
-
-  try
-    // from [*dataset] to [tsqlquery]
-    FConn.DataSetToSQLQuery(ds, FResultSet);
-  finally
-    ds.Free;
-  end;
-end;
-
-function TghDBTable.GetAsJSON: string;
-{$IFDEF HAS_JSON}
-var
-  i: Integer;
-  json: TExtjsJSONObjectDataset;
-  buf: TStringStream;
-begin
-  CheckTable;
-  buf := TStringStream.Create('');
-  json := TExtjsJSONObjectDataset.Create(nil);
-  try
-    json.FieldDefs.Assign(FResultSet.FieldDefs);
-    json.Open;
-    FResultSet.First;
-    while not FResultSet.EOF do
-    begin
-      json.Append;
-      for i := 0 to FResultSet.Fields.Count -1 do
-        json.Fields[i].Assign(FResultSet.Fields[i]);
-      json.Post;
-      FResultSet.Next;
-    end;
-    json.First;
-    json.SaveToStream(buf, True);
-    Result := buf.DataString;
-  finally
-    buf.Free;
-    json.Free;
-  end;
-  FResultSet.First;
-{$ELSE}
-begin
-  Result := '';
-  raise EghDBError.Create('HAS_JSON not defined.');
-{$ENDIF}
-end;
-
-procedure TghDBTable.SetAsJSON(const AValue: string);
-begin
-  CheckTable;
-  /// TODO
-end;
-
-constructor TghDBTable.Create(AConn: TghDBConnection; const ATableName: string);
-begin
-  inherited Create;
-  FTableName := ATableName;
-  FConn := AConn;
-  FConn.Notify(Self, opInsert);
-  FResultSet := nil;
-  FParams := TghDBParams.Create;
-end;
-
-destructor TghDBTable.Destroy;
-begin
-  if Assigned(FConn) then
-    FConn.Notify(Self, opRemove);
-  FParams.Free;
-  FResultSet.Free;
-  inherited Destroy;
-end;
-
-procedure TghDBTable.Insert;
-begin
-  CheckTable;
-  FResultSet.Insert;
-end;
-
-procedure TghDBTable.Append;
-begin
-  CheckTable;
-  FResultSet.Append;
-end;
-
-procedure TghDBTable.Edit;
-begin
-  CheckTable;
-  FResultSet.Edit;
-end;
-
-procedure TghDBTable.Post;
-begin
-  CheckTable;
-  FResultSet.Post;
-end;
-
-procedure TghDBTable.Apply;
-begin
-  CheckTable;
-  FConn.StartTransaction;
-  try
-    FResultSet.ApplyUpdates(0);
-    FConn.CommitRetaining;
-  except
-    on e: Exception do
-    begin
-      FConn.RollbackRetaining;
-      raise EghDBError.Create(Self, e.Message);
-    end;
-  end;
-end;
-
-procedure TghDBTable.Close;
-begin
-  CheckTable;
-  FSelectCols := '';
-  FConditions := '';
-  FOrderBy := '';
-  FParams.Clear;
-  if Active then
-    FResultSet.Close;
-end;
-
-procedure TghDBTable.Open;
-begin
-  CreateResultSet;
-end;
-
-procedure TghDBTable.Refresh;
-begin
-  CheckTable;
-  Open;
-end;
-
-procedure TghDBTable.First;
-begin
-  CheckTable;
-  FResultSet.First;
-end;
-
-procedure TghDBTable.Prior;
-begin
-  CheckTable;
-  FResultSet.Prior;
-end;
-
-procedure TghDBTable.Next;
-begin
-  CheckTable;
-  FResultSet.Next;
-end;
-
-procedure TghDBTable.Last;
-begin
-  CheckTable;
-  FResultSet.Last;
-end;
-
-function TghDBTable.Select(const AColNames: string): TghDBTable;
-begin
-  FSelectCols := AColNames;
-  Result := Self;
-end;
-
-function TghDBTable.Where(const AConditions: string): TghDBTable;
-begin
-  FConditions := AConditions;
-  Result := Self;
-end;
-
-function TghDBTable.WhereFmt(const AConditions: string; AArgs: array of const): TghDBTable;
-begin
-  FConditions := Format(AConditions, AArgs);
-  Result := Self;
-end;
-
-function TghDBTable.OrderBy(const AColNames: string): TghDBTable;
-begin
-  FOrderBy := AColNames;
-  Result := Self;
-end;
-
 { TghDBStatement }
 
 constructor TghDBStatement.Create;
@@ -471,12 +241,12 @@ constructor TghDBSQL.Create(AConn: TghDBConnection);
 begin
   inherited Create;
   FConn := AConn;
-  FResultSet := nil;
+  FDataSet := nil;
 end;
 
 destructor TghDBSQL.Destroy;
 begin
-  FResultSet.Free;
+  FDataSet.Free;
   inherited Destroy;
 end;
 
@@ -519,9 +289,313 @@ end;
 
 function TghDBSQL.Open: TDataSet;
 begin
-  FreeAndNil(FResultSet);
-  Open(nil, FResultSet);
-  Result := FResultSet;
+  FreeAndNil(FDataSet);
+  Open(nil, FDataSet);
+  Result := FDataSet;
+end;
+
+{ TghDBExtJSTableSupport }
+
+constructor TghDBExtJSTableSupport.Create(ATable: TghDBTable);
+begin
+  inherited Create;
+  FTable := ATable;
+end;
+
+function TghDBExtJSTableSupport.GetData(SaveMetadata: Boolean): string;
+{$IFDEF HAS_JSON}
+var
+  i: Integer;
+  json: TExtjsJSONObjectDataset;
+  buf: TStringStream;
+begin
+  FTable.CheckTable;
+  buf := TStringStream.Create('');
+  json := TExtjsJSONObjectDataset.Create(nil);
+  try
+    json.FieldDefs.Assign(FTable.FDataSet.FieldDefs);
+    json.Open;
+    FTable.FDataSet.First;
+    while not FTable.FDataSet.EOF do
+    begin
+      json.Append;
+      for i := 0 to FTable.FDataSet.Fields.Count -1 do
+        json.Fields[i].Assign(FTable.FDataSet.Fields[i]);
+      json.Post;
+      FTable.FDataSet.Next;
+    end;
+    json.First;
+    json.SaveToStream(buf, SaveMetadata);
+    Result := buf.DataString;
+  finally
+    buf.Free;
+    json.Free;
+  end;
+  FTable.FDataSet.First;
+{$ELSE}
+begin
+  Result := '';
+  raise EghDBError.Create('HAS_JSON not defined.');
+{$ENDIF}
+end;
+
+procedure TghDBExtJSTableSupport.SetData(const AValue: string);
+var
+  i: Integer;
+  json: TExtjsJSONObjectDataset;
+  buf: TStringStream;
+  cols: string;
+begin
+  buf := TStringStream.Create(AValue);
+  json := TExtjsJSONObjectDataset.Create(nil);
+  try
+    json.LoadFromStream(buf);
+
+    // DO NOT pass metadata if table is active!
+    if FTable.Active then
+    begin
+      // creating json's fielddefs using table's fielddefs
+      json.FieldDefs.Assign(FTable.FDataSet.FieldDefs);
+    end
+    else
+    begin
+      // if table not active, json SHOULD HAVE metadata
+      cols := '';
+      for i := 0 to json.FieldDefs.Count-1 do
+      begin
+        if i > 0  then
+          cols += ',';
+        cols += json.FieldDefs[i].Name;
+      end;
+      FTable.Select(cols);
+    end;
+
+    json.Open;
+
+    // open table empty
+    FTable.Where('1=2').Open;
+
+    while not json.EOF do
+    begin
+      FTable.FDataSet.Append;
+      for i := 0 to FTable.FDataSet.Fields.Count -1 do
+        FTable.FDataSet.Fields[i].Assign(json.Fields[i]);
+      FTable.FDataSet.Post;
+      json.Next;
+    end;
+  finally
+    buf.Free;
+    json.Free;
+  end;
+end;
+
+{ TghDBTable }
+
+function TghDBTable.GetRecordCount: Longint;
+begin
+  CheckTable;
+  Result := FDataSet.RecordCount;
+end;
+
+function TghDBTable.GetActive: Boolean;
+begin
+  Result := Assigned(FDataSet) and FDataSet.Active;
+end;
+
+function TghDBTable.GetEOF: Boolean;
+begin
+  CheckTable;
+  Result := FDataSet.EOF;
+end;
+
+function TghDBTable.GetColumn(const AColName: string): TghDBColumn;
+begin
+  CheckTable;
+  Result := TghDBColumn(FDataSet.FieldByName(AColName));
+end;
+
+procedure TghDBTable.CheckTable;
+begin
+  if not Active then
+    raise EghDBError.Create(Self, 'Table not active');
+end;
+
+procedure TghDBTable.CreateResultSet;
+var
+  ds: TDataSet;
+  cols: string;
+begin
+  cols := Iif(FSelectCols = '', '*', FSelectCols);
+
+  ds := nil;
+  try
+    FConn.SQL.Clear;
+
+    FConn.SQL.Script.Add('select ' + cols + ' from ' + FTableName);
+    FConn.SQL.Script.Add('where 1=1');
+
+    if FConditions <> '' then
+      FConn.SQL.Script.Add('and ' + FConditions);
+
+    FConn.SQL.Params.Assign(FParams);
+
+    if FOrderBy <> '' then
+      FConn.SQL.Script.Add('order by ' + FOrderBy);
+
+    FConn.SQL.Open(nil, ds);
+  except
+    ds.Free;
+    raise;
+  end;
+
+  FreeAndNil(FDataSet);
+
+  if ds is TSQLQuery then
+  begin
+    FDataSet := ds as TSQLQuery;
+    Exit;
+  end;
+
+  try
+    // from [*dataset] to [tsqlquery]
+    FConn.DataSetToSQLQuery(ds, FDataSet);
+  finally
+    ds.Free;
+  end;
+end;
+
+constructor TghDBTable.Create(AConn: TghDBConnection; const ATableName: string);
+begin
+  inherited Create;
+  FTableName := ATableName;
+  FConn := AConn;
+  FConn.Notify(Self, opInsert);
+  FDataSet := nil;
+  FParams := TghDBParams.Create;
+end;
+
+destructor TghDBTable.Destroy;
+begin
+  if Assigned(FConn) then
+    FConn.Notify(Self, opRemove);
+  FParams.Free;
+  FDataSet.Free;
+  inherited Destroy;
+end;
+
+procedure TghDBTable.Insert;
+begin
+  CheckTable;
+  FDataSet.Insert;
+end;
+
+procedure TghDBTable.Append;
+begin
+  CheckTable;
+  FDataSet.Append;
+end;
+
+procedure TghDBTable.Edit;
+begin
+  CheckTable;
+  FDataSet.Edit;
+end;
+
+procedure TghDBTable.Post;
+begin
+  CheckTable;
+  FDataSet.Post;
+end;
+
+procedure TghDBTable.Delete;
+begin
+  CheckTable;
+  FDataSet.Delete;
+end;
+
+procedure TghDBTable.Apply;
+begin
+  CheckTable;
+  FConn.StartTransaction;
+  try
+    FDataSet.ApplyUpdates(0);
+    FConn.CommitRetaining;
+  except
+    on e: Exception do
+    begin
+      FConn.RollbackRetaining;
+      raise EghDBError.Create(Self, e.Message);
+    end;
+  end;
+end;
+
+procedure TghDBTable.Close;
+begin
+  FSelectCols := '';
+  FConditions := '';
+  FOrderBy := '';
+  FParams.Clear;
+  if Active then
+    FDataSet.Close;
+end;
+
+procedure TghDBTable.Open;
+begin
+  CreateResultSet;
+end;
+
+procedure TghDBTable.Refresh;
+begin
+  CheckTable;
+  Open;
+end;
+
+procedure TghDBTable.First;
+begin
+  CheckTable;
+  FDataSet.First;
+end;
+
+procedure TghDBTable.Prior;
+begin
+  CheckTable;
+  FDataSet.Prior;
+end;
+
+procedure TghDBTable.Next;
+begin
+  CheckTable;
+  FDataSet.Next;
+end;
+
+procedure TghDBTable.Last;
+begin
+  CheckTable;
+  FDataSet.Last;
+end;
+
+function TghDBTable.Select(const AColNames: string): TghDBTable;
+begin
+  FSelectCols := AColNames;
+  Result := Self;
+end;
+
+function TghDBTable.Where(const AConditions: string): TghDBTable;
+begin
+  FConditions := AConditions;
+  Result := Self;
+end;
+
+function TghDBTable.WhereFmt(const AConditions: string; AArgs: array of const): TghDBTable;
+begin
+  FConditions := Format(AConditions, AArgs);
+  Result := Self;
+end;
+
+function TghDBTable.OrderBy(const AColNames: string): TghDBTable;
+begin
+  FOrderBy := AColNames;
+  Result := Self;
 end;
 
 { TghDBConnection }
