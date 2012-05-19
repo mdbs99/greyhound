@@ -125,6 +125,10 @@ type
     FTable: TghDBTable;
   public
     constructor Create(ATable: TghDBTable); reintroduce;
+    procedure LoadFromStream(AStream: TStream);
+    procedure LoadFromFile(const AFileName: string);
+    procedure SaveToStream(AStream: TStream; SaveMetadata: Boolean);
+    procedure SaveToFile(const AFileName: string; SaveMetadata: Boolean);
     function GetData(SaveMetadata: Boolean): string;
     procedure SetData(const AValue: string);
     property Table: TghDBTable read FTable write FTable;
@@ -302,55 +306,16 @@ begin
   FTable := ATable;
 end;
 
-function TghDBExtJSTableSupport.GetData(SaveMetadata: Boolean): string;
+procedure TghDBExtJSTableSupport.LoadFromStream(AStream: TStream);
 {$IFDEF HAS_JSON}
 var
   i: Integer;
   json: TExtjsJSONObjectDataset;
-  buf: TStringStream;
-begin
-  FTable.CheckTable;
-  buf := TStringStream.Create('');
-  json := TExtjsJSONObjectDataset.Create(nil);
-  try
-    json.FieldDefs.Assign(FTable.FDataSet.FieldDefs);
-    json.Open;
-    FTable.FDataSet.First;
-    while not FTable.FDataSet.EOF do
-    begin
-      json.Append;
-      for i := 0 to FTable.FDataSet.Fields.Count -1 do
-        json.Fields[i].Assign(FTable.FDataSet.Fields[i]);
-      json.Post;
-      FTable.FDataSet.Next;
-    end;
-    json.First;
-    json.SaveToStream(buf, SaveMetadata);
-    Result := buf.DataString;
-  finally
-    buf.Free;
-    json.Free;
-  end;
-  FTable.FDataSet.First;
-{$ELSE}
-begin
-  Result := '';
-  raise EghDBError.Create('HAS_JSON not defined.');
-{$ENDIF}
-end;
-
-procedure TghDBExtJSTableSupport.SetData(const AValue: string);
-{$IFDEF HAS_JSON}
-var
-  i: Integer;
-  json: TExtjsJSONObjectDataset;
-  buf: TStringStream;
   cols: string;
 begin
-  buf := TStringStream.Create(AValue);
   json := TExtjsJSONObjectDataset.Create(nil);
   try
-    json.LoadFromStream(buf);
+    json.LoadFromStream(AStream);
 
     // DO NOT pass metadata if table is active!
     if FTable.Active then
@@ -385,13 +350,96 @@ begin
       json.Next;
     end;
   finally
-    buf.Free;
     json.Free;
   end;
 {$ELSE}
 begin
   raise EghDBError.Create('HAS_JSON not defined.');
 {$ENDIF}
+end;
+
+procedure TghDBExtJSTableSupport.LoadFromFile(const AFileName: string);
+var
+  buf: TFileStream;
+begin
+  buf := TFileStream.Create(AFileName, fmOpenRead or fmShareDenyWrite);
+  try
+    LoadFromStream(buf);
+  finally
+    buf.Free;
+  end;
+end;
+
+procedure TghDBExtJSTableSupport.SaveToStream(AStream: TStream;
+  SaveMetadata: Boolean);
+{$IFDEF HAS_JSON}
+var
+  i: Integer;
+  json: TExtjsJSONObjectDataset;
+begin
+  FTable.CheckTable;
+  json := TExtjsJSONObjectDataset.Create(nil);
+  try
+    json.FieldDefs.Assign(FTable.FDataSet.FieldDefs);
+    json.Open;
+    FTable.FDataSet.First;
+    while not FTable.FDataSet.EOF do
+    begin
+      json.Append;
+      for i := 0 to FTable.FDataSet.Fields.Count -1 do
+        json.Fields[i].Assign(FTable.FDataSet.Fields[i]);
+      json.Post;
+      FTable.FDataSet.Next;
+    end;
+    json.First;
+    json.SaveToStream(AStream, SaveMetadata);
+  finally
+    json.Free;
+  end;
+  FTable.FDataSet.First;
+{$ELSE}
+begin
+  Result := '';
+  raise EghDBError.Create('HAS_JSON not defined.');
+{$ENDIF}
+end;
+
+procedure TghDBExtJSTableSupport.SaveToFile(const AFileName: string;
+  SaveMetadata: Boolean);
+var
+  buf: TFileStream;
+begin
+  buf := TFileStream.Create(AFileName, fmCreate);
+  try
+    SaveToStream(buf, SaveMetaData);
+  finally
+    buf.Free;
+  end;
+end;
+
+function TghDBExtJSTableSupport.GetData(SaveMetadata: Boolean): string;
+var
+  buf: TStringStream;
+begin
+  buf := TStringStream.Create('');
+  try
+    SaveToStream(buf, SaveMetadata);
+    Result := buf.DataString;
+  finally
+    buf.Free;
+  end;
+end;
+
+procedure TghDBExtJSTableSupport.SetData(const AValue: string);
+var
+  buf: TStringStream;
+begin
+  buf := TStringStream.Create(AValue);
+  try
+    LoadFromStream(buf);
+  finally
+    buf.Free;
+  end;
 end;
 
 { TghDBTable }
