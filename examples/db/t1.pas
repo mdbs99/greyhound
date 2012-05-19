@@ -12,7 +12,7 @@ const
   TAB_TMP = 'user_tmp';
 
 var
-  co: TghDBConnection;
+  co: TghDBConn;
   t: TghDBTable;
 
 procedure ExecSelect;
@@ -50,7 +50,7 @@ begin
 end;
 
 begin
-  co := TghDBConnection.Create;
+  co := TghDBConn.Create;
   try
     // set configurations
     co.SetDBLibClass(TghDBSQLiteLib);

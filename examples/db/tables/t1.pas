@@ -14,6 +14,7 @@ const
 var
   co: TghDBConnection;
   t: TghDBTable;
+  s: string;
 
 procedure InsertRecord(id: Integer; const login, passwd, name: string);
 begin
@@ -30,11 +31,16 @@ begin
   writeln;
   writeln('Show all records:');
   t.First;
-  while not t.EOF do
+  if t.RecordCount > 0 then
   begin
-    writeln(t.Columns['name'].AsString);
-    t.Next;
-  end;
+    while not t.EOF do
+    begin
+      writeln(t.Columns['name'].AsString);
+      t.Next;
+    end;
+  end
+  else
+    writeln('No records found.');
 end;
 
 begin
@@ -89,6 +95,34 @@ begin
     t.OrderBy('id').Open;
 
     ShowAllRecords;
+
+    // show JSON
+    with TghDBExtJSTableSupport.Create(t) do
+    try
+      writeln('JSON with no metadata:');
+      writeln(GetData(False));
+
+      writeln;
+
+      writeln('JSON full:');
+      s := GetData(True);
+      writeln(s);
+
+      // delete all records
+      while not t.EOF do
+        t.Delete;
+
+      // commit
+      t.Apply;
+
+      ShowAllRecords;
+
+      // reopen table, using JSON
+      SetData(s);
+      ShowAllRecords;
+    finally
+      Free;
+    end;
 
     writeln;
     writeln('Done.');
