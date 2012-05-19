@@ -340,6 +340,7 @@ begin
 end;
 
 procedure TghDBExtJSTableSupport.SetData(const AValue: string);
+{$IFDEF HAS_JSON}
 var
   i: Integer;
   json: TExtjsJSONObjectDataset;
@@ -387,6 +388,10 @@ begin
     buf.Free;
     json.Free;
   end;
+{$ELSE}
+begin
+  raise EghDBError.Create('HAS_JSON not defined.');
+{$ENDIF}
 end;
 
 { TghDBTable }
