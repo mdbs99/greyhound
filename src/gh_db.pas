@@ -19,9 +19,7 @@ interface
 uses
   // fpc
   Classes, SysUtils, DB, variants, contnrs, sqldb,
-  {$IFDEF HAS_JSON}
-  fpjsondataset,
-  {$ENDIF}
+  {$IFDEF HAS_JSON} fpjson, fpjsondataset, {$ENDIF}
   // gh
   gh_global;
 
@@ -32,6 +30,7 @@ type
 
 { forward declarations }
   TghDBConnection = class;
+  TghDBTable = class;
 
   TghDBParams = class(TParams)
   strict private
@@ -71,6 +70,20 @@ type
     // new dataset: responsibility of the Lib to release.
     // DO NOT USE .Free for this return!
     function Open: TDataSet;
+  end;
+
+  TghDBExtJSTableSupport = class(TghDBObject)
+  private
+    FTable: TghDBTable;
+  public
+    constructor Create(ATable: TghDBTable); reintroduce;
+    procedure LoadFromStream(AStream: TStream);
+    procedure LoadFromFile(const AFileName: string);
+    procedure SaveToStream(AStream: TStream; SaveMetadata: Boolean);
+    procedure SaveToFile(const AFileName: string; SaveMetadata: Boolean);
+    function GetData(SaveMetadata: Boolean): TJSONStringType;
+    procedure SetData(const AValue: TJSONStringType);
+    property Table: TghDBTable read FTable write FTable;
   end;
 
   TghDBTable = class(TghDBObject)
@@ -118,20 +131,6 @@ type
     property Reuse: Boolean read FReuse write FReuse;
     property RecordCount: Longint read GetRecordCount;
     property TableName: string read FTableName;
-  end;
-
-  TghDBExtJSTableSupport = class(TghDBObject)
-  private
-    FTable: TghDBTable;
-  public
-    constructor Create(ATable: TghDBTable); reintroduce;
-    procedure LoadFromStream(AStream: TStream);
-    procedure LoadFromFile(const AFileName: string);
-    procedure SaveToStream(AStream: TStream; SaveMetadata: Boolean);
-    procedure SaveToFile(const AFileName: string; SaveMetadata: Boolean);
-    function GetData(SaveMetadata: Boolean): string;
-    procedure SetData(const AValue: string);
-    property Table: TghDBTable read FTable write FTable;
   end;
 
   TghDBLib = class(TghDBStatement)
@@ -417,7 +416,7 @@ begin
   end;
 end;
 
-function TghDBExtJSTableSupport.GetData(SaveMetadata: Boolean): string;
+function TghDBExtJSTableSupport.GetData(SaveMetadata: Boolean): TJSONStringType;
 var
   buf: TStringStream;
 begin
@@ -430,7 +429,7 @@ begin
   end;
 end;
 
-procedure TghDBExtJSTableSupport.SetData(const AValue: string);
+procedure TghDBExtJSTableSupport.SetData(const AValue: TJSONStringType);
 var
   buf: TStringStream;
 begin

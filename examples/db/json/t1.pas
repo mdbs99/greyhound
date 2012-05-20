@@ -95,7 +95,14 @@ begin
     ShowAllRecords;
 
     // reopen table, using JSON file
+    writeln('Reopen table, using JSON ', JSON_FILENAME, ' file...');
+
+    writeln;
     json.LoadFromFile(JSON_FILENAME);
+
+    writeln;
+    writeln('Show JSON without Metadata:');
+    writeln(json.GetData(False));
 
     ShowAllRecords;
 
