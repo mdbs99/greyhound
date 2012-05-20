@@ -15,7 +15,7 @@ Database module
 - CRUD: TghDBTable class to manipulate one table easily (like a ActiveRecord, but you can work with many records at the same object);
 - Scripts and Tables: TghDBConnection class to manipulate all tables on the DB and execute Script SQL as well;
 - Memory management automatic for many objects;
-- JSON Support to DataSet (FPC 2.6.1);
+- JSON Support (FPC 2.6.1);
 
 
 Many other features will come.
