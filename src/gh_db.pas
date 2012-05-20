@@ -72,6 +72,8 @@ type
     function Open: TDataSet;
   end;
 
+{$IFDEF HAS_JSON}
+
   TghDBExtJSTableSupport = class(TghDBObject)
   private
     FTable: TghDBTable;
@@ -85,6 +87,8 @@ type
     procedure SetData(const AValue: TJSONStringType);
     property Table: TghDBTable read FTable write FTable;
   end;
+
+{$ENDIF}
 
   TghDBTable = class(TghDBObject)
   strict private
@@ -297,6 +301,8 @@ begin
   Result := FDataSet;
 end;
 
+{$IFDEF HAS_JSON}
+
 { TghDBExtJSTableSupport }
 
 constructor TghDBExtJSTableSupport.Create(ATable: TghDBTable);
@@ -306,7 +312,6 @@ begin
 end;
 
 procedure TghDBExtJSTableSupport.LoadFromStream(AStream: TStream);
-{$IFDEF HAS_JSON}
 var
   i: Integer;
   json: TExtjsJSONObjectDataset;
@@ -351,10 +356,6 @@ begin
   finally
     json.Free;
   end;
-{$ELSE}
-begin
-  raise EghDBError.Create('HAS_JSON not defined.');
-{$ENDIF}
 end;
 
 procedure TghDBExtJSTableSupport.LoadFromFile(const AFileName: string);
@@ -371,7 +372,6 @@ end;
 
 procedure TghDBExtJSTableSupport.SaveToStream(AStream: TStream;
   SaveMetadata: Boolean);
-{$IFDEF HAS_JSON}
 var
   i: Integer;
   json: TExtjsJSONObjectDataset;
@@ -396,11 +396,6 @@ begin
     json.Free;
   end;
   FTable.FDataSet.First;
-{$ELSE}
-begin
-  Result := '';
-  raise EghDBError.Create('HAS_JSON not defined.');
-{$ENDIF}
 end;
 
 procedure TghDBExtJSTableSupport.SaveToFile(const AFileName: string;
@@ -440,6 +435,8 @@ begin
     buf.Free;
   end;
 end;
+
+{$ENDIF}
 
 { TghDBTable }
 
