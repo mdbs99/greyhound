@@ -19,7 +19,7 @@ interface
 uses
   // fpc
   Classes, SysUtils, DB, variants, contnrs, sqldb,
-  {$IFDEF HAS_JSON} fpjson, fpjsondataset, {$ENDIF}
+  {$IFDEF JSON_SUPPORT} fpjson, fpjsondataset, {$ENDIF}
   // gh
   gh_global;
 
@@ -72,22 +72,26 @@ type
     function Open: TDataSet;
   end;
 
-{$IFDEF HAS_JSON}
-
-  TghDBExtJSTableSupport = class(TghDBObject)
-  private
+{$IFDEF JSON_SUPPORT}
+  TghDBJSONTableSupport = class(TghDBObject)
+  protected
     FTable: TghDBTable;
   public
     constructor Create(ATable: TghDBTable); reintroduce;
-    procedure LoadFromStream(AStream: TStream);
-    procedure LoadFromFile(const AFileName: string);
-    procedure SaveToStream(AStream: TStream; SaveMetadata: Boolean);
-    procedure SaveToFile(const AFileName: string; SaveMetadata: Boolean);
-    function GetData(SaveMetadata: Boolean): TJSONStringType;
-    procedure SetData(const AValue: TJSONStringType);
+    procedure LoadFromStream(AStream: TStream); virtual; abstract;
+    procedure LoadFromFile(const AFileName: string); virtual;
+    procedure SaveToStream(AStream: TStream; SaveMetadata: Boolean); virtual; abstract;
+    procedure SaveToFile(const AFileName: string; SaveMetadata: Boolean); virtual;
+    function GetData(SaveMetadata: Boolean): TJSONStringType; virtual;
+    procedure SetData(const AValue: TJSONStringType); virtual;
     property Table: TghDBTable read FTable write FTable;
   end;
 
+  TghDBExtJSTableSupport = class(TghDBJSONTableSupport)
+  public
+    procedure LoadFromStream(AStream: TStream); override;
+    procedure SaveToStream(AStream: TStream; SaveMetadata: Boolean); override;
+  end;
 {$ENDIF}
 
   TghDBTable = class(TghDBObject)
@@ -99,6 +103,9 @@ type
     FParams: TghDBParams;
     FReuse: Boolean;
     FTableName: string;
+    {$IFDEF JSON_SUPPORT}
+    FJSON: TghDBJSONTableSupport;
+    {$ENDIF}
     function GetRecordCount: Longint;
   protected
     FDataSet: TSQLQuery;
@@ -135,6 +142,9 @@ type
     property Reuse: Boolean read FReuse write FReuse;
     property RecordCount: Longint read GetRecordCount;
     property TableName: string read FTableName;
+    {$IFDEF JSON_SUPPORT}
+    property JSON: TghDBJSONTableSupport read FJSON;
+    {$ENDIF}
   end;
 
   TghDBLib = class(TghDBStatement)
@@ -301,15 +311,66 @@ begin
   Result := FDataSet;
 end;
 
-{$IFDEF HAS_JSON}
+{$IFDEF JSON_SUPPORT}
+{ TghDBJSONTableSupport }
 
-{ TghDBExtJSTableSupport }
-
-constructor TghDBExtJSTableSupport.Create(ATable: TghDBTable);
+constructor TghDBJSONTableSupport.Create(ATable: TghDBTable);
 begin
   inherited Create;
   FTable := ATable;
 end;
+
+procedure TghDBJSONTableSupport.LoadFromFile(const AFileName: string);
+var
+  buf: TFileStream;
+begin
+  buf := TFileStream.Create(AFileName, fmOpenRead or fmShareDenyWrite);
+  try
+    LoadFromStream(buf);
+  finally
+    buf.Free;
+  end;
+end;
+
+procedure TghDBJSONTableSupport.SaveToFile(const AFileName: string;
+  SaveMetadata: Boolean);
+var
+  buf: TFileStream;
+begin
+  buf := TFileStream.Create(AFileName, fmCreate);
+  try
+    SaveToStream(buf, SaveMetaData);
+  finally
+    buf.Free;
+  end;
+end;
+
+function TghDBJSONTableSupport.GetData(SaveMetadata: Boolean): TJSONStringType;
+var
+  buf: TStringStream;
+begin
+  buf := TStringStream.Create('');
+  try
+    SaveToStream(buf, SaveMetadata);
+    Result := buf.DataString;
+  finally
+    buf.Free;
+  end;
+end;
+
+procedure TghDBJSONTableSupport.SetData(const AValue: TJSONStringType);
+var
+  buf: TStringStream;
+begin
+  buf := TStringStream.Create(AValue);
+  try
+    LoadFromStream(buf);
+  finally
+    buf.Free;
+  end;
+end;
+
+{ TghDBExtJSTableSupport }
 
 procedure TghDBExtJSTableSupport.LoadFromStream(AStream: TStream);
 var
@@ -358,18 +419,6 @@ begin
   end;
 end;
 
-procedure TghDBExtJSTableSupport.LoadFromFile(const AFileName: string);
-var
-  buf: TFileStream;
-begin
-  buf := TFileStream.Create(AFileName, fmOpenRead or fmShareDenyWrite);
-  try
-    LoadFromStream(buf);
-  finally
-    buf.Free;
-  end;
-end;
-
 procedure TghDBExtJSTableSupport.SaveToStream(AStream: TStream;
   SaveMetadata: Boolean);
 var
@@ -397,45 +446,6 @@ begin
   end;
   FTable.FDataSet.First;
 end;
-
-procedure TghDBExtJSTableSupport.SaveToFile(const AFileName: string;
-  SaveMetadata: Boolean);
-var
-  buf: TFileStream;
-begin
-  buf := TFileStream.Create(AFileName, fmCreate);
-  try
-    SaveToStream(buf, SaveMetaData);
-  finally
-    buf.Free;
-  end;
-end;
-
-function TghDBExtJSTableSupport.GetData(SaveMetadata: Boolean): TJSONStringType;
-var
-  buf: TStringStream;
-begin
-  buf := TStringStream.Create('');
-  try
-    SaveToStream(buf, SaveMetadata);
-    Result := buf.DataString;
-  finally
-    buf.Free;
-  end;
-end;
-
-procedure TghDBExtJSTableSupport.SetData(const AValue: TJSONStringType);
-var
-  buf: TStringStream;
-begin
-  buf := TStringStream.Create(AValue);
-  try
-    LoadFromStream(buf);
-  finally
-    buf.Free;
-  end;
-end;
-
 {$ENDIF}
 
 { TghDBTable }
@@ -521,6 +531,7 @@ begin
   FConn.Notify(Self, opInsert);
   FDataSet := nil;
   FParams := TghDBParams.Create;
+  FJSON := TghDBExtJSTableSupport.Create(Self);
 end;
 
 destructor TghDBTable.Destroy;
@@ -529,6 +540,7 @@ begin
     FConn.Notify(Self, opRemove);
   FParams.Free;
   FDataSet.Free;
+  FJSON.Free;
   inherited Destroy;
 end;
 

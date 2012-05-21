@@ -97,32 +97,27 @@ begin
     ShowAllRecords;
 
     // show JSON
-    with TghDBExtJSTableSupport.Create(t) do
-    try
-      writeln('JSON with no metadata:');
-      writeln(GetData(False));
+    writeln('JSON with no metadata:');
+    writeln(t.JSON.GetData(False));
 
-      writeln;
+    writeln;
 
-      writeln('JSON full:');
-      s := GetData(True);
-      writeln(s);
+    writeln('JSON full:');
+    s := t.JSON.GetData(True);
+    writeln(s);
 
-      // delete all records
-      while not t.EOF do
-        t.Delete;
+    // delete all records
+    while not t.EOF do
+      t.Delete;
 
-      // commit
-      t.Apply;
+    // commit
+    t.Apply;
 
-      ShowAllRecords;
+    ShowAllRecords;
 
-      // reopen table, using JSON
-      SetData(s);
-      ShowAllRecords;
-    finally
-      Free;
-    end;
+    // reopen table, using JSON
+    t.JSON.SetData(s);
+    ShowAllRecords;
 
     writeln;
     writeln('Done.');
