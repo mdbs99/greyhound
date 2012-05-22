@@ -18,8 +18,8 @@ interface
 
 uses
   // fpc
-  Classes, SysUtils, DB, variants, contnrs, sqldb,
-  {$IFDEF JSON_SUPPORT} fpjson, fpjsondataset, {$ENDIF}
+  Classes, SysUtils, DB, variants, contnrs, sqldb, fpjson,
+  {$IFDEF JSON_EXTJS_SUPPORT} fpjsondataset, {$ENDIF}
   // gh
   gh_global;
 
@@ -72,7 +72,6 @@ type
     function Open: TDataSet;
   end;
 
-{$IFDEF JSON_SUPPORT}
   TghDBJSONTableSupport = class(TghDBObject)
   protected
     FTable: TghDBTable;
@@ -92,7 +91,6 @@ type
     procedure LoadFromStream(AStream: TStream); override;
     procedure SaveToStream(AStream: TStream; SaveMetadata: Boolean); override;
   end;
-{$ENDIF}
 
   TghDBTable = class(TghDBObject)
   strict private
@@ -103,9 +101,7 @@ type
     FParams: TghDBParams;
     FReuse: Boolean;
     FTableName: string;
-    {$IFDEF JSON_SUPPORT}
     FJSON: TghDBJSONTableSupport;
-    {$ENDIF}
     function GetRecordCount: Longint;
   protected
     FDataSet: TSQLQuery;
@@ -142,9 +138,7 @@ type
     property Reuse: Boolean read FReuse write FReuse;
     property RecordCount: Longint read GetRecordCount;
     property TableName: string read FTableName;
-    {$IFDEF JSON_SUPPORT}
     property JSON: TghDBJSONTableSupport read FJSON;
-    {$ENDIF}
   end;
 
   TghDBLib = class(TghDBStatement)
@@ -311,7 +305,6 @@ begin
   Result := FDataSet;
 end;
 
-{$IFDEF JSON_SUPPORT}
 { TghDBJSONTableSupport }
 
 constructor TghDBJSONTableSupport.Create(ATable: TghDBTable);
@@ -373,6 +366,7 @@ end;
 { TghDBExtJSTableSupport }
 
 procedure TghDBExtJSTableSupport.LoadFromStream(AStream: TStream);
+{$IFDEF JSON_EXTJS_SUPPORT}
 var
   i: Integer;
   json: TExtjsJSONObjectDataset;
@@ -417,10 +411,15 @@ begin
   finally
     json.Free;
   end;
+{$ELSE}
+begin
+   raise EghDBError.Create(Self, 'JSON_EXTJS_SUPPORT not enabled.');
+{$ENDIF}
 end;
 
 procedure TghDBExtJSTableSupport.SaveToStream(AStream: TStream;
   SaveMetadata: Boolean);
+{$IFDEF JSON_EXTJS_SUPPORT}
 var
   i: Integer;
   json: TExtjsJSONObjectDataset;
@@ -445,8 +444,11 @@ begin
     json.Free;
   end;
   FTable.FDataSet.First;
-end;
+{$ELSE}
+begin
+   raise EghDBError.Create(Self, 'JSON_EXTJS_SUPPORT not enabled.');
 {$ENDIF}
+end;
 
 { TghDBTable }
 
