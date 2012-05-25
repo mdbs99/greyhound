@@ -33,12 +33,17 @@
         <FormatVersion Value="1"/>
       </local>
     </RunParams>
-    <Units Count="1">
+    <Units Count="2">
       <Unit0>
         <Filename Value="t1.pas"/>
         <IsPartOfProject Value="True"/>
         <UnitName Value="t1"/>
       </Unit0>
+      <Unit1>
+        <Filename Value="..\..\..\src\gh_dbjson.pas"/>
+        <IsPartOfProject Value="True"/>
+        <UnitName Value="gh_dbjson"/>
+      </Unit1>
     </Units>
   </ProjectOptions>
   <CompilerOptions>

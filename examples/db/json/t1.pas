@@ -6,7 +6,7 @@ uses
   heaptrc,
   Classes, SysUtils, DB,
   // gh
-  gh_db, gh_dbsqldblib;
+  gh_db, gh_dbsqldblib, gh_dbjson;
 
 const
   TAB_TMP = 'user_tmp';
@@ -14,8 +14,7 @@ const
 
 var
   co: TghDBConnection;
-  t: TghDBTable;
-  json: TghDBExtJSTableSupport;
+  t: TghDBExtJSONTable;
 
 procedure InsertRecord(id: Integer; const login, passwd, name: string);
 begin
@@ -45,8 +44,8 @@ begin
 end;
 
 begin
-  json := TghDBExtJSTableSupport.Create(nil);
   co := TghDBConnection.Create;
+  t := TghDBExtJSONTable.Create(co, TAB_TMP);
   try
     // set configurations
     // using SQLite
@@ -61,8 +60,7 @@ begin
     co.SQL.Script.Text := 'delete from ' + TAB_TMP;
     co.SQL.Execute;
 
-    // get the table object
-    t := co.Tables[TAB_TMP];
+    // open table
     t.Open;
 
     InsertRecord(1, 's.marsh', '123', 'Stan Marsh');
@@ -73,17 +71,14 @@ begin
 
     ShowAllRecords;
 
-    // set table
-    json.Table := t;
-
     // show JSON
     writeln('Show JSON:');
-    writeln(json.GetData(True));
+    writeln(t.GetData(True));
 
     writeln;
 
     // save JSON in a file
-    json.SaveToFile(JSON_FILENAME, True);
+    t.SaveToFile(JSON_FILENAME, True);
 
     // delete all records
     while not t.EOF do
@@ -98,11 +93,11 @@ begin
     writeln('Reopen table, using JSON ', JSON_FILENAME, ' file...');
 
     writeln;
-    json.LoadFromFile(JSON_FILENAME);
+    t.LoadFromFile(JSON_FILENAME);
 
     writeln;
     writeln('Show JSON without Metadata:');
-    writeln(json.GetData(False));
+    writeln(t.GetData(False));
 
     ShowAllRecords;
 
@@ -110,7 +105,7 @@ begin
     writeln('Done.');
     writeln;
   finally
-    json.Free;
+    t.Free;
     co.Free;
   end;
 
