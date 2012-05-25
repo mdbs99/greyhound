@@ -19,7 +19,6 @@ interface
 uses
   // fpc
   Classes, SysUtils, DB, variants, contnrs, sqldb, fpjson,
-  {$IFDEF JSON_EXTJS_SUPPORT} fpjsondataset, {$ENDIF}
   // gh
   gh_global;
 
@@ -30,7 +29,6 @@ type
 
 { forward declarations }
   TghDBConnection = class;
-  TghDBTable = class;
 
   TghDBParams = class(TParams)
   strict private
@@ -72,26 +70,6 @@ type
     function Open: TDataSet;
   end;
 
-  TghDBJSONTableSupport = class(TghDBObject)
-  protected
-    FTable: TghDBTable;
-  public
-    constructor Create(ATable: TghDBTable); reintroduce;
-    procedure LoadFromStream(AStream: TStream); virtual; abstract;
-    procedure LoadFromFile(const AFileName: string); virtual;
-    procedure SaveToStream(AStream: TStream; SaveMetadata: Boolean); virtual; abstract;
-    procedure SaveToFile(const AFileName: string; SaveMetadata: Boolean); virtual;
-    function GetData(SaveMetadata: Boolean): TJSONStringType; virtual;
-    procedure SetData(const AValue: TJSONStringType); virtual;
-    property Table: TghDBTable read FTable write FTable;
-  end;
-
-  TghDBExtJSTableSupport = class(TghDBJSONTableSupport)
-  public
-    procedure LoadFromStream(AStream: TStream); override;
-    procedure SaveToStream(AStream: TStream; SaveMetadata: Boolean); override;
-  end;
-
   TghDBTable = class(TghDBObject)
   strict private
     FConn: TghDBConnection;
@@ -101,7 +79,6 @@ type
     FParams: TghDBParams;
     FReuse: Boolean;
     FTableName: string;
-    FJSON: TghDBJSONTableSupport;
     function GetRecordCount: Longint;
   protected
     FDataSet: TSQLQuery;
@@ -138,7 +115,6 @@ type
     property Reuse: Boolean read FReuse write FReuse;
     property RecordCount: Longint read GetRecordCount;
     property TableName: string read FTableName;
-    property JSON: TghDBJSONTableSupport read FJSON;
   end;
 
   TghDBLib = class(TghDBStatement)
@@ -305,151 +281,6 @@ begin
   Result := FDataSet;
 end;
 
-{ TghDBJSONTableSupport }
-
-constructor TghDBJSONTableSupport.Create(ATable: TghDBTable);
-begin
-  inherited Create;
-  FTable := ATable;
-end;
-
-procedure TghDBJSONTableSupport.LoadFromFile(const AFileName: string);
-var
-  buf: TFileStream;
-begin
-  buf := TFileStream.Create(AFileName, fmOpenRead or fmShareDenyWrite);
-  try
-    LoadFromStream(buf);
-  finally
-    buf.Free;
-  end;
-end;
-
-procedure TghDBJSONTableSupport.SaveToFile(const AFileName: string;
-  SaveMetadata: Boolean);
-var
-  buf: TFileStream;
-begin
-  buf := TFileStream.Create(AFileName, fmCreate);
-  try
-    SaveToStream(buf, SaveMetaData);
-  finally
-    buf.Free;
-  end;
-end;
-
-function TghDBJSONTableSupport.GetData(SaveMetadata: Boolean): TJSONStringType;
-var
-  buf: TStringStream;
-begin
-  buf := TStringStream.Create('');
-  try
-    SaveToStream(buf, SaveMetadata);
-    Result := buf.DataString;
-  finally
-    buf.Free;
-  end;
-end;
-
-procedure TghDBJSONTableSupport.SetData(const AValue: TJSONStringType);
-var
-  buf: TStringStream;
-begin
-  buf := TStringStream.Create(AValue);
-  try
-    LoadFromStream(buf);
-  finally
-    buf.Free;
-  end;
-end;
-
-{ TghDBExtJSTableSupport }
-
-procedure TghDBExtJSTableSupport.LoadFromStream(AStream: TStream);
-{$IFDEF JSON_EXTJS_SUPPORT}
-var
-  i: Integer;
-  json: TExtjsJSONObjectDataset;
-  cols: string;
-begin
-  json := TExtjsJSONObjectDataset.Create(nil);
-  try
-    json.LoadFromStream(AStream);
-
-    // DO NOT pass metadata if table is active!
-    if FTable.Active then
-    begin
-      // creating json's fielddefs using table's fielddefs
-      json.FieldDefs.Assign(FTable.FDataSet.FieldDefs);
-    end
-    else
-    begin
-      // if table not active, json SHOULD HAVE metadata
-      cols := '';
-      for i := 0 to json.FieldDefs.Count-1 do
-      begin
-        if i > 0  then
-          cols += ',';
-        cols += json.FieldDefs[i].Name;
-      end;
-      FTable.Select(cols);
-    end;
-
-    json.Open;
-
-    // open table empty
-    FTable.Where('1=2').Open;
-
-    while not json.EOF do
-    begin
-      FTable.FDataSet.Append;
-      for i := 0 to FTable.FDataSet.Fields.Count -1 do
-        FTable.FDataSet.Fields[i].Assign(json.Fields[i]);
-      FTable.FDataSet.Post;
-      json.Next;
-    end;
-  finally
-    json.Free;
-  end;
-{$ELSE}
-begin
-   raise EghDBError.Create(Self, 'JSON_EXTJS_SUPPORT not enabled.');
-{$ENDIF}
-end;
-
-procedure TghDBExtJSTableSupport.SaveToStream(AStream: TStream;
-  SaveMetadata: Boolean);
-{$IFDEF JSON_EXTJS_SUPPORT}
-var
-  i: Integer;
-  json: TExtjsJSONObjectDataset;
-begin
-  FTable.CheckTable;
-  json := TExtjsJSONObjectDataset.Create(nil);
-  try
-    json.FieldDefs.Assign(FTable.FDataSet.FieldDefs);
-    json.Open;
-    FTable.FDataSet.First;
-    while not FTable.FDataSet.EOF do
-    begin
-      json.Append;
-      for i := 0 to FTable.FDataSet.Fields.Count -1 do
-        json.Fields[i].Assign(FTable.FDataSet.Fields[i]);
-      json.Post;
-      FTable.FDataSet.Next;
-    end;
-    json.First;
-    json.SaveToStream(AStream, SaveMetadata);
-  finally
-    json.Free;
-  end;
-  FTable.FDataSet.First;
-{$ELSE}
-begin
-   raise EghDBError.Create(Self, 'JSON_EXTJS_SUPPORT not enabled.');
-{$ENDIF}
-end;
-
 { TghDBTable }
 
 function TghDBTable.GetRecordCount: Longint;
@@ -533,7 +364,6 @@ begin
   FConn.Notify(Self, opInsert);
   FDataSet := nil;
   FParams := TghDBParams.Create;
-  FJSON := TghDBExtJSTableSupport.Create(Self);
 end;
 
 destructor TghDBTable.Destroy;
@@ -542,7 +372,6 @@ begin
     FConn.Notify(Self, opRemove);
   FParams.Free;
   FDataSet.Free;
-  FJSON.Free;
   inherited Destroy;
 end;
 
