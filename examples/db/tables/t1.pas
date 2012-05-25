@@ -14,7 +14,6 @@ const
 var
   co: TghDBConnection;
   t: TghDBTable;
-  s: string;
 
 procedure InsertRecord(id: Integer; const login, passwd, name: string);
 begin

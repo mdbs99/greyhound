@@ -146,6 +146,7 @@ type
     FDBLib: TghDBLib;
     procedure CheckDBLib;
     function GetTables(const AName: string): TghDBTable; virtual;
+    procedure AddTable(ATable: TghDBTable);
   public
     constructor Create; override;
     destructor Destroy; override;
@@ -159,7 +160,6 @@ type
     procedure CommitRetaining;
     procedure Rollback;
     procedure RollbackRetaining;
-    procedure Notify(AObject: TghObject; AOperation: TOperation);
     procedure DataSetToSQLQuery(ASource: TDataSet;
       out ADest: TSQLQuery; AOwner: TComponent = nil);
     property DBLib: TghDBLib read FDBLib;
@@ -361,15 +361,12 @@ begin
   inherited Create;
   FTableName := ATableName;
   FConn := AConn;
-  FConn.Notify(Self, opInsert);
   FDataSet := nil;
   FParams := TghDBParams.Create;
 end;
 
 destructor TghDBTable.Destroy;
 begin
-  if Assigned(FConn) then
-    FConn.Notify(Self, opRemove);
   FParams.Free;
   FDataSet.Free;
   inherited Destroy;
@@ -504,6 +501,7 @@ begin
   if (Result = nil) or (Result.Active and not Result.Reuse) then
   begin
     Result := TghDBTable.Create(Self, AName);
+    AddTable(Result);
     {
     // open table at the first time to get all columns
     // but no resultset is returned
@@ -513,26 +511,32 @@ begin
   end;
 end;
 
+procedure TghDBConnection.AddTable(ATable: TghDBTable);
+begin
+  if ATable.TableName = '' then
+    raise EghDBError.Create(Self, 'TableName not defined.');
+  FTables.Add(ATable.TableName, ATable);
+end;
+
 constructor TghDBConnection.Create;
 begin
   inherited;
   FDBLib := nil;
   FSQL := TghDBSQL.Create(Self);
-  FTables := TFPHashObjectList.Create(False);
+  FTables := TFPHashObjectList.Create(True);
 end;
 
 destructor TghDBConnection.Destroy;
 var
   i: Integer;
+  //t: TghDBTable;
 begin
-  for i := 0 to FTables.Count-1 do
-  begin
-    with TghDBTable(FTables[i]) do
-    begin
-      Connection := nil; // disable notifications
-      Free;
-    end;
-  end;
+  //for i := 0 to FTables.Count-1 do
+  //begin
+  //  t := TghDBTable(FTables[i]);
+  //  t.Connection := nil; // disable notifications
+  //  t.;
+  //end;
   FTables.Free;
   FSQL.Free;
   FDBLib.Free;
@@ -655,24 +659,6 @@ begin
     on e: Exception do
       raise EghDBError.Create(e.Message);
   end;
-end;
-
-procedure TghDBConnection.Notify(AObject: TghObject; AOperation: TOperation);
-begin
-  if AObject is TghDBTable then
-  begin
-    with TghDBTable(AObject) do
-    begin
-      if TableName = '' then
-        raise EghDBError.Create(Self, 'TableName not defined.');
-      case AOperation of
-        opInsert: FTables.Add(TableName, AObject);
-        opRemove: FTables.Remove(AObject);
-      end;
-    end;
-  end
-  else
-    raise EghDBError.CreateFmt(Self, 'Invalid class for notification: %s', [AObject.ClassName]);
 end;
 
 procedure TghDBConnection.DataSetToSQLQuery(ASource: TDataSet;
