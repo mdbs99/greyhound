@@ -18,7 +18,7 @@ interface
 
 uses
   // fpc
-  Classes, SysUtils, DB, variants, contnrs, sqldb, fpjson,
+  Classes, SysUtils, DB, variants, contnrs, sqldb,
   // gh
   gh_global;
 
@@ -147,12 +147,12 @@ type
     procedure CheckDBLib;
     function GetTables(const AName: string): TghDBTable; virtual;
     procedure AddTable(ATable: TghDBTable);
+    function GetConnected: Boolean;
   public
     constructor Create; override;
     destructor Destroy; override;
     procedure SetDBLibClass(ALib: TghDBLibClass);
     procedure Connect; virtual;
-    function Connected: Boolean;
     procedure Disconnect; virtual;
     procedure StartTransaction;
     function InTransaction: Boolean;
@@ -164,6 +164,7 @@ type
       out ADest: TSQLQuery; AOwner: TComponent = nil);
     property DBLib: TghDBLib read FDBLib;
     property Database: string read FDatabase write FDatabase;
+    property Connected: Boolean read GetConnected;
     property Host: string read FHost write FHost;
     property User: string read FUser write FUser;
     property Password: string read FPassword write FPassword;
@@ -518,6 +519,17 @@ begin
   FTables.Add(ATable.TableName, ATable);
 end;
 
+function TghDBConnection.GetConnected: Boolean;
+begin
+  CheckDBLib;
+  try
+    Result := FDBLib.Connected;
+  except
+    on e: Exception do
+      raise EghDBError.Create(e.Message);
+  end;
+end;
+
 constructor TghDBConnection.Create;
 begin
   inherited;
@@ -527,16 +539,7 @@ begin
 end;
 
 destructor TghDBConnection.Destroy;
-var
-  i: Integer;
-  //t: TghDBTable;
 begin
-  //for i := 0 to FTables.Count-1 do
-  //begin
-  //  t := TghDBTable(FTables[i]);
-  //  t.Connection := nil; // disable notifications
-  //  t.;
-  //end;
   FTables.Free;
   FSQL.Free;
   FDBLib.Free;
@@ -555,17 +558,6 @@ begin
   CheckDBLib;
   try
     FDBLib.Connect(FHost, FDatabase, FUser, FPassword);
-  except
-    on e: Exception do
-      raise EghDBError.Create(e.Message);
-  end;
-end;
-
-function TghDBConnection.Connected: Boolean;
-begin
-  CheckDBLib;
-  try
-    Result := FDBLib.Connected;
   except
     on e: Exception do
       raise EghDBError.Create(e.Message);
