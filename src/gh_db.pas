@@ -18,7 +18,7 @@ interface
 
 uses
   // fpc
-  Classes, SysUtils, DB, variants, contnrs, sqldb,
+  Classes, SysUtils, DB, variants, contnrs, bufdataset, sqldb,
   // gh
   gh_global;
 
@@ -88,7 +88,7 @@ type
     procedure CheckTable;
     procedure CreateResultSet;
   public
-    constructor Create(AConn: TghDBConnection; const ATableName: string); reintroduce;
+    constructor Create(AConn: TghDBConnection; const ATableName: string); virtual; reintroduce;
     destructor Destroy; override;
     procedure Insert;
     procedure Append;
@@ -107,6 +107,10 @@ type
     function Where(const AConditions: string): TghDBTable;
     function WhereFmt(const AConditions: string; AArgs: array of const): TghDBTable;
     function OrderBy(const AColNames: string): TghDBTable;
+    procedure LoadFromFile(const AFileName: string; AFormat: TDataPacketFormat = dfAny); virtual;
+    procedure SaveToFile(const AFileName: string; AFormat: TDataPacketFormat = dfBinary); virtual;
+    procedure LoadFromStream(AStream: TStream; AFormat: TDataPacketFormat = dfAny); virtual;
+    procedure SaveToStream(AStream: TStream; AFormat: TDataPacketFormat = dfBinary); virtual;
     property Active: Boolean read GetActive;
     property Columns[const AColName: string]: TghDBColumn read GetColumn;
     property Connection: TghDBConnection read FConn write FConn;
@@ -486,6 +490,40 @@ function TghDBTable.OrderBy(const AColNames: string): TghDBTable;
 begin
   FOrderBy := AColNames;
   Result := Self;
+end;
+
+procedure TghDBTable.SaveToStream(AStream: TStream; AFormat: TDataPacketFormat);
+begin
+  FDataSet.SaveToStream(AStream, AFormat);
+end;
+
+procedure TghDBTable.LoadFromStream(AStream: TStream; AFormat: TDataPacketFormat);
+begin
+  FDataSet.LoadFromStream(AStream, AFormat);
+end;
+
+procedure TghDBTable.LoadFromFile(const AFileName: string; AFormat: TDataPacketFormat);
+var
+  buf: TFileStream;
+begin
+  buf := TFileStream.Create(AFileName, fmOpenRead or fmShareDenyWrite);
+  try
+    LoadFromStream(buf, AFormat);
+  finally
+    buf.Free;
+  end;
+end;
+
+procedure TghDBTable.SaveToFile(const AFileName: string; AFormat: TDataPacketFormat);
+var
+  buf: TFileStream;
+begin
+  buf := TFileStream.Create(AFileName, fmCreate);
+  try
+    SaveToStream(buf, AFormat);
+  finally
+    buf.Free;
+  end;
 end;
 
 { TghDBConnection }

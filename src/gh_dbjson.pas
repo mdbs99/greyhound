@@ -18,64 +18,48 @@ interface
 
 uses
   // fpc
-  Classes, SysUtils, DB, variants, contnrs, sqldb,
+  Classes, SysUtils, variants, bufdataset, sqldb,
   fpjson, fpjsondataset,
   // gh
-  gh_global, gh_db;
+  gh_db;
 
 type
+  EghDBJSON = class(EghDBError);
+
   TghDBJSONTable = class(TghDBTable)
+  private
+    FPackMetadata: Boolean;
   public
-    procedure LoadFromStream(AStream: TStream); virtual; abstract;
-    procedure LoadFromFile(const AFileName: string); virtual;
-    procedure SaveToStream(AStream: TStream; SaveMetadata: Boolean); virtual; abstract;
-    procedure SaveToFile(const AFileName: string; SaveMetadata: Boolean); virtual;
-    function GetData(SaveMetadata: Boolean): TJSONStringType; virtual;
+    constructor Create(AConn: TghDBConnection; const ATableName: string); override;
+    function GetData: TJSONStringType; virtual;
     procedure SetData(const AValue: TJSONStringType); virtual;
+    property PackMetadata: Boolean read FPackMetadata write FPackMetadata;
   end;
 
   TghDBExtJSONTable = class(TghDBJSONTable)
   public
-    procedure LoadFromStream(AStream: TStream); override;
-    procedure SaveToStream(AStream: TStream; SaveMetadata: Boolean); override;
+    procedure LoadFromStream(AStream: TStream; AFormat: TDataPacketFormat = dfAny); override;
+    procedure SaveToStream(AStream: TStream; AFormat: TDataPacketFormat = dfBinary); override;
   end;
 
 implementation
 
 { TghDBJSONTable }
 
-procedure TghDBJSONTable.LoadFromFile(const AFileName: string);
-var
-  buf: TFileStream;
+constructor TghDBJSONTable.Create(AConn: TghDBConnection;
+  const ATableName: string);
 begin
-  buf := TFileStream.Create(AFileName, fmOpenRead or fmShareDenyWrite);
-  try
-    LoadFromStream(buf);
-  finally
-    buf.Free;
-  end;
+  inherited Create(AConn, ATableName);
+  FPackMetadata := True;
 end;
 
-procedure TghDBJSONTable.SaveToFile(const AFileName: string;
-  SaveMetadata: Boolean);
-var
-  buf: TFileStream;
-begin
-  buf := TFileStream.Create(AFileName, fmCreate);
-  try
-    SaveToStream(buf, SaveMetaData);
-  finally
-    buf.Free;
-  end;
-end;
-
-function TghDBJSONTable.GetData(SaveMetadata: Boolean): TJSONStringType;
+function TghDBJSONTable.GetData: TJSONStringType;
 var
   buf: TStringStream;
 begin
   buf := TStringStream.Create('');
   try
-    SaveToStream(buf, SaveMetadata);
+    SaveToStream(buf);
     Result := buf.DataString;
   finally
     buf.Free;
@@ -96,7 +80,7 @@ end;
 
 { TghDBExtJSONTable }
 
-procedure TghDBExtJSONTable.LoadFromStream(AStream: TStream);
+procedure TghDBExtJSONTable.LoadFromStream(AStream: TStream; AFormat: TDataPacketFormat);
 var
   i: Integer;
   json: TExtjsJSONObjectDataset;
@@ -143,8 +127,7 @@ begin
   end;
 end;
 
-procedure TghDBExtJSONTable.SaveToStream(AStream: TStream;
-  SaveMetadata: Boolean);
+procedure TghDBExtJSONTable.SaveToStream(AStream: TStream; AFormat: TDataPacketFormat);
 var
   i: Integer;
   json: TExtjsJSONObjectDataset;
@@ -164,7 +147,7 @@ begin
       FDataSet.Next;
     end;
     json.First;
-    json.SaveToStream(AStream, SaveMetadata);
+    json.SaveToStream(AStream, FPackMetadata);
   finally
     json.Free;
   end;
