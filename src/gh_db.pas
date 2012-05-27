@@ -492,16 +492,6 @@ begin
   Result := Self;
 end;
 
-procedure TghDBTable.SaveToStream(AStream: TStream; AFormat: TDataPacketFormat);
-begin
-  FDataSet.SaveToStream(AStream, AFormat);
-end;
-
-procedure TghDBTable.LoadFromStream(AStream: TStream; AFormat: TDataPacketFormat);
-begin
-  FDataSet.LoadFromStream(AStream, AFormat);
-end;
-
 procedure TghDBTable.LoadFromFile(const AFileName: string; AFormat: TDataPacketFormat);
 var
   buf: TFileStream;
@@ -524,6 +514,21 @@ begin
   finally
     buf.Free;
   end;
+end;
+
+procedure TghDBTable.LoadFromStream(AStream: TStream; AFormat: TDataPacketFormat);
+begin
+  if Active then
+    raise EghDBError.Create(Self, 'Table is active.');
+  FDataSet.Free;
+  FDataSet := TSQLQuery.Create(nil);
+  FDataSet.LoadFromStream(AStream, AFormat);
+end;
+
+procedure TghDBTable.SaveToStream(AStream: TStream; AFormat: TDataPacketFormat);
+begin
+  CheckTable;
+  FDataSet.SaveToStream(AStream, AFormat);
 end;
 
 { TghDBConnection }
