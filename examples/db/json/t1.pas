@@ -73,12 +73,12 @@ begin
 
     // show JSON
     writeln('Show JSON:');
-    writeln(t.GetData(True));
+    writeln(t.GetData);
 
     writeln;
 
     // save JSON in a file
-    t.SaveToFile(JSON_FILENAME, True);
+    t.SaveToFile(JSON_FILENAME);
 
     // delete all records
     while not t.EOF do
@@ -91,13 +91,12 @@ begin
 
     // reopen table, using JSON file
     writeln('Reopen table, using JSON ', JSON_FILENAME, ' file...');
-
-    writeln;
     t.LoadFromFile(JSON_FILENAME);
 
     writeln;
     writeln('Show JSON without Metadata:');
-    writeln(t.GetData(False));
+    t.PackMetadata := False;
+    writeln(t.GetData);
 
     ShowAllRecords;
 
