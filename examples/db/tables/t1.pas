@@ -47,7 +47,7 @@ begin
   try
     // set configurations
     // using SQLite
-    co.SetDBLibClass(TghDBSQLiteLib);
+    co.SetDBLibClass(TghDBSQLite3Lib);
 
     // set params
     co.Database := 'DB.sqlite';

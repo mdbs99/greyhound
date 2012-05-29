@@ -20,7 +20,7 @@ uses
   // fpc
   Classes, SysUtils, DB, sqldb,
   {$IFDEF MSSQLLib} mssqlconn, {$ENDIF}
-  {$IFDEF SQLiteLib}sqlite3conn, {$ENDIF}
+  {$IFDEF SQLite3Lib}sqlite3conn, {$ENDIF}
   // gh
   gh_db;
 
@@ -46,8 +46,8 @@ type
     property Connection: TSQLConnector read FConn;
   end;
 
-  {$IFDEF SQLiteLib}
-  TghDBSQLiteLib = class(TghDBSQLdbLib)
+  {$IFDEF SQLite3Lib}
+  TghDBSQLite3Lib = class(TghDBSQLdbLib)
   public
     constructor Create; override;
   end;
@@ -173,11 +173,11 @@ begin
   end;
 end;
 
-{$IFDEF SQLiteLib}
+{$IFDEF SQLite3Lib}
 
-{ TghDBSQLiteLib }
+{ TghDBSQLite3Lib }
 
-constructor TghDBSQLiteLib.Create;
+constructor TghDBSQLite3Lib.Create;
 begin
   inherited Create;
   FConn.ConnectorType := TSQLite3ConnectionDef.TypeName;

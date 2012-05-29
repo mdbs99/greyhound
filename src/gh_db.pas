@@ -112,7 +112,7 @@ type
     procedure LoadFromStream(AStream: TStream; AFormat: TDataPacketFormat = dfAny); virtual;
     procedure SaveToStream(AStream: TStream; AFormat: TDataPacketFormat = dfBinary); virtual;
     property Active: Boolean read GetActive;
-    property Columns[const AColName: string]: TghDBColumn read GetColumn;
+    property Columns[const AColName: string]: TghDBColumn read GetColumn; default;
     property Connection: TghDBConnection read FConn write FConn;
     property EOF: Boolean read GetEOF;
     property Params: TghDBParams read FParams;
