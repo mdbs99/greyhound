@@ -155,21 +155,21 @@ end;
 
 procedure TghDBSQLdbLib.Open(AOwner: TComponent; out ADataSet: TDataSet);
 var
-  q: TSQLQuery;
+  Q: TSQLQuery;
 begin
   ADataSet := nil;
-  q := TSQLQuery.Create(AOwner);
+  Q := TSQLQuery.Create(AOwner);
   try
-    q.DataBase := FConn;
-    q.Transaction := FTran;
-    q.PacketRecords := -1;
-    q.SQL.Text := FScript.Text;
+    Q.DataBase := FConn;
+    Q.Transaction := FTran;
+    Q.PacketRecords := -1;
+    Q.SQL.Text := FScript.Text;
     if Assigned(FParams) then
-      q.Params.Assign(FParams);
-    q.Open;
-    ADataSet := q;
+      Q.Params.Assign(FParams);
+    Q.Open;
+    ADataSet := Q;
   except
-    q.Free;
+    Q.Free;
   end;
 end;
 

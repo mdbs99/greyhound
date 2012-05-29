@@ -187,17 +187,17 @@ end;
 
 function TghDBParams.ParamByName(const AName: string): TParam;
 var
-  p: TParam;
+  lParam: TParam;
 begin
-  p := FindParam(AName);
-  if not Assigned(p) then
+  lParam := FindParam(AName);
+  if not Assigned(lParam) then
   begin
     if FLock then
       raise EghDBError.Create(Self, 'Params were locked.');
-    p := TParam.Create(Self);
-    p.Name := AName;
+    lParam := TParam.Create(Self);
+    lParam.Name := AName;
   end;
-  Result := p as TParam;
+  Result := lParam as TParam;
 end;
 
 { TghDBStatement }
@@ -319,16 +319,16 @@ end;
 
 procedure TghDBTable.CreateResultSet;
 var
-  ds: TDataSet;
-  cols: string;
+  lDataSet: TDataSet;
+  lColumns: string;
 begin
-  cols := Iif(FSelectCols = '', '*', FSelectCols);
+  lColumns := Iif(FSelectCols = '', '*', FSelectCols);
 
-  ds := nil;
+  lDataSet := nil;
   try
     FConn.SQL.Clear;
 
-    FConn.SQL.Script.Add('select ' + cols + ' from ' + FTableName);
+    FConn.SQL.Script.Add('select ' + lColumns + ' from ' + FTableName);
     FConn.SQL.Script.Add('where 1=1');
 
     if FConditions <> '' then
@@ -339,25 +339,25 @@ begin
     if FOrderBy <> '' then
       FConn.SQL.Script.Add('order by ' + FOrderBy);
 
-    FConn.SQL.Open(nil, ds);
+    FConn.SQL.Open(nil, lDataSet);
   except
-    ds.Free;
+    lDataSet.Free;
     raise;
   end;
 
   FreeAndNil(FDataSet);
 
-  if ds is TSQLQuery then
+  if lDataSet is TSQLQuery then
   begin
-    FDataSet := ds as TSQLQuery;
+    FDataSet := lDataSet as TSQLQuery;
     Exit;
   end;
 
   try
     // from [*dataset] to [tsqlquery]
-    FConn.DataSetToSQLQuery(ds, FDataSet);
+    FConn.DataSetToSQLQuery(lDataSet, FDataSet);
   finally
-    ds.Free;
+    lDataSet.Free;
   end;
 end;
 
@@ -494,25 +494,25 @@ end;
 
 procedure TghDBTable.LoadFromFile(const AFileName: string; AFormat: TDataPacketFormat);
 var
-  buf: TFileStream;
+  lBuf: TFileStream;
 begin
-  buf := TFileStream.Create(AFileName, fmOpenRead or fmShareDenyWrite);
+  lBuf := TFileStream.Create(AFileName, fmOpenRead or fmShareDenyWrite);
   try
-    LoadFromStream(buf, AFormat);
+    LoadFromStream(lBuf, AFormat);
   finally
-    buf.Free;
+    lBuf.Free;
   end;
 end;
 
 procedure TghDBTable.SaveToFile(const AFileName: string; AFormat: TDataPacketFormat);
 var
-  buf: TFileStream;
+  lBuf: TFileStream;
 begin
-  buf := TFileStream.Create(AFileName, fmCreate);
+  lBuf := TFileStream.Create(AFileName, fmCreate);
   try
-    SaveToStream(buf, AFormat);
+    SaveToStream(lBuf, AFormat);
   finally
-    buf.Free;
+    lBuf.Free;
   end;
 end;
 
@@ -699,7 +699,7 @@ end;
 procedure TghDBConnection.DataSetToSQLQuery(ASource: TDataSet;
   out ADest: TSQLQuery; AOwner: TComponent);
 var
-  i: Integer;
+  I: Integer;
 begin
   if (ASource = nil) or (not ASource.Active) then
     raise EghDBError.Create('Source is nil or isn''t active.');
@@ -713,8 +713,8 @@ begin
     while not ASource.EOF do
     begin
       ADest.Append;
-      for i := 0 to ASource.Fields.Count - 1 do
-        ADest.Fields[i].Assign(ASource.Fields[i]);
+      for I := 0 to ASource.Fields.Count - 1 do
+        ADest.Fields[I].Assign(ASource.Fields[I]);
       ADest.Post;
       ASource.Next;
     end;
