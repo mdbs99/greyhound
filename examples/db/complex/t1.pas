@@ -6,13 +6,13 @@ uses
   heaptrc,
   Classes, SysUtils, DB,
   // gh
-  gh_db, gh_dbsqldblib;
+  gh_db, gh_dbsqldbbroker;
 
 const
   TAB_TMP = 'user_tmp';
 
 var
-  co: TghDBConnection;
+  co: TghDBConnector;
   t: TghDBTable;
 
 procedure ExecSelect;
@@ -50,11 +50,11 @@ begin
 end;
 
 begin
-  co := TghDBConnection.Create;
+  co := TghDBConnector.Create;
   try
     // set configurations
     // using SQLite
-    co.SetDBLibClass(TghDBSQLiteLib);
+    co.SetBrokerClass(TghDBSQLite3Broker);
 
     // set params
     co.Database := 'ghdb.sqlite';

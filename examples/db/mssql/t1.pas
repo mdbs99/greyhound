@@ -6,14 +6,13 @@ uses
   heaptrc,
   Classes, SysUtils, DB,
   // gh
-  gh_db, gh_dbsqldblib;
+  gh_db, gh_dbsqldbbroker;
 
 const
   TAB_TMP = 'user_tmp';
 
 var
-  co: TghDBConnection;
-  t: TghDBTable;
+  co: TghDBConnector;
 
 procedure ExecSelect;
 begin
@@ -50,11 +49,11 @@ begin
 end;
 
 begin
-  co := TghDBConnection.Create;
+  co := TghDBConnector.Create;
   try
     // set configurations
     // using MSSQLServer
-    co.SetDBLibClass(TghDBMSSQLLib);
+    co.SetBrokerClass(TghDBMSSQLBroker);
 
     // set params
     co.Host := 'YOUR_HOST';

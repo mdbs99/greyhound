@@ -10,7 +10,7 @@
     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
 }
 
-unit gh_dbzeoslib;
+unit gh_dbzeosbroker;
 
 {$i gh_def.inc}
 
@@ -27,7 +27,7 @@ uses
   gh_db;
 
 type
-  TghDBZeosLib = class(TghDBLib)
+  TghDBZeosBroker = class(TghDBBroker)
   protected
     FConn: TZConnection;
   public
@@ -56,21 +56,21 @@ type
 
 implementation
 
-{ TghDBZeosLib }
+{ TghDBZeosBroker }
 
-constructor TghDBZeosLib.Create;
+constructor TghDBZeosBroker.Create;
 begin
   inherited Create;
   FConn := TZConnection.Create(nil);
 end;
 
-destructor TghDBZeosLib.Destroy;
+destructor TghDBZeosBroker.Destroy;
 begin
   FConn.Free;
   inherited Destroy;
 end;
 
-procedure TghDBZeosLib.Connect(const AHost, ADatabase, AUser, APasswd: string);
+procedure TghDBZeosBroker.Connect(const AHost, ADatabase, AUser, APasswd: string);
 begin
   FConn.HostName := AHost;
   FConn.Database := ADatabase;
@@ -79,42 +79,42 @@ begin
   FConn.Connect;
 end;
 
-function TghDBZeosLib.Connected: Boolean;
+function TghDBZeosBroker.Connected: Boolean;
 begin
   Result := FConn.Connected;
 end;
 
-procedure TghDBZeosLib.Disconnect;
+procedure TghDBZeosBroker.Disconnect;
 begin
   FConn.Disconnect;
 end;
 
-procedure TghDBZeosLib.StartTransaction;
+procedure TghDBZeosBroker.StartTransaction;
 begin
   FConn.StartTransaction;
 end;
 
-procedure TghDBZeosLib.Commit;
+procedure TghDBZeosBroker.Commit;
 begin
   FConn.Commit;
 end;
 
-procedure TghDBZeosLib.CommitRetaining;
+procedure TghDBZeosBroker.CommitRetaining;
 begin
   Commit;
 end;
 
-procedure TghDBZeosLib.Rollback;
+procedure TghDBZeosBroker.Rollback;
 begin
   FConn.Rollback;
 end;
 
-procedure TghDBZeosLib.RollbackRetaining;
+procedure TghDBZeosBroker.RollbackRetaining;
 begin
   Rollback;
 end;
 
-function TghDBZeosLib.Execute: NativeInt;
+function TghDBZeosBroker.Execute: NativeInt;
 var
   q: TZQuery;
 begin
@@ -131,7 +131,7 @@ begin
   end;
 end;
 
-procedure TghDBZeosLib.Open(AOwner: TComponent; out ADataSet: TDataSet);
+procedure TghDBZeosBroker.Open(AOwner: TComponent; out ADataSet: TDataSet);
 var
   q: TZQuery;
 begin

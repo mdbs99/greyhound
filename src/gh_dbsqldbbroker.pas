@@ -10,7 +10,7 @@
     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
 }
 
-unit gh_dbsqldblib;
+unit gh_dbsqldbbroker;
 
 {$i gh_def.inc}
 
@@ -19,13 +19,13 @@ interface
 uses
   // fpc
   Classes, SysUtils, DB, sqldb,
-  {$IFDEF MSSQLLib} mssqlconn, {$ENDIF}
-  {$IFDEF SQLite3Lib}sqlite3conn, {$ENDIF}
+  {$IFDEF MSSQLBroker} mssqlconn, {$ENDIF}
+  {$IFDEF SQLite3Broker}sqlite3conn, {$ENDIF}
   // gh
   gh_db;
 
 type
-  TghDBSQLdbLib = class(TghDBLib)
+  TghDBSQLdbBroker = class(TghDBBroker)
   protected
     FConn: TSQLConnector;
     FTran: TSQLTransaction;
@@ -46,16 +46,16 @@ type
     property Connection: TSQLConnector read FConn;
   end;
 
-  {$IFDEF SQLite3Lib}
-  TghDBSQLite3Lib = class(TghDBSQLdbLib)
+  {$IFDEF SQLite3Broker}
+  TghDBSQLite3Broker = class(TghDBSQLdbBroker)
   public
     constructor Create; override;
   end;
   {$ENDIF}
 
-  {$IFDEF MSSQLLib}
+  {$IFDEF MSSQLBroker}
   // especialization for MSSQLServer and Sybase
-  TghDBMSSQLLib = class(TghDBSQLdbLib)
+  TghDBMSSQLBroker = class(TghDBSQLdbBroker)
   public
     constructor Create; override;
     procedure StartTransaction; override;
@@ -68,9 +68,9 @@ type
 
 implementation
 
-{ TghDBSQLdbLib }
+{ TghDBSQLdbBroker }
 
-constructor TghDBSQLdbLib.Create;
+constructor TghDBSQLdbBroker.Create;
 begin
   inherited Create;
   FConn := TSQLConnector.Create(nil);
@@ -82,7 +82,7 @@ begin
   FQuery.Transaction := FTran;
 end;
 
-destructor TghDBSQLdbLib.Destroy;
+destructor TghDBSQLdbBroker.Destroy;
 begin
   FQuery.Free;
   FTran.Free;
@@ -90,7 +90,7 @@ begin
   inherited Destroy;
 end;
 
-procedure TghDBSQLdbLib.Connect(const AHost, ADatabase, AUser, APasswd: string);
+procedure TghDBSQLdbBroker.Connect(const AHost, ADatabase, AUser, APasswd: string);
 begin
   FConn.HostName := AHost;
   FConn.DatabaseName := ADatabase;
@@ -99,43 +99,43 @@ begin
   FConn.Open;
 end;
 
-function TghDBSQLdbLib.Connected: Boolean;
+function TghDBSQLdbBroker.Connected: Boolean;
 begin
   Result := FConn.Connected;
 end;
 
-procedure TghDBSQLdbLib.Disconnect;
+procedure TghDBSQLdbBroker.Disconnect;
 begin
   FConn.Close;
 end;
 
-procedure TghDBSQLdbLib.StartTransaction;
+procedure TghDBSQLdbBroker.StartTransaction;
 begin
   if not FTran.Active then
     FTran.StartTransaction;
 end;
 
-procedure TghDBSQLdbLib.Commit;
+procedure TghDBSQLdbBroker.Commit;
 begin
   FTran.Commit;
 end;
 
-procedure TghDBSQLdbLib.CommitRetaining;
+procedure TghDBSQLdbBroker.CommitRetaining;
 begin
   FTran.CommitRetaining;
 end;
 
-procedure TghDBSQLdbLib.Rollback;
+procedure TghDBSQLdbBroker.Rollback;
 begin
   FTran.Rollback;
 end;
 
-procedure TghDBSQLdbLib.RollbackRetaining;
+procedure TghDBSQLdbBroker.RollbackRetaining;
 begin
   FTran.CommitRetaining;
 end;
 
-function TghDBSQLdbLib.Execute: NativeInt;
+function TghDBSQLdbBroker.Execute: NativeInt;
 begin
   if not FQuery.SQL.Equals(FScript) then
   begin
@@ -153,7 +153,7 @@ begin
   Result := FQuery.RowsAffected;
 end;
 
-procedure TghDBSQLdbLib.Open(AOwner: TComponent; out ADataSet: TDataSet);
+procedure TghDBSQLdbBroker.Open(AOwner: TComponent; out ADataSet: TDataSet);
 var
   Q: TSQLQuery;
 begin
@@ -173,11 +173,11 @@ begin
   end;
 end;
 
-{$IFDEF SQLite3Lib}
+{$IFDEF SQLite3Broker}
 
-{ TghDBSQLite3Lib }
+{ TghDBSQLite3Broker }
 
-constructor TghDBSQLite3Lib.Create;
+constructor TghDBSQLite3Broker.Create;
 begin
   inherited Create;
   FConn.ConnectorType := TSQLite3ConnectionDef.TypeName;
@@ -185,11 +185,11 @@ end;
 
 {$ENDIF}
 
-{$IFDEF MSSQLLib}
+{$IFDEF MSSQLBroker}
 
-{ TghDBMSSQLLib }
+{ TghDBMSSQLBroker }
 
-constructor TghDBMSSQLLib.Create;
+constructor TghDBMSSQLBroker.Create;
 begin
   inherited Create;
   FConn.ConnectorType := TMSSQLConnectionDef.TypeName;
@@ -197,27 +197,27 @@ begin
   FConn.Params.Add('AUTOCOMMIT=True');
 end;
 
-procedure TghDBMSSQLLib.StartTransaction;
+procedure TghDBMSSQLBroker.StartTransaction;
 begin
   FConn.ExecuteDirect('BEGIN TRAN');
 end;
 
-procedure TghDBMSSQLLib.Commit;
+procedure TghDBMSSQLBroker.Commit;
 begin
   FConn.ExecuteDirect('COMMIT');
 end;
 
-procedure TghDBMSSQLLib.CommitRetaining;
+procedure TghDBMSSQLBroker.CommitRetaining;
 begin
   Commit;
 end;
 
-procedure TghDBMSSQLLib.Rollback;
+procedure TghDBMSSQLBroker.Rollback;
 begin
   FConn.ExecuteDirect('ROLLBACK');
 end;
 
-procedure TghDBMSSQLLib.RollbackRetaining;
+procedure TghDBMSSQLBroker.RollbackRetaining;
 begin
   Rollback;
 end;

@@ -6,15 +6,15 @@ uses
   heaptrc,
   Classes, SysUtils, DB,
   // gh
-  gh_db, gh_dbsqldblib;
+  gh_db, gh_dbsqldbbroker;
 
 var
-  co: TghDBConnection;
+  co: TghDBConnector;
 
 begin
-  co := TghDBConnection.Create;
+  co := TghDBConnector.Create;
   try
-    co.SetDBLibClass(TghDBSQLiteLib);
+    co.SetBrokerClass(TghDBSQLite3Broker);
     co.Database := 'DB.sqlite';
     co.Connect;
     writeln('Connected.');

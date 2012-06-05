@@ -28,7 +28,7 @@ type
   TghDBColumn = class(TField);
 
 { forward declarations }
-  TghDBConnection = class;
+  TghDBConnector = class;
 
   TghDBParams = class(TParams)
   strict private
@@ -56,10 +56,10 @@ type
 
   TghDBSQL = class(TghDBStatement)
   strict private
-    FConn: TghDBConnection;
+    FConn: TghDBConnector;
     FDataSet: TDataSet;
   public
-    constructor Create(AConn: TghDBConnection); reintroduce;
+    constructor Create(AConn: TghDBConnector); reintroduce;
     destructor Destroy; override;
     // no result set
     function Execute: NativeInt; virtual; overload;
@@ -72,7 +72,7 @@ type
 
   TghDBTable = class(TghDBObject)
   strict private
-    FConn: TghDBConnection;
+    FConn: TghDBConnector;
     FSelectCols: string;
     FConditions: string;
     FOrderBy: string;
@@ -88,21 +88,21 @@ type
     procedure CheckTable;
     procedure CreateResultSet;
   public
-    constructor Create(AConn: TghDBConnection; const ATableName: string); virtual; reintroduce;
+    constructor Create(AConn: TghDBConnector; const ATableName: string); virtual; reintroduce;
     destructor Destroy; override;
-    procedure Insert;
-    procedure Append;
-    procedure Edit;
-    procedure Post;
-    procedure Delete;
-    procedure Apply;
-    procedure Close;
-    procedure Open;
-    procedure Refresh;
-    procedure First;
-    procedure Prior;
-    procedure Next;
-    procedure Last;
+    function Insert: TghDBTable;
+    function Append: TghDBTable;
+    function Edit: TghDBTable;
+    function Post: TghDBTable;
+    function Delete: TghDBTable;
+    function Apply: TghDBTable;
+    function Close: TghDBTable;
+    function Open: TghDBTable;
+    function Refresh: TghDBTable;
+    function First: TghDBTable;
+    function Prior: TghDBTable;
+    function Next: TghDBTable;
+    function Last: TghDBTable;
     function Select(const AColNames: string): TghDBTable;
     function Where(const AConditions: string): TghDBTable;
     function WhereFmt(const AConditions: string; AArgs: array of const): TghDBTable;
@@ -113,7 +113,7 @@ type
     procedure SaveToStream(AStream: TStream; AFormat: TDataPacketFormat = dfBinary); virtual;
     property Active: Boolean read GetActive;
     property Columns[const AColName: string]: TghDBColumn read GetColumn; default;
-    property Connection: TghDBConnection read FConn write FConn;
+    property Connection: TghDBConnector read FConn write FConn;
     property EOF: Boolean read GetEOF;
     property Params: TghDBParams read FParams;
     property Reuse: Boolean read FReuse write FReuse;
@@ -121,7 +121,7 @@ type
     property TableName: string read FTableName;
   end;
 
-  TghDBLib = class(TghDBStatement)
+  TghDBBroker = class(TghDBStatement)
   public
     procedure Connect(const AHost, ADatabase, AUser, APasswd: string); virtual; abstract;
     function Connected: Boolean; virtual; abstract;
@@ -135,9 +135,9 @@ type
     procedure Open(AOwner: TComponent; out ADataSet: TDataSet); virtual; abstract;
   end;
 
-  TghDBLibClass = class of TghDBLib;
+  TghDBBrokerClass = class of TghDBBroker;
 
-  TghDBConnection = class(TghDBObject)
+  TghDBConnector = class(TghDBObject)
   strict private
     FTransCount: SmallInt;
     FDatabase: string;
@@ -147,15 +147,15 @@ type
     FSQL: TghDBSQL;
     FTables: TFPHashObjectList;
   protected
-    FDBLib: TghDBLib;
-    procedure CheckDBLib;
+    FBroker: TghDBBroker;
+    procedure CheckBroker;
     function GetTables(const AName: string): TghDBTable; virtual;
     procedure AddTable(ATable: TghDBTable);
     function GetConnected: Boolean;
   public
     constructor Create; override;
     destructor Destroy; override;
-    procedure SetDBLibClass(ALib: TghDBLibClass);
+    procedure SetBrokerClass(ALib: TghDBBrokerClass);
     procedure Connect; virtual;
     procedure Disconnect; virtual;
     procedure StartTransaction;
@@ -166,7 +166,7 @@ type
     procedure RollbackRetaining;
     procedure DataSetToSQLQuery(ASource: TDataSet;
       out ADest: TSQLQuery; AOwner: TComponent = nil);
-    property DBLib: TghDBLib read FDBLib;
+    property DBBroker: TghDBBroker read FBroker;
     property Database: string read FDatabase write FDatabase;
     property Connected: Boolean read GetConnected;
     property Host: string read FHost write FHost;
@@ -229,7 +229,7 @@ end;
 
 { TghDBSQL }
 
-constructor TghDBSQL.Create(AConn: TghDBConnection);
+constructor TghDBSQL.Create(AConn: TghDBConnector);
 begin
   inherited Create;
   FConn := AConn;
@@ -247,9 +247,9 @@ begin
   with FConn do
   try
     StartTransaction;
-    DBLib.Script.Assign(Self.Script);
-    DBLib.Params.Assign(Self.Params);
-    Result := DBLib.Execute;
+    DBBroker.Script.Assign(Self.Script);
+    DBBroker.Params.Assign(Self.Params);
+    Result := DBBroker.Execute;
     CommitRetaining;
   except
     on e: Exception do
@@ -265,9 +265,9 @@ begin
   with FConn do
   try
     StartTransaction;
-    DBLib.Script.Assign(Self.Script);
-    DBLib.Params.Assign(Self.Params);
-    DBLib.Open(AOwner, ADataSet);
+    DBBroker.Script.Assign(Self.Script);
+    DBBroker.Params.Assign(Self.Params);
+    DBBroker.Open(AOwner, ADataSet);
     CommitRetaining;
   except
     on e: Exception do
@@ -361,7 +361,7 @@ begin
   end;
 end;
 
-constructor TghDBTable.Create(AConn: TghDBConnection; const ATableName: string);
+constructor TghDBTable.Create(AConn: TghDBConnector; const ATableName: string);
 begin
   inherited Create;
   FTableName := ATableName;
@@ -377,39 +377,45 @@ begin
   inherited Destroy;
 end;
 
-procedure TghDBTable.Insert;
+function TghDBTable.Insert: TghDBTable;
 begin
   CheckTable;
+  Result := Self;
   FDataSet.Insert;
 end;
 
-procedure TghDBTable.Append;
+function TghDBTable.Append: TghDBTable;
 begin
   CheckTable;
+  Result := Self;
   FDataSet.Append;
 end;
 
-procedure TghDBTable.Edit;
+function TghDBTable.Edit: TghDBTable;
 begin
   CheckTable;
+  Result := Self;
   FDataSet.Edit;
 end;
 
-procedure TghDBTable.Post;
+function TghDBTable.Post: TghDBTable;
 begin
   CheckTable;
+  Result := Self;
   FDataSet.Post;
 end;
 
-procedure TghDBTable.Delete;
+function TghDBTable.Delete: TghDBTable;
 begin
   CheckTable;
+  Result := Self;
   FDataSet.Delete;
 end;
 
-procedure TghDBTable.Apply;
+function TghDBTable.Apply: TghDBTable;
 begin
   CheckTable;
+  Result := Self;
   FConn.StartTransaction;
   try
     FDataSet.ApplyUpdates(0);
@@ -423,8 +429,9 @@ begin
   end;
 end;
 
-procedure TghDBTable.Close;
+function TghDBTable.Close: TghDBTable;
 begin
+  Result := Self;
   FSelectCols := '';
   FConditions := '';
   FOrderBy := '';
@@ -433,38 +440,45 @@ begin
     FDataSet.Close;
 end;
 
-procedure TghDBTable.Open;
+function TghDBTable.Open: TghDBTable;
 begin
+  Result := Self;
   CreateResultSet;
 end;
 
-procedure TghDBTable.Refresh;
+function TghDBTable.Refresh: TghDBTable;
 begin
   CheckTable;
+  Result := Self;
+  // TODO: call Close and Open methods but without clean the parameters
   Open;
 end;
 
-procedure TghDBTable.First;
+function TghDBTable.First: TghDBTable;
 begin
   CheckTable;
+  Result := Self;
   FDataSet.First;
 end;
 
-procedure TghDBTable.Prior;
+function TghDBTable.Prior: TghDBTable;
 begin
   CheckTable;
+  Result := Self;
   FDataSet.Prior;
 end;
 
-procedure TghDBTable.Next;
+function TghDBTable.Next: TghDBTable;
 begin
   CheckTable;
+  Result := Self;
   FDataSet.Next;
 end;
 
-procedure TghDBTable.Last;
+function TghDBTable.Last: TghDBTable;
 begin
   CheckTable;
+  Result := Self;
   FDataSet.Last;
 end;
 
@@ -531,15 +545,15 @@ begin
   FDataSet.SaveToStream(AStream, AFormat);
 end;
 
-{ TghDBConnection }
+{ TghDBConnector }
 
-procedure TghDBConnection.CheckDBLib;
+procedure TghDBConnector.CheckBroker;
 begin
-  if not Assigned(FDBLib) then
-    raise EghDBError.Create('DBLib not assigned.');
+  if not Assigned(FBroker) then
+    raise EghDBError.Create('DBBroker not assigned.');
 end;
 
-function TghDBConnection.GetTables(const AName: string): TghDBTable;
+function TghDBConnector.GetTables(const AName: string): TghDBTable;
 begin
   Result := FTables.Find(AName) as TghDBTable;
   if (Result = nil) or (Result.Active and not Result.Reuse) then
@@ -555,75 +569,75 @@ begin
   end;
 end;
 
-procedure TghDBConnection.AddTable(ATable: TghDBTable);
+procedure TghDBConnector.AddTable(ATable: TghDBTable);
 begin
   if ATable.TableName = '' then
     raise EghDBError.Create(Self, 'TableName not defined.');
   FTables.Add(ATable.TableName, ATable);
 end;
 
-function TghDBConnection.GetConnected: Boolean;
+function TghDBConnector.GetConnected: Boolean;
 begin
-  CheckDBLib;
+  CheckBroker;
   try
-    Result := FDBLib.Connected;
+    Result := FBroker.Connected;
   except
     on e: Exception do
       raise EghDBError.Create(e.Message);
   end;
 end;
 
-constructor TghDBConnection.Create;
+constructor TghDBConnector.Create;
 begin
   inherited;
-  FDBLib := nil;
+  FBroker := nil;
   FSQL := TghDBSQL.Create(Self);
   FTables := TFPHashObjectList.Create(True);
 end;
 
-destructor TghDBConnection.Destroy;
+destructor TghDBConnector.Destroy;
 begin
   FTables.Free;
   FSQL.Free;
-  FDBLib.Free;
+  FBroker.Free;
   inherited Destroy;
 end;
 
-procedure TghDBConnection.SetDBLibClass(ALib: TghDBLibClass);
+procedure TghDBConnector.SetBrokerClass(ALib: TghDBBrokerClass);
 begin
-  if Assigned(FDBLib) then
-    FDBLib.Free;
-  FDBLib := ALib.Create;
+  if Assigned(FBroker) then
+    FBroker.Free;
+  FBroker := ALib.Create;
 end;
 
-procedure TghDBConnection.Connect;
+procedure TghDBConnector.Connect;
 begin
-  CheckDBLib;
+  CheckBroker;
   try
-    FDBLib.Connect(FHost, FDatabase, FUser, FPassword);
+    FBroker.Connect(FHost, FDatabase, FUser, FPassword);
   except
     on e: Exception do
       raise EghDBError.Create(e.Message);
   end;
 end;
 
-procedure TghDBConnection.Disconnect;
+procedure TghDBConnector.Disconnect;
 begin
-  CheckDBLib;
+  CheckBroker;
   try
-    FDBLib.Disconnect;
+    FBroker.Disconnect;
   except
     on e: Exception do
       raise EghDBError.Create(e.Message);
   end;
 end;
 
-procedure TghDBConnection.StartTransaction;
+procedure TghDBConnector.StartTransaction;
 begin
-  CheckDBLib;
+  CheckBroker;
   try
     if FTransCount = 0 then
-      FDBLib.StartTransaction;
+      FBroker.StartTransaction;
     Inc(FTransCount);
   except
     on e: Exception do
@@ -631,19 +645,19 @@ begin
   end;
 end;
 
-function TghDBConnection.InTransaction: Boolean;
+function TghDBConnector.InTransaction: Boolean;
 begin
   Result := (FTransCount > 0);
 end;
 
-procedure TghDBConnection.Commit;
+procedure TghDBConnector.Commit;
 begin
   if FTransCount = 0 then
     Exit;
-  CheckDBLib;
+  CheckBroker;
   try
     if FTransCount = 1 then
-      FDBLib.Commit;
+      FBroker.Commit;
     Dec(FTransCount);
   except
     on e: Exception do
@@ -651,14 +665,14 @@ begin
   end;
 end;
 
-procedure TghDBConnection.CommitRetaining;
+procedure TghDBConnector.CommitRetaining;
 begin
   if FTransCount = 0 then
     Exit;
-  CheckDBLib;
+  CheckBroker;
   try
     if FTransCount = 1 then
-      FDBLib.CommitRetaining;
+      FBroker.CommitRetaining;
     Dec(FTransCount);
   except
     on e: Exception do
@@ -666,14 +680,14 @@ begin
   end;
 end;
 
-procedure TghDBConnection.Rollback;
+procedure TghDBConnector.Rollback;
 begin
   if FTransCount = 0 then
     Exit;
-  CheckDBLib;
+  CheckBroker;
   try
     if FTransCount = 1 then
-      FDBLib.Rollback;
+      FBroker.Rollback;
     Dec(FTransCount);
   except
     on e: Exception do
@@ -681,14 +695,14 @@ begin
   end;
 end;
 
-procedure TghDBConnection.RollbackRetaining;
+procedure TghDBConnector.RollbackRetaining;
 begin
   if FTransCount = 0 then
     Exit;
-  CheckDBLib;
+  CheckBroker;
   try
     if FTransCount = 1 then
-      FDBLib.RollbackRetaining;
+      FBroker.RollbackRetaining;
     Dec(FTransCount);
   except
     on e: Exception do
@@ -696,7 +710,7 @@ begin
   end;
 end;
 
-procedure TghDBConnection.DataSetToSQLQuery(ASource: TDataSet;
+procedure TghDBConnector.DataSetToSQLQuery(ASource: TDataSet;
   out ADest: TSQLQuery; AOwner: TComponent);
 var
   I: Integer;

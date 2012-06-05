@@ -6,14 +6,14 @@ uses
   heaptrc,
   Classes, SysUtils, DB,
   // gh
-  gh_db, gh_dbsqldblib, gh_dbjson;
+  gh_db, gh_dbsqldbbroker, gh_dbjson;
 
 const
   TAB_TMP = 'user_tmp';
   JSON_FILENAME = 'data.json';
 
 var
-  co: TghDBConnection;
+  co: TghDBConnector;
   t: TghDBExtJSONTable;
 
 procedure InsertRecord(id: Integer; const login, passwd, name: string);
@@ -44,12 +44,12 @@ begin
 end;
 
 begin
-  co := TghDBConnection.Create;
+  co := TghDBConnector.Create;
   t := TghDBExtJSONTable.Create(co, TAB_TMP);
   try
     // set configurations
     // using SQLite
-    co.SetDBLibClass(TghDBSQLiteLib);
+    co.SetBrokerClass(TghDBSQLite3Broker);
 
     // set params
     co.Database := 'DB.sqlite';

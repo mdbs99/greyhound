@@ -6,13 +6,13 @@ uses
   heaptrc,
   Classes, SysUtils,
   // gh
-  gh_db, gh_dbsqldblib;
+  gh_db, gh_dbsqldbbroker;
 
 const
   TAB_TMP = 'user_tmp';
 
 var
-  co: TghDBConnection;
+  co: TghDBConnector;
   t: TghDBTable;
 
 procedure InsertRecord(id: Integer; const login, passwd, name: string);
@@ -43,11 +43,11 @@ begin
 end;
 
 begin
-  co := TghDBConnection.Create;
+  co := TghDBConnector.Create;
   try
     // set configurations
     // using SQLite
-    co.SetDBLibClass(TghDBSQLite3Lib);
+    co.SetBrokerClass(TghDBSQLite3Broker);
 
     // set params
     co.Database := 'DB.sqlite';
@@ -60,9 +60,7 @@ begin
 
     // get the table object
     // you do not need to use t.Free
-    t := co.Tables[TAB_TMP];
-
-    t.Open;
+    t := co.Tables[TAB_TMP].Open;
 
     InsertRecord(1, 'bob', '123', 'Bob White');
     t.Apply;

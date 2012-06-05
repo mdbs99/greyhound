@@ -30,7 +30,7 @@ type
   private
     FPackMetadata: Boolean;
   public
-    constructor Create(AConn: TghDBConnection; const ATableName: string); override;
+    constructor Create(AConn: TghDBConnector; const ATableName: string); override;
     function GetData: TJSONStringType; virtual;
     procedure SetData(const AValue: TJSONStringType); virtual;
     property PackMetadata: Boolean read FPackMetadata write FPackMetadata;
@@ -46,7 +46,7 @@ implementation
 
 { TghDBJSONTable }
 
-constructor TghDBJSONTable.Create(AConn: TghDBConnection;
+constructor TghDBJSONTable.Create(AConn: TghDBConnector;
   const ATableName: string);
 begin
   inherited Create(AConn, ATableName);

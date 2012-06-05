@@ -13,8 +13,8 @@
 {$IFDEF FPC}
   {$MODE objfpc}{$H+}
   {$INTERFACES corba}
-  {$DEFINE SQLite3Lib}
-  {.$DEFINE MSSQLLib}
+  {$DEFINE SQLite3Broker}
+  {.$DEFINE MSSQLBroker}
   {$IF ((FPC_VERSION >= 2) and (FPC_RELEASE >= 6) and (FPC_PATCH >= 1))}
     {$DEFINE JSON_SUPPORT}
   {$ENDIF}
