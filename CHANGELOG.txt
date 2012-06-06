@@ -12,6 +12,9 @@ Release notes
 - gh_dbsqldblib unit was renamed to gh_dbsqldbbroker.
 - gh_dbzeoslib unit was renamed to gh_dbzeosbroker.
 - Table: methods like Close, Open, First, Next, Select, Where, etc returns the table itself.
+- t.Connection was renamed to t.Connector
+- Implemented t.Commit, t.Rollback and t.Cancel
+- t.Apply is deprecated. Use t.Commit instead.
 - All examples were updated.
 
 

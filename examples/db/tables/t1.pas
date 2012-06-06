@@ -63,7 +63,7 @@ begin
     t := co.Tables[TAB_TMP].Open;
 
     InsertRecord(1, 'bob', '123', 'Bob White');
-    t.Apply;
+    t.Commit;
 
     ShowAllRecords;
 
@@ -76,16 +76,15 @@ begin
     t.Edit;
     t.Columns['name'].AsString := 'John Black';
     t.Post;
-    t.Apply;
+    t.Commit;
 
     ShowAllRecords;
 
-    t.Close;
-    // refresh to return all collumns
-    t.Open;
+    // refresh to return all data and all collumns
+    t.Close.Open;
 
     InsertRecord(2, 'dani', '453', 'Daniele B.');
-    t.Apply;
+    t.Commit;
 
     // order by
     t.Close;

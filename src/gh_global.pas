@@ -49,10 +49,10 @@ end;
 constructor EghError.CreateFmt(AInstance: TObject; const AMsg: string;
   const Args: array of const);
 var
-  lStr: string;
+  s: string;
 begin
-  lStr := Format('%s: %s', [AInstance.ClassName, AMsg]);
-  inherited CreateFmt(lStr, Args);
+  s := Format('%s: %s', [AInstance.ClassName, AMsg]);
+  inherited CreateFmt(s, Args);
 end;
 
 { TghObject }
