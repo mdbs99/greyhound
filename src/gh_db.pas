@@ -90,14 +90,17 @@ type
   public
     constructor Create(AConn: TghDBConnector; const ATableName: string); virtual; reintroduce;
     destructor Destroy; override;
+    function Close: TghDBTable;
+    function Open: TghDBTable;
     function Insert: TghDBTable;
     function Append: TghDBTable;
     function Edit: TghDBTable;
     function Post: TghDBTable;
+    function Cancel: TghDBTable;
     function Delete: TghDBTable;
-    function Apply: TghDBTable;
-    function Close: TghDBTable;
-    function Open: TghDBTable;
+    function Commit: TghDBTable;
+    function Rollback: TghDBTable;
+    function Apply: TghDBTable; deprecated;
     function Refresh: TghDBTable;
     function First: TghDBTable;
     function Prior: TghDBTable;
@@ -113,7 +116,7 @@ type
     procedure SaveToStream(AStream: TStream; AFormat: TDataPacketFormat = dfBinary); virtual;
     property Active: Boolean read GetActive;
     property Columns[const AColName: string]: TghDBColumn read GetColumn; default;
-    property Connection: TghDBConnector read FConn write FConn;
+    property Connector: TghDBConnector read FConn write FConn;
     property EOF: Boolean read GetEOF;
     property Params: TghDBParams read FParams;
     property Reuse: Boolean read FReuse write FReuse;
@@ -187,17 +190,17 @@ end;
 
 function TghDBParams.ParamByName(const AName: string): TParam;
 var
-  lParam: TParam;
+  vParam: TParam;
 begin
-  lParam := FindParam(AName);
-  if not Assigned(lParam) then
+  vParam := FindParam(AName);
+  if not Assigned(vParam) then
   begin
     if FLock then
       raise EghDBError.Create(Self, 'Params were locked.');
-    lParam := TParam.Create(Self);
-    lParam.Name := AName;
+    vParam := TParam.Create(Self);
+    vParam.Name := AName;
   end;
-  Result := lParam as TParam;
+  Result := vParam as TParam;
 end;
 
 { TghDBStatement }
@@ -319,16 +322,16 @@ end;
 
 procedure TghDBTable.CreateResultSet;
 var
-  lDataSet: TDataSet;
-  lColumns: string;
+  vDataSet: TDataSet;
+  vColumns: string;
 begin
-  lColumns := Iif(FSelectCols = '', '*', FSelectCols);
+  vColumns := Iif(FSelectCols = '', '*', FSelectCols);
 
-  lDataSet := nil;
+  vDataSet := nil;
   try
     FConn.SQL.Clear;
 
-    FConn.SQL.Script.Add('select ' + lColumns + ' from ' + FTableName);
+    FConn.SQL.Script.Add('select ' + vColumns + ' from ' + FTableName);
     FConn.SQL.Script.Add('where 1=1');
 
     if FConditions <> '' then
@@ -339,25 +342,25 @@ begin
     if FOrderBy <> '' then
       FConn.SQL.Script.Add('order by ' + FOrderBy);
 
-    FConn.SQL.Open(nil, lDataSet);
+    FConn.SQL.Open(nil, vDataSet);
   except
-    lDataSet.Free;
+    vDataSet.Free;
     raise;
   end;
 
   FreeAndNil(FDataSet);
 
-  if lDataSet is TSQLQuery then
+  if vDataSet is TSQLQuery then
   begin
-    FDataSet := lDataSet as TSQLQuery;
+    FDataSet := vDataSet as TSQLQuery;
     Exit;
   end;
 
   try
     // from [*dataset] to [tsqlquery]
-    FConn.DataSetToSQLQuery(lDataSet, FDataSet);
+    FConn.DataSetToSQLQuery(vDataSet, FDataSet);
   finally
-    lDataSet.Free;
+    vDataSet.Free;
   end;
 end;
 
@@ -375,6 +378,23 @@ begin
   FParams.Free;
   FDataSet.Free;
   inherited Destroy;
+end;
+
+function TghDBTable.Close: TghDBTable;
+begin
+  Result := Self;
+  FSelectCols := '';
+  FConditions := '';
+  FOrderBy := '';
+  FParams.Clear;
+  if Active then
+    FDataSet.Close;
+end;
+
+function TghDBTable.Open: TghDBTable;
+begin
+  Result := Self;
+  CreateResultSet;
 end;
 
 function TghDBTable.Insert: TghDBTable;
@@ -405,6 +425,13 @@ begin
   FDataSet.Post;
 end;
 
+function TghDBTable.Cancel: TghDBTable;
+begin
+  CheckTable;
+  Result := Self;
+  FDataSet.Cancel;
+end;
+
 function TghDBTable.Delete: TghDBTable;
 begin
   CheckTable;
@@ -412,7 +439,7 @@ begin
   FDataSet.Delete;
 end;
 
-function TghDBTable.Apply: TghDBTable;
+function TghDBTable.Commit: TghDBTable;
 begin
   CheckTable;
   Result := Self;
@@ -429,21 +456,16 @@ begin
   end;
 end;
 
-function TghDBTable.Close: TghDBTable;
+function TghDBTable.Rollback: TghDBTable;
 begin
+  CheckTable;
   Result := Self;
-  FSelectCols := '';
-  FConditions := '';
-  FOrderBy := '';
-  FParams.Clear;
-  if Active then
-    FDataSet.Close;
+  FDataSet.CancelUpdates;
 end;
 
-function TghDBTable.Open: TghDBTable;
+function TghDBTable.Apply: TghDBTable;
 begin
-  Result := Self;
-  CreateResultSet;
+  Commit;
 end;
 
 function TghDBTable.Refresh: TghDBTable;
@@ -508,25 +530,25 @@ end;
 
 procedure TghDBTable.LoadFromFile(const AFileName: string; AFormat: TDataPacketFormat);
 var
-  lBuf: TFileStream;
+  vBuf: TFileStream;
 begin
-  lBuf := TFileStream.Create(AFileName, fmOpenRead or fmShareDenyWrite);
+  vBuf := TFileStream.Create(AFileName, fmOpenRead or fmShareDenyWrite);
   try
-    LoadFromStream(lBuf, AFormat);
+    LoadFromStream(vBuf, AFormat);
   finally
-    lBuf.Free;
+    vBuf.Free;
   end;
 end;
 
 procedure TghDBTable.SaveToFile(const AFileName: string; AFormat: TDataPacketFormat);
 var
-  lBuf: TFileStream;
+  vBuf: TFileStream;
 begin
-  lBuf := TFileStream.Create(AFileName, fmCreate);
+  vBuf := TFileStream.Create(AFileName, fmCreate);
   try
-    SaveToStream(lBuf, AFormat);
+    SaveToStream(vBuf, AFormat);
   finally
-    lBuf.Free;
+    vBuf.Free;
   end;
 end;
 
