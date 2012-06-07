@@ -56,10 +56,10 @@ type
 
   TghDBSQL = class(TghDBStatement)
   strict private
-    FConn: TghDBConnector;
+    FConnector: TghDBConnector;
     FDataSet: TDataSet;
   public
-    constructor Create(AConn: TghDBConnector); reintroduce;
+    constructor Create(AConnector: TghDBConnector); reintroduce;
     destructor Destroy; override;
     // no result set
     function Execute: NativeInt; virtual; overload;
@@ -72,23 +72,31 @@ type
 
   TghDBTable = class(TghDBObject)
   strict private
-    FConn: TghDBConnector;
-    FSelectCols: string;
+    FConnector: TghDBConnector;
+    FSelectColumns: string;
     FConditions: string;
     FOrderBy: string;
     FParams: TghDBParams;
     FReuse: Boolean;
     FTableName: string;
+    FLinkModelList: TFPHashObjectList;
+    FLinkList: TFPHashObjectList;
+    FOwnerTable: TghDBTable;
     function GetRecordCount: Longint;
+    function GetActive: Boolean;
+    function GetColumn(const AName: string): TghDBColumn;
+    function GetEOF: Boolean;
+    function GetLinkModels(const ATableName: string): TghDBTable;
+    function GetLinks(const ATableName: string): TghDBTable;
+    function GetColumnCount: Longint;
   protected
     FDataSet: TSQLQuery;
-    function GetActive: Boolean;
-    function GetColumn(const AColName: string): TghDBColumn;
-    function GetEOF: Boolean;
     procedure CheckTable;
     procedure CreateResultSet;
   public
-    constructor Create(AConn: TghDBConnector; const ATableName: string); virtual; reintroduce;
+    constructor Create(AConnector: TghDBConnector; const ATableName: string;
+      AOwnerTable: TghDBTable); virtual; reintroduce;
+    constructor Create(AConnector: TghDBConnector; const ATableName: string); virtual;
     destructor Destroy; override;
     function Close: TghDBTable;
     function Open: TghDBTable;
@@ -106,18 +114,22 @@ type
     function Prior: TghDBTable;
     function Next: TghDBTable;
     function Last: TghDBTable;
-    function Select(const AColNames: string): TghDBTable;
+    function Select(const AColumnNames: string): TghDBTable;
     function Where(const AConditions: string): TghDBTable;
     function WhereFmt(const AConditions: string; AArgs: array of const): TghDBTable;
-    function OrderBy(const AColNames: string): TghDBTable;
+    function OrderBy(const AColumnNames: string): TghDBTable;
     procedure LoadFromFile(const AFileName: string; AFormat: TDataPacketFormat = dfAny); virtual;
     procedure SaveToFile(const AFileName: string; AFormat: TDataPacketFormat = dfBinary); virtual;
     procedure LoadFromStream(AStream: TStream; AFormat: TDataPacketFormat = dfAny); virtual;
     procedure SaveToStream(AStream: TStream; AFormat: TDataPacketFormat = dfBinary); virtual;
     property Active: Boolean read GetActive;
-    property Columns[const AColName: string]: TghDBColumn read GetColumn; default;
-    property Connector: TghDBConnector read FConn write FConn;
+    property Columns[const AName: string]: TghDBColumn read GetColumn; default;
+    property ColumnCount: Longint read GetColumnCount;
+    property Connector: TghDBConnector read FConnector write FConnector;
     property EOF: Boolean read GetEOF;
+    property LinkModels[const ATableName: string]: TghDBTable read GetLinkModels;
+    property Links[const ATableName: string]: TghDBTable read GetLinks;
+    property OwnerTable: TghDBTable read FOwnerTable write FOwnerTable;
     property Params: TghDBParams read FParams;
     property Reuse: Boolean read FReuse write FReuse;
     property RecordCount: Longint read GetRecordCount;
@@ -152,13 +164,13 @@ type
   protected
     FBroker: TghDBBroker;
     procedure CheckBroker;
-    function GetTables(const AName: string): TghDBTable; virtual;
+    function GetTables(const ATableName: string): TghDBTable; virtual;
     procedure AddTable(ATable: TghDBTable);
     function GetConnected: Boolean;
   public
     constructor Create; override;
     destructor Destroy; override;
-    procedure SetBrokerClass(ALib: TghDBBrokerClass);
+    procedure SetBrokerClass(ABroker: TghDBBrokerClass);
     procedure Connect; virtual;
     procedure Disconnect; virtual;
     procedure StartTransaction;
@@ -176,7 +188,7 @@ type
     property User: string read FUser write FUser;
     property Password: string read FPassword write FPassword;
     property SQL: TghDBSQL read FSQL;
-    property Tables[const AName: string]: TghDBTable read GetTables;
+    property Tables[const ATableName: string]: TghDBTable read GetTables;
   end;
 
 implementation
@@ -190,17 +202,17 @@ end;
 
 function TghDBParams.ParamByName(const AName: string): TParam;
 var
-  vParam: TParam;
+  P: TParam;
 begin
-  vParam := FindParam(AName);
-  if not Assigned(vParam) then
+  P := FindParam(AName);
+  if not Assigned(P) then
   begin
     if FLock then
       raise EghDBError.Create(Self, 'Params were locked.');
-    vParam := TParam.Create(Self);
-    vParam.Name := AName;
+    P := TParam.Create(Self);
+    P.Name := AName;
   end;
-  Result := vParam as TParam;
+  Result := P as TParam;
 end;
 
 { TghDBStatement }
@@ -232,10 +244,10 @@ end;
 
 { TghDBSQL }
 
-constructor TghDBSQL.Create(AConn: TghDBConnector);
+constructor TghDBSQL.Create(AConnector: TghDBConnector);
 begin
   inherited Create;
-  FConn := AConn;
+  FConnector := AConnector;
   FDataSet := nil;
 end;
 
@@ -247,7 +259,7 @@ end;
 
 function TghDBSQL.Execute: NativeInt;
 begin
-  with FConn do
+  with FConnector do
   try
     StartTransaction;
     DBBroker.Script.Assign(Self.Script);
@@ -265,7 +277,7 @@ end;
 
 procedure TghDBSQL.Open(AOwner: TComponent; out ADataSet: TDataSet);
 begin
-  with FConn do
+  with FConnector do
   try
     StartTransaction;
     DBBroker.Script.Assign(Self.Script);
@@ -302,16 +314,79 @@ begin
   Result := Assigned(FDataSet) and FDataSet.Active;
 end;
 
+function TghDBTable.GetColumn(const AName: string): TghDBColumn;
+begin
+  CheckTable;
+  Result := TghDBColumn(FDataSet.FieldByName(AName));
+end;
+
 function TghDBTable.GetEOF: Boolean;
 begin
   CheckTable;
   Result := FDataSet.EOF;
 end;
 
-function TghDBTable.GetColumn(const AColName: string): TghDBColumn;
+function TghDBTable.GetLinkModels(const ATableName: string): TghDBTable;
 begin
   CheckTable;
-  Result := TghDBColumn(FDataSet.FieldByName(AColName));
+  Result := FLinkModelList.Find(ATableName) as TghDBTable;
+  if Result = nil then
+  begin
+    Result := TghDBTable.Create(FConnector, ATableName, Self);
+    Result.Reuse := False;
+    FLinkModelList.Add(ATableName, Result);
+  end;
+end;
+
+function TghDBTable.GetLinks(const ATableName: string): TghDBTable;
+var
+  MTb, LnkTb: TghDBTable;
+
+  procedure FillParams;
+  var
+    I: Integer;
+    Fld: TField;
+    C: string;
+  begin
+    C := UpperCase(LnkTb.FConditions);
+    for I := 0 to FDataSet.FieldCount-1 do
+    begin
+      Fld := FDataSet.Fields[I];
+      if Pos(':' + UpperCase(Fld.FieldName), C) > 0 then
+      begin
+        LnkTb.Params[Fld.FieldName].Value := Fld.Value;
+      end;
+    end;
+  end;
+
+begin
+  CheckTable;
+  MTb := FLinkModelList.Find(ATableName) as TghDBTable;
+  if not Assigned(MTb) then
+    raise EghDBError.Create(Self, 'Model not found.');
+
+  LnkTb := FLinkList.Find(ATableName) as TghDBTable;
+  if not Assigned(LnkTb) then
+  begin
+    LnkTb := TghDBTable.Create(FConnector, ATableName, Self);
+    LnkTb.Reuse := False;
+    FLinkList.Add(ATableName, LnkTb);
+  end;
+  LnkTb.Close;
+  // TODO: Assign method
+  LnkTb.FSelectColumns := MTb.FSelectColumns;
+  LnkTb.FConditions := MTb.FConditions;
+  LnkTb.FOrderBy := MTb.FOrderBy;
+  LnkTb.FTableName := MTb.FTableName;
+  FillParams;
+  LnkTb.Open;
+
+  Result := LnkTb;
+end;
+
+function TghDBTable.GetColumnCount: Longint;
+begin
+  Result := FDataSet.Fields.Count;
 end;
 
 procedure TghDBTable.CheckTable;
@@ -322,59 +397,72 @@ end;
 
 procedure TghDBTable.CreateResultSet;
 var
-  vDataSet: TDataSet;
-  vColumns: string;
+  TmpDS: TDataSet;
+  SelCols: string;
 begin
-  vColumns := Iif(FSelectCols = '', '*', FSelectCols);
-
-  vDataSet := nil;
+  SelCols := Iif(FSelectColumns = '', '*', FSelectColumns);
+  TmpDS := nil;
   try
-    FConn.SQL.Clear;
+    FConnector.SQL.Clear;
 
-    FConn.SQL.Script.Add('select ' + vColumns + ' from ' + FTableName);
-    FConn.SQL.Script.Add('where 1=1');
+    FConnector.SQL.Script.Add('select ' + SelCols + ' from ' + FTableName);
+    FConnector.SQL.Script.Add('where 1=1');
 
     if FConditions <> '' then
-      FConn.SQL.Script.Add('and ' + FConditions);
+      FConnector.SQL.Script.Add('and ' + FConditions);
 
-    FConn.SQL.Params.Assign(FParams);
+    FConnector.SQL.Params.Assign(FParams);
 
     if FOrderBy <> '' then
-      FConn.SQL.Script.Add('order by ' + FOrderBy);
+      FConnector.SQL.Script.Add('order by ' + FOrderBy);
 
-    FConn.SQL.Open(nil, vDataSet);
+    FConnector.SQL.Open(nil, TmpDS);
   except
-    vDataSet.Free;
-    raise;
+    on e: Exception do
+    begin
+      TmpDS.Free;
+      raise;
+    end;
   end;
 
   FreeAndNil(FDataSet);
 
-  if vDataSet is TSQLQuery then
+  if TmpDS is TSQLQuery then
   begin
-    FDataSet := vDataSet as TSQLQuery;
+    FDataSet := TmpDS as TSQLQuery;
     Exit;
   end;
 
   try
     // from [*dataset] to [tsqlquery]
-    FConn.DataSetToSQLQuery(vDataSet, FDataSet);
+    FConnector.DataSetToSQLQuery(TmpDS, FDataSet);
   finally
-    vDataSet.Free;
+    TmpDS.Free;
   end;
 end;
 
-constructor TghDBTable.Create(AConn: TghDBConnector; const ATableName: string);
+constructor TghDBTable.Create(AConnector: TghDBConnector; const ATableName: string;
+  AOwnerTable: TghDBTable);
 begin
   inherited Create;
+  FConnector := AConnector;
   FTableName := ATableName;
-  FConn := AConn;
+  FOwnerTable := AOwnerTable;
   FDataSet := nil;
   FParams := TghDBParams.Create;
+  FLinkModelList := TFPHashObjectList.Create(True);
+  FLinkList := TFPHashObjectList.Create(True);
+end;
+
+constructor TghDBTable.Create(AConnector: TghDBConnector; const ATableName: string);
+begin
+  Create(AConnector, ATableName, nil);
 end;
 
 destructor TghDBTable.Destroy;
 begin
+  FLinkModelList.Free;
+  FLinkList.Free;
   FParams.Free;
   FDataSet.Free;
   inherited Destroy;
@@ -383,7 +471,7 @@ end;
 function TghDBTable.Close: TghDBTable;
 begin
   Result := Self;
-  FSelectCols := '';
+  FSelectColumns := '';
   FConditions := '';
   FOrderBy := '';
   FParams.Clear;
@@ -443,14 +531,14 @@ function TghDBTable.Commit: TghDBTable;
 begin
   CheckTable;
   Result := Self;
-  FConn.StartTransaction;
+  FConnector.StartTransaction;
   try
     FDataSet.ApplyUpdates(0);
-    FConn.CommitRetaining;
+    FConnector.CommitRetaining;
   except
     on e: Exception do
     begin
-      FConn.RollbackRetaining;
+      FConnector.RollbackRetaining;
       raise EghDBError.Create(Self, e.Message);
     end;
   end;
@@ -465,7 +553,7 @@ end;
 
 function TghDBTable.Apply: TghDBTable;
 begin
-  Commit;
+  Result := Commit;
 end;
 
 function TghDBTable.Refresh: TghDBTable;
@@ -504,9 +592,9 @@ begin
   FDataSet.Last;
 end;
 
-function TghDBTable.Select(const AColNames: string): TghDBTable;
+function TghDBTable.Select(const AColumnNames: string): TghDBTable;
 begin
-  FSelectCols := AColNames;
+  FSelectColumns := AColumnNames;
   Result := Self;
 end;
 
@@ -522,33 +610,33 @@ begin
   Result := Self;
 end;
 
-function TghDBTable.OrderBy(const AColNames: string): TghDBTable;
+function TghDBTable.OrderBy(const AColumnNames: string): TghDBTable;
 begin
-  FOrderBy := AColNames;
+  FOrderBy := AColumnNames;
   Result := Self;
 end;
 
 procedure TghDBTable.LoadFromFile(const AFileName: string; AFormat: TDataPacketFormat);
 var
-  vBuf: TFileStream;
+  Buf: TFileStream;
 begin
-  vBuf := TFileStream.Create(AFileName, fmOpenRead or fmShareDenyWrite);
+  Buf := TFileStream.Create(AFileName, fmOpenRead or fmShareDenyWrite);
   try
-    LoadFromStream(vBuf, AFormat);
+    LoadFromStream(Buf, AFormat);
   finally
-    vBuf.Free;
+    Buf.Free;
   end;
 end;
 
 procedure TghDBTable.SaveToFile(const AFileName: string; AFormat: TDataPacketFormat);
 var
-  vBuf: TFileStream;
+  Buf: TFileStream;
 begin
-  vBuf := TFileStream.Create(AFileName, fmCreate);
+  Buf := TFileStream.Create(AFileName, fmCreate);
   try
-    SaveToStream(vBuf, AFormat);
+    SaveToStream(Buf, AFormat);
   finally
-    vBuf.Free;
+    Buf.Free;
   end;
 end;
 
@@ -575,12 +663,12 @@ begin
     raise EghDBError.Create('DBBroker not assigned.');
 end;
 
-function TghDBConnector.GetTables(const AName: string): TghDBTable;
+function TghDBConnector.GetTables(const ATableName: string): TghDBTable;
 begin
-  Result := FTables.Find(AName) as TghDBTable;
+  Result := FTables.Find(ATableName) as TghDBTable;
   if (Result = nil) or (Result.Active and not Result.Reuse) then
   begin
-    Result := TghDBTable.Create(Self, AName);
+    Result := TghDBTable.Create(Self, ATableName);
     AddTable(Result);
     {
     // open table at the first time to get all columns
@@ -625,11 +713,11 @@ begin
   inherited Destroy;
 end;
 
-procedure TghDBConnector.SetBrokerClass(ALib: TghDBBrokerClass);
+procedure TghDBConnector.SetBrokerClass(ABroker: TghDBBrokerClass);
 begin
   if Assigned(FBroker) then
     FBroker.Free;
-  FBroker := ALib.Create;
+  FBroker := ABroker.Create;
 end;
 
 procedure TghDBConnector.Connect;
