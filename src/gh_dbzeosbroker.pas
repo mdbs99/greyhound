@@ -48,10 +48,10 @@ type
 
   TghDBUTF8FieldHelper = class(TghDBObject)
   protected
-    procedure DoGetText(Sender: TField; var AText: string; DisplayText: boolean);
+    procedure DoGetText(Sender: TField; var AText: string; DisplayText: Boolean);
     procedure DoSetText(Sender: TField; const AText: string);
   public
-    procedure SetEvents(ds: TDataSet);
+    procedure SetEvents(DS: TDataSet);
   end;
 
 implementation
@@ -180,7 +180,7 @@ end;
 { TghDBUTF8FieldHelper }
 
 procedure TghDBUTF8FieldHelper.DoGetText(Sender: TField; var AText: string;
-  DisplayText: boolean);
+  DisplayText: Boolean);
 begin
   case Sender.DataType of
     ftString, ftWord,
@@ -199,13 +199,13 @@ begin
   Sender.AsString := UTF8ToSys(AText);
 end;
 
-procedure TghDBUTF8FieldHelper.SetEvents(ds: TDataSet);
+procedure TghDBUTF8FieldHelper.SetEvents(DS: TDataSet);
 var
   i: integer;
 begin
-  for i := 0 to ds.FieldCount - 1 do
+  for i := 0 to DS.FieldCount - 1 do
   begin
-    with ds.Fields[i] do
+    with DS.Fields[i] do
     begin
       OnGetText := @DoGetText;
       OnSetText := @DoSetText;

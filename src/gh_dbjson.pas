@@ -55,26 +55,26 @@ end;
 
 function TghDBJSONTable.GetData: TJSONStringType;
 var
-  vBuf: TStringStream;
+  Buf: TStringStream;
 begin
-  vBuf := TStringStream.Create('');
+  Buf := TStringStream.Create('');
   try
-    SaveToStream(vBuf);
-    Result := vBuf.DataString;
+    SaveToStream(Buf);
+    Result := Buf.DataString;
   finally
-    vBuf.Free;
+    Buf.Free;
   end;
 end;
 
 procedure TghDBJSONTable.SetData(const AValue: TJSONStringType);
 var
-  vBuf: TStringStream;
+  Buf: TStringStream;
 begin
-  vBuf := TStringStream.Create(AValue);
+  Buf := TStringStream.Create(AValue);
   try
-    LoadFromStream(vBuf);
+    LoadFromStream(Buf);
   finally
-    vBuf.Free;
+    Buf.Free;
   end;
 end;
 
@@ -83,73 +83,73 @@ end;
 procedure TghDBExtJSONTable.LoadFromStream(AStream: TStream; AFormat: TDataPacketFormat);
 var
   I: Integer;
-  vJSON: TExtjsJSONObjectDataset;
-  vColumns: string;
+  JDS: TExtjsJSONObjectDataset;
+  ColNms: string;
 begin
-  vJSON := TExtjsJSONObjectDataset.Create(nil);
+  JDS := TExtjsJSONObjectDataset.Create(nil);
   try
-    vJSON.LoadFromStream(AStream);
+    JDS.LoadFromStream(AStream);
 
     // DO NOT pass metadata if table is active!
     if Active then
     begin
-      // creating vJSON's fielddefs using table's fielddefs
-      vJSON.FieldDefs.Assign(FDataSet.FieldDefs);
+      // creating JSON's fielddefs using table's fielddefs
+      JDS.FieldDefs.Assign(FDataSet.FieldDefs);
     end
     else
     begin
-      // if table not active, vJSON SHOULD HAVE metadata
-      vColumns := '';
-      for I := 0 to vJSON.FieldDefs.Count-1 do
+      // if table not active, JSON SHOULD HAVE metadata
+      ColNms := '';
+      for I := 0 to JDS.FieldDefs.Count-1 do
       begin
         if I > 0  then
-          vColumns += ',';
-        vColumns += vJSON.FieldDefs[I].Name;
+          ColNms += ',';
+        ColNms += JDS.FieldDefs[I].Name;
       end;
-      Select(vColumns);
+      Select(ColNms);
     end;
 
-    vJSON.Open;
+    JDS.Open;
 
     // open table empty
     Where('1=2').Open;
 
-    while not vJSON.EOF do
+    while not JDS.EOF do
     begin
       FDataSet.Append;
       for I := 0 to FDataSet.Fields.Count -1 do
-        FDataSet.Fields[I].Assign(vJSON.Fields[I]);
+        FDataSet.Fields[I].Assign(JDS.Fields[I]);
       FDataSet.Post;
-      vJSON.Next;
+      JDS.Next;
     end;
   finally
-    vJSON.Free;
+    JDS.Free;
   end;
 end;
 
 procedure TghDBExtJSONTable.SaveToStream(AStream: TStream; AFormat: TDataPacketFormat);
 var
   I: Integer;
-  vJSON: TExtjsJSONObjectDataset;
+  JDS: TExtjsJSONObjectDataset;
 begin
   CheckTable;
-  vJSON := TExtjsJSONObjectDataset.Create(nil);
+  JDS := TExtjsJSONObjectDataset.Create(nil);
   try
-    vJSON.FieldDefs.Assign(FDataSet.FieldDefs);
-    vJSON.Open;
+    JDS.FieldDefs.Assign(FDataSet.FieldDefs);
+    JDS.Open;
     FDataSet.First;
     while not FDataSet.EOF do
     begin
-      vJSON.Append;
+      JDS.Append;
       for I := 0 to FDataSet.Fields.Count -1 do
-        vJSON.Fields[I].Assign(FDataSet.Fields[I]);
-      vJSON.Post;
+        JDS.Fields[I].Assign(FDataSet.Fields[I]);
+      JDS.Post;
       FDataSet.Next;
     end;
-    vJSON.First;
-    vJSON.SaveToStream(AStream, FPackMetadata);
+    JDS.First;
+    JDS.SaveToStream(AStream, FPackMetadata);
   finally
-    vJSON.Free;
+    JDS.Free;
   end;
   FDataSet.First;
 end;
