@@ -10,7 +10,7 @@
     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
 }
 
-unit gh_global;
+unit gh_Global;
 
 {$i gh_def.inc}
 

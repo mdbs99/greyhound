@@ -10,7 +10,7 @@
     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
 }
 
-unit gh_db;
+unit gh_DB;
 
 {$i gh_def.inc}
 
@@ -18,9 +18,9 @@ interface
 
 uses
   // fpc
-  Classes, SysUtils, DB, variants, contnrs, bufdataset, sqldb,
+  Classes, SysUtils, DB, variants, contnrs, BufDataset, sqldb,
   // gh
-  gh_global;
+  gh_Global;
 
 type
   EghDBError = class(EghError);
@@ -202,17 +202,17 @@ end;
 
 function TghDBParams.ParamByName(const AName: string): TParam;
 var
-  P: TParam;
+  LParam: TParam;
 begin
-  P := FindParam(AName);
-  if not Assigned(P) then
+  LParam := FindParam(AName);
+  if not Assigned(LParam) then
   begin
     if FLock then
       raise EghDBError.Create(Self, 'Params were locked.');
-    P := TParam.Create(Self);
-    P.Name := AName;
+    LParam := TParam.Create(Self);
+    LParam.Name := AName;
   end;
-  Result := P as TParam;
+  Result := LParam as TParam;
 end;
 
 { TghDBStatement }
@@ -340,48 +340,57 @@ end;
 
 function TghDBTable.GetLinks(const ATableName: string): TghDBTable;
 var
-  MTb, LnkTb: TghDBTable;
+  LModel, LLink: TghDBTable;
 
-  procedure FillParams;
+  procedure AutoFillParams;
   var
     I: Integer;
-    Fld: TField;
-    C: string;
+    LField: TField;
+    LConditions: string;
   begin
-    C := UpperCase(LnkTb.FConditions);
+    LConditions := UpperCase(LLink.FConditions);
     for I := 0 to FDataSet.FieldCount-1 do
     begin
-      Fld := FDataSet.Fields[I];
-      if Pos(':' + UpperCase(Fld.FieldName), C) > 0 then
+      LField := FDataSet.Fields[I];
+      if Pos(':' + UpperCase(LField.FieldName), LConditions) > 0 then
       begin
-        LnkTb.Params[Fld.FieldName].Value := Fld.Value;
+        LLink.Params[LField.FieldName].Value := LField.Value;
       end;
     end;
   end;
 
 begin
   CheckTable;
-  MTb := FLinkModelList.Find(ATableName) as TghDBTable;
-  if not Assigned(MTb) then
-    raise EghDBError.Create(Self, 'Model not found.');
+  LLink := nil;
+  try
+    LModel := FLinkModelList.Find(ATableName) as TghDBTable;
+    if not Assigned(LModel) then
+      raise EghDBError.Create(Self, 'Model not found.');
 
-  LnkTb := FLinkList.Find(ATableName) as TghDBTable;
-  if not Assigned(LnkTb) then
-  begin
-    LnkTb := TghDBTable.Create(FConnector, ATableName, Self);
-    LnkTb.Reuse := False;
-    FLinkList.Add(ATableName, LnkTb);
+    LLink := TghDBTable.Create(FConnector, ATableName, Self);
+    LLink.Reuse := False;
+    FLinkList.Add(ATableName, LLink);
+
+    // TODO: Assign method
+    LLink.FSelectColumns := LModel.FSelectColumns;
+    LLink.FConditions := LModel.FConditions;
+    LLink.FOrderBy := LModel.FOrderBy;
+    LLink.FTableName := LModel.FTableName;
+
+    AutoFillParams;
+    if Assigned(LModel.FParams) then
+      LLink.FParams.AssignValues(LModel.FParams);
+
+    LLink.Open;
+
+    Result := LLink;
+  except
+    on e: Exception do
+    begin
+      LLink.Free;
+      raise EghDBError.Create(Self, e.Message);
+    end;
   end;
-  LnkTb.Close;
-  // TODO: Assign method
-  LnkTb.FSelectColumns := MTb.FSelectColumns;
-  LnkTb.FConditions := MTb.FConditions;
-  LnkTb.FOrderBy := MTb.FOrderBy;
-  LnkTb.FTableName := MTb.FTableName;
-  FillParams;
-  LnkTb.Open;
-
-  Result := LnkTb;
 end;
 
 function TghDBTable.GetColumnCount: Longint;
@@ -397,15 +406,15 @@ end;
 
 procedure TghDBTable.CreateResultSet;
 var
-  TmpDS: TDataSet;
-  SelCols: string;
+  LDataSet: TDataSet;
+  LSelectColumns: string;
 begin
-  SelCols := Iif(FSelectColumns = '', '*', FSelectColumns);
-  TmpDS := nil;
+  LSelectColumns := Iif(FSelectColumns = '', '*', FSelectColumns);
+  LDataSet := nil;
   try
     FConnector.SQL.Clear;
 
-    FConnector.SQL.Script.Add('select ' + SelCols + ' from ' + FTableName);
+    FConnector.SQL.Script.Add('select ' + LSelectColumns + ' from ' + FTableName);
     FConnector.SQL.Script.Add('where 1=1');
 
     if FConditions <> '' then
@@ -416,28 +425,28 @@ begin
     if FOrderBy <> '' then
       FConnector.SQL.Script.Add('order by ' + FOrderBy);
 
-    FConnector.SQL.Open(nil, TmpDS);
+    FConnector.SQL.Open(nil, LDataSet);
   except
     on e: Exception do
     begin
-      TmpDS.Free;
+      LDataSet.Free;
       raise;
     end;
   end;
 
   FreeAndNil(FDataSet);
 
-  if TmpDS is TSQLQuery then
+  if LDataSet is TSQLQuery then
   begin
-    FDataSet := TmpDS as TSQLQuery;
+    FDataSet := LDataSet as TSQLQuery;
     Exit;
   end;
 
   try
     // from [*dataset] to [tsqlquery]
-    FConnector.DataSetToSQLQuery(TmpDS, FDataSet);
+    FConnector.DataSetToSQLQuery(LDataSet, FDataSet);
   finally
-    TmpDS.Free;
+    LDataSet.Free;
   end;
 end;
 
@@ -618,25 +627,25 @@ end;
 
 procedure TghDBTable.LoadFromFile(const AFileName: string; AFormat: TDataPacketFormat);
 var
-  Buf: TFileStream;
+  LBuf: TFileStream;
 begin
-  Buf := TFileStream.Create(AFileName, fmOpenRead or fmShareDenyWrite);
+  LBuf := TFileStream.Create(AFileName, fmOpenRead or fmShareDenyWrite);
   try
-    LoadFromStream(Buf, AFormat);
+    LoadFromStream(LBuf, AFormat);
   finally
-    Buf.Free;
+    LBuf.Free;
   end;
 end;
 
 procedure TghDBTable.SaveToFile(const AFileName: string; AFormat: TDataPacketFormat);
 var
-  Buf: TFileStream;
+  LBuf: TFileStream;
 begin
-  Buf := TFileStream.Create(AFileName, fmCreate);
+  LBuf := TFileStream.Create(AFileName, fmCreate);
   try
-    SaveToStream(Buf, AFormat);
+    SaveToStream(LBuf, AFormat);
   finally
-    Buf.Free;
+    LBuf.Free;
   end;
 end;
 

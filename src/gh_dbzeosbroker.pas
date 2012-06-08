@@ -10,7 +10,7 @@
     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
 }
 
-unit gh_dbzeosbroker;
+unit gh_DBZeosBroker;
 
 {$i gh_def.inc}
 
@@ -24,7 +24,7 @@ uses
   // zeos
   ZConnection, ZDbcIntfs, ZDataset, ZStoredProcedure,
   // gh
-  gh_db;
+  gh_DB;
 
 type
   TghDBZeosBroker = class(TghDBBroker)
@@ -201,11 +201,11 @@ end;
 
 procedure TghDBUTF8FieldHelper.SetEvents(DS: TDataSet);
 var
-  i: integer;
+  I: integer;
 begin
-  for i := 0 to DS.FieldCount - 1 do
+  for I := 0 to DS.FieldCount - 1 do
   begin
-    with DS.Fields[i] do
+    with DS.Fields[I] do
     begin
       OnGetText := @DoGetText;
       OnSetText := @DoSetText;

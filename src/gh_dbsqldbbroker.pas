@@ -10,7 +10,7 @@
     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
 }
 
-unit gh_dbsqldbbroker;
+unit gh_DBSQLdbBroker;
 
 {$i gh_def.inc}
 
@@ -22,7 +22,7 @@ uses
   {$IFDEF MSSQLBroker} mssqlconn, {$ENDIF}
   {$IFDEF SQLite3Broker}sqlite3conn, {$ENDIF}
   // gh
-  gh_db;
+  gh_DB;
 
 type
   TghDBSQLdbBroker = class(TghDBBroker)
@@ -155,21 +155,21 @@ end;
 
 procedure TghDBSQLdbBroker.Open(AOwner: TComponent; out ADataSet: TDataSet);
 var
-  Q: TSQLQuery;
+  LQuery: TSQLQuery;
 begin
   ADataSet := nil;
-  Q := TSQLQuery.Create(AOwner);
+  LQuery := TSQLQuery.Create(AOwner);
   try
-    Q.DataBase := FConn;
-    Q.Transaction := FTran;
-    Q.PacketRecords := -1;
-    Q.SQL.Text := FScript.Text;
+    LQuery.DataBase := FConn;
+    LQuery.Transaction := FTran;
+    LQuery.PacketRecords := -1;
+    LQuery.SQL.Text := FScript.Text;
     if Assigned(FParams) then
-      Q.Params.Assign(FParams);
-    Q.Open;
-    ADataSet := Q;
+      LQuery.Params.Assign(FParams);
+    LQuery.Open;
+    ADataSet := LQuery;
   except
-    Q.Free;
+    LQuery.Free;
   end;
 end;
 
