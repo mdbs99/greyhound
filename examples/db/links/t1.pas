@@ -6,7 +6,7 @@ uses
   heaptrc,
   Classes, SysUtils,
   // gh
-  gh_db, gh_dbsqldbbroker;
+  gh_DB, gh_DBSQLdbBroker;
 
 var
   co: TghDBConnector;
@@ -24,25 +24,27 @@ begin
     co.Connect;
     writeln('Connected.');
 
+	// ATENTION: the SCRIPT.SQL file contains the table structures
+    // the user table has access_id column to join access table
     u := co.Tables['user'].Open;
 
-    // add a template
+    // adding a template
+    // the parameters obtains the values from owner table, ie, the user table
     u.LinkModels['access'].Where('id = :access_id');
 
     writeln;
     writeln('All records:');
     u.First;
-    if u.RecordCount > 0 then
+    while not u.EOF do
     begin
-      while not u.EOF do
-      begin
-        write(u['id'].AsString + '-' + u['login'].AsString);
-        write(' -> ');
-        writeln(u.Links['access']['name'].AsString);
-        u.Next;
-      end;
-    end;
+      // print user
+      write(u['id'].AsString, ' ', u['login'].AsString, ' -> ');
 
+      // print access using link table
+      // it is auto open, just use it!
+      writeln(u.Links['access'].Columns['name'].AsString);
+      u.Next;
+    end;
   finally
     co.Free;
   end;
