@@ -79,14 +79,14 @@ type
     FParams: TghDBParams;
     FReuse: Boolean;
     FTableName: string;
-    FLinkModelList: TFPHashObjectList;
+    FModelList: TFPHashObjectList;
     FLinkList: TFPHashObjectList;
     FOwnerTable: TghDBTable;
     function GetRecordCount: Longint;
     function GetActive: Boolean;
     function GetColumn(const AName: string): TghDBColumn;
     function GetEOF: Boolean;
-    function GetLinkModels(const ATableName: string): TghDBTable;
+    function GetModels(const ATableName: string): TghDBTable;
     function GetLinks(const ATableName: string): TghDBTable;
     function GetColumnCount: Longint;
   protected
@@ -127,7 +127,7 @@ type
     property ColumnCount: Longint read GetColumnCount;
     property Connector: TghDBConnector read FConnector write FConnector;
     property EOF: Boolean read GetEOF;
-    property LinkModels[const ATableName: string]: TghDBTable read GetLinkModels;
+    property Models[const ATableName: string]: TghDBTable read GetModels;
     property Links[const ATableName: string]: TghDBTable read GetLinks;
     property OwnerTable: TghDBTable read FOwnerTable write FOwnerTable;
     property Params: TghDBParams read FParams;
@@ -326,15 +326,15 @@ begin
   Result := FDataSet.EOF;
 end;
 
-function TghDBTable.GetLinkModels(const ATableName: string): TghDBTable;
+function TghDBTable.GetModels(const ATableName: string): TghDBTable;
 begin
   CheckTable;
-  Result := FLinkModelList.Find(ATableName) as TghDBTable;
+  Result := FModelList.Find(ATableName) as TghDBTable;
   if Result = nil then
   begin
     Result := TghDBTable.Create(FConnector, ATableName, Self);
     Result.Reuse := False;
-    FLinkModelList.Add(ATableName, Result);
+    FModelList.Add(ATableName, Result);
   end;
 end;
 
@@ -363,7 +363,7 @@ begin
   CheckTable;
   LLink := nil;
   try
-    LModel := FLinkModelList.Find(ATableName) as TghDBTable;
+    LModel := FModelList.Find(ATableName) as TghDBTable;
     if not Assigned(LModel) then
       raise EghDBError.Create(Self, 'Model not found.');
 
@@ -459,7 +459,7 @@ begin
   FOwnerTable := AOwnerTable;
   FDataSet := nil;
   FParams := TghDBParams.Create;
-  FLinkModelList := TFPHashObjectList.Create(True);
+  FModelList := TFPHashObjectList.Create(True);
   FLinkList := TFPHashObjectList.Create(True);
 end;
 
@@ -470,7 +470,7 @@ end;
 
 destructor TghDBTable.Destroy;
 begin
-  FLinkModelList.Free;
+  FModelList.Free;
   FLinkList.Free;
   FParams.Free;
   FDataSet.Free;

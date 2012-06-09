@@ -24,13 +24,15 @@ begin
     co.Connect;
     writeln('Connected.');
 
-	// ATENTION: the SCRIPT.SQL file contains the table structures
+    // ATENTION:
+    // the SCRIPT.SQL file contains the table structures for your information.
+
     // the user table has access_id column to join access table
     u := co.Tables['user'].Open;
 
     // adding a template
     // the parameters obtains the values from owner table, ie, the user table
-    u.LinkModels['access'].Where('id = :access_id');
+    u.Models['access'].Where('id = :access_id');
 
     writeln;
     writeln('All records:');
