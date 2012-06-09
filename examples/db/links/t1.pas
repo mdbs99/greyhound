@@ -30,7 +30,7 @@ begin
     // the user table has access_id column to join access table
     u := co.Tables['user'].Open;
 
-    // adding a template
+    // adding a template (model)
     // the parameters obtains the values from owner table, ie, the user table
     u.Models['access'].Where('id = :access_id');
 
@@ -42,7 +42,7 @@ begin
       // print user
       write(u['id'].AsString, ' ', u['login'].AsString, ' -> ');
 
-      // print access using link table
+      // print access name using link table
       // it is auto open, just use it!
       writeln(u.Links['access'].Columns['name'].AsString);
       u.Next;
