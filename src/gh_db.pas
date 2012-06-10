@@ -71,6 +71,8 @@ type
   end;
 
   TghDBTable = class(TghDBObject)
+  strict private class var
+    FRelationshipList: TFPHashObjectList;
   strict private
     FConnector: TghDBConnector;
     FSelectColumns: string;
@@ -79,14 +81,13 @@ type
     FParams: TghDBParams;
     FReuse: Boolean;
     FTableName: string;
-    FModelList: TFPHashObjectList;
     FLinkList: TFPHashObjectList;
     FOwnerTable: TghDBTable;
     function GetRecordCount: Longint;
     function GetActive: Boolean;
     function GetColumn(const AName: string): TghDBColumn;
     function GetEOF: Boolean;
-    function GetModels(const ATableName: string): TghDBTable;
+    class function GetRelationships(const ATableName: string): TghDBTable; static;
     function GetLinks(const ATableName: string): TghDBTable;
     function GetColumnCount: Longint;
   protected
@@ -122,12 +123,12 @@ type
     procedure SaveToFile(const AFileName: string; AFormat: TDataPacketFormat = dfBinary); virtual;
     procedure LoadFromStream(AStream: TStream; AFormat: TDataPacketFormat = dfAny); virtual;
     procedure SaveToStream(AStream: TStream; AFormat: TDataPacketFormat = dfBinary); virtual;
+    class property Relationships[const ATableName: string]: TghDBTable read GetRelationships;
     property Active: Boolean read GetActive;
     property Columns[const AName: string]: TghDBColumn read GetColumn; default;
     property ColumnCount: Longint read GetColumnCount;
     property Connector: TghDBConnector read FConnector write FConnector;
     property EOF: Boolean read GetEOF;
-    property Models[const ATableName: string]: TghDBTable read GetModels;
     property Links[const ATableName: string]: TghDBTable read GetLinks;
     property OwnerTable: TghDBTable read FOwnerTable write FOwnerTable;
     property Params: TghDBParams read FParams;
@@ -326,15 +327,14 @@ begin
   Result := FDataSet.EOF;
 end;
 
-function TghDBTable.GetModels(const ATableName: string): TghDBTable;
+class function TghDBTable.GetRelationships(const ATableName: string): TghDBTable;
 begin
-  CheckTable;
-  Result := FModelList.Find(ATableName) as TghDBTable;
+  Result := FRelationshipList.Find(ATableName) as TghDBTable;
   if Result = nil then
   begin
-    Result := TghDBTable.Create(FConnector, ATableName, Self);
+    Result := TghDBTable.Create(nil, ATableName);
     Result.Reuse := False;
-    FModelList.Add(ATableName, Result);
+    FRelationshipList.Add(ATableName, Result);
   end;
 end;
 
@@ -363,7 +363,7 @@ begin
   CheckTable;
   LLink := nil;
   try
-    LModel := FModelList.Find(ATableName) as TghDBTable;
+    LModel := FRelationshipList.Find(ATableName) as TghDBTable;
     if not Assigned(LModel) then
       raise EghDBError.Create(Self, 'Model not found.');
 
@@ -459,7 +459,6 @@ begin
   FOwnerTable := AOwnerTable;
   FDataSet := nil;
   FParams := TghDBParams.Create;
-  FModelList := TFPHashObjectList.Create(True);
   FLinkList := TFPHashObjectList.Create(True);
 end;
 
@@ -470,7 +469,6 @@ end;
 
 destructor TghDBTable.Destroy;
 begin
-  FModelList.Free;
   FLinkList.Free;
   FParams.Free;
   FDataSet.Free;
@@ -857,5 +855,11 @@ begin
     raise;
   end;
 end;
+
+initialization
+  TghDBTable.FRelationshipList := TFPHashObjectList.Create(True);
+
+finalization
+  TghDBTable.FRelationshipList.Free;
 
 end.

@@ -10,11 +10,14 @@ uses
 
 var
   co: TghDBConnector;
-  u: TghDBTable;
+  u, u2: TghDBTable;
 
 begin
   co := TghDBConnector.Create;
   try
+    // ATENTION:
+    // The script.sql file contains the table structures for your information.
+
     // set configurations
     // using SQLite
     co.SetBrokerClass(TghDBSQLite3Broker);
@@ -24,15 +27,14 @@ begin
     co.Connect;
     writeln('Connected.');
 
-    // ATENTION:
-    // the SCRIPT.SQL file contains the table structures for your information.
+    // Adding a relationship from User to Access:
+    // All relationships belongs to a class, not an instance so,
+    // you do this only once for all project.
+    // Now all instances of User table have a link to access the Access table.
+    co.Tables['user'].Relationships['access'].Where('id = :access_id');
 
-    // the user table has access_id column to join access table
+    // get the user table instance
     u := co.Tables['user'].Open;
-
-    // adding a template (model)
-    // the parameters obtains the values from owner table, ie, the user table
-    u.Models['access'].Where('id = :access_id');
 
     writeln;
     writeln('All records:');
@@ -42,11 +44,21 @@ begin
       // print user
       write(u['id'].AsString, ' ', u['login'].AsString, ' -> ');
 
-      // print access name using link table
-      // it is auto open, just use it!
+      // Print access name using Link table:
+      // The params values to open are obtained from owner table, ie, the user table.
+      // It's auto open, just use it!
       writeln(u.Links['access'].Columns['name'].AsString);
       u.Next;
     end;
+    u.Close;
+
+    // Using a second instance from User table
+    u2 := co.Tables['user'].Where('id = 2').Open;
+    write('Show access to User 2: ');
+    // See the Link to access the Access table already exists.
+    writeln(u2.Links['access']['name'].AsString);
+    u2.Close;
+
   finally
     co.Free;
   end;
