@@ -72,7 +72,7 @@ type
 
   TghDBTable = class(TghDBObject)
   strict private class var
-    FRelationshipList: TFPHashObjectList;
+    FRelationList: TFPHashObjectList;
   strict private
     FConnector: TghDBConnector;
     FSelectColumns: string;
@@ -87,7 +87,7 @@ type
     function GetActive: Boolean;
     function GetColumn(const AName: string): TghDBColumn;
     function GetEOF: Boolean;
-    class function GetRelationships(const ATableName: string): TghDBTable; static;
+    class function GetRelations(const ATableName: string): TghDBTable; static;
     function GetLinks(const ATableName: string): TghDBTable;
     function GetColumnCount: Longint;
   protected
@@ -123,7 +123,7 @@ type
     procedure SaveToFile(const AFileName: string; AFormat: TDataPacketFormat = dfBinary); virtual;
     procedure LoadFromStream(AStream: TStream; AFormat: TDataPacketFormat = dfAny); virtual;
     procedure SaveToStream(AStream: TStream; AFormat: TDataPacketFormat = dfBinary); virtual;
-    class property Relationships[const ATableName: string]: TghDBTable read GetRelationships;
+    class property Relations[const ATableName: string]: TghDBTable read GetRelations;
     property Active: Boolean read GetActive;
     property Columns[const AName: string]: TghDBColumn read GetColumn; default;
     property ColumnCount: Longint read GetColumnCount;
@@ -327,14 +327,14 @@ begin
   Result := FDataSet.EOF;
 end;
 
-class function TghDBTable.GetRelationships(const ATableName: string): TghDBTable;
+class function TghDBTable.GetRelations(const ATableName: string): TghDBTable;
 begin
-  Result := FRelationshipList.Find(ATableName) as TghDBTable;
+  Result := FRelationList.Find(ATableName) as TghDBTable;
   if Result = nil then
   begin
     Result := TghDBTable.Create(nil, ATableName);
     Result.Reuse := False;
-    FRelationshipList.Add(ATableName, Result);
+    FRelationList.Add(ATableName, Result);
   end;
 end;
 
@@ -363,7 +363,7 @@ begin
   CheckTable;
   LLink := nil;
   try
-    LModel := FRelationshipList.Find(ATableName) as TghDBTable;
+    LModel := FRelationList.Find(ATableName) as TghDBTable;
     if not Assigned(LModel) then
       raise EghDBError.Create(Self, 'Model not found.');
 
@@ -857,9 +857,9 @@ begin
 end;
 
 initialization
-  TghDBTable.FRelationshipList := TFPHashObjectList.Create(True);
+  TghDBTable.FRelationList := TFPHashObjectList.Create(True);
 
 finalization
-  TghDBTable.FRelationshipList.Free;
+  TghDBTable.FRelationList.Free;
 
 end.

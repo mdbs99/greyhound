@@ -31,7 +31,7 @@ begin
     // All relationships belongs to a class, not an instance so,
     // you do this only once for all project.
     // Now all instances of User table have a link to access the Access table.
-    co.Tables['user'].Relationships['access'].Where('id = :access_id');
+    co.Tables['user'].Relations['access'].Where('id = :access_id');
 
     // get the user table instance
     u := co.Tables['user'].Open;
