@@ -1,6 +1,15 @@
 Release notes
 ==========================================================
 
+(2012-06-12)
+
+- Implemented t.Relations[] and t.Links[] properties.
+- Implemented TghDBTableList class
+- Changed all TFPHashObjectList table fields to TghDBTableList class;
+- Removed Contnrs unit dependency.
+- Removed Variants unit dependency.
+- All examples were updated.
+
 
 (2012-06-05)
 

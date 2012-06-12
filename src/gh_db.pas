@@ -18,7 +18,7 @@ interface
 
 uses
   // fpc
-  Classes, SysUtils, DB, variants, fgl, contnrs, BufDataset, sqldb,
+  Classes, SysUtils, DB, fgl, BufDataset, sqldb,
   // gh
   gh_Global;
 
