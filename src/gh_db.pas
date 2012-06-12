@@ -74,19 +74,20 @@ type
 
   _TghDBTableList = specialize TFPGObjectList<TghDBTable>;
 
-  TghDBTableEvent = procedure (ATable: TghDBTable) of object;
+  TghDBTableNotifyEvent = procedure (ATable: TghDBTable) of object;
+
   TghDBTableList = class(_TghDBTableList)
   private
-    FOnNewTable: TghDBTableEvent;
-    FOnFoundTable: TghDBTableEvent;
+    FOnNewTable: TghDBTableNotifyEvent;
+    FOnFoundTable: TghDBTableNotifyEvent;
     function GetTables(const ATableName: string): TghDBTable;
     procedure DoNewTable(ATable: TghDBTable);
     procedure DoFoundTable(ATable: TghDBTable);
   public
     function FindByName(const AName: string): TghDBTable;
     property Tables[const ATableName: string]: TghDBTable read GetTables; default;
-    property OnNewTable: TghDBTableEvent read FOnNewTable write FOnNewTable;
-    property OnFoundTable: TghDBTableEvent read FOnFoundTable write FOnFoundTable;
+    property OnNewTable: TghDBTableNotifyEvent read FOnNewTable write FOnNewTable;
+    property OnFoundTable: TghDBTableNotifyEvent read FOnFoundTable write FOnFoundTable;
   end;
 
   TghDBTable = class(TghDBObject)
