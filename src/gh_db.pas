@@ -18,7 +18,7 @@ interface
 
 uses
   // fpc
-  Classes, SysUtils, DB, variants, contnrs, BufDataset, sqldb,
+  Classes, SysUtils, DB, variants, fgl, contnrs, BufDataset, sqldb,
   // gh
   gh_Global;
 
@@ -26,9 +26,11 @@ type
   EghDBError = class(EghError);
   TghDBObject = class(TghObject);
   TghDBColumn = class(TField);
+  //TghDBColumns = class(TFields);
 
 { forward declarations }
   TghDBConnector = class;
+  TghDBTable = class;
 
   TghDBParams = class(TParams)
   strict private
@@ -70,29 +72,46 @@ type
     function Open: TDataSet;
   end;
 
+  _TghDBTableList = specialize TFPGObjectList<TghDBTable>;
+
+  TghDBTableEvent = procedure (ATable: TghDBTable) of object;
+  TghDBTableList = class(_TghDBTableList)
+  private
+    FOnNewTable: TghDBTableEvent;
+    FOnFoundTable: TghDBTableEvent;
+    function GetTables(const ATableName: string): TghDBTable;
+    procedure DoNewTable(ATable: TghDBTable);
+    procedure DoFoundTable(ATable: TghDBTable);
+  public
+    function FindByName(const AName: string): TghDBTable;
+    property Tables[const ATableName: string]: TghDBTable read GetTables; default;
+    property OnNewTable: TghDBTableEvent read FOnNewTable write FOnNewTable;
+    property OnFoundTable: TghDBTableEvent read FOnFoundTable write FOnFoundTable;
+  end;
+
   TghDBTable = class(TghDBObject)
   strict private
     FConnector: TghDBConnector;
     FConditions: string;
-    FLinkList: TFPHashObjectList;
+    FLinkList: TghDBTableList;
     FOrderBy: string;
     FOwnerTable: TghDBTable;
     FParams: TghDBParams;
     FReuse: Boolean;
     FSelectColumns: string;
     FTableName: string;
-    class var FRelationList: TFPHashObjectList;
+    class var FRelationList: TghDBTableList;
     function GetRecordCount: Longint;
     function GetActive: Boolean;
-    function GetColumn(const AName: string): TghDBColumn;
+    function GetColumns(const AName: string): TghDBColumn;
+    function GetColumnCount: Longint;
     function GetEOF: Boolean;
     function GetLinks(const ATableName: string): TghDBTable;
-    function GetColumnCount: Longint;
-    class function GetRelations(const ATableName: string): TghDBTable; static;
   protected
     FDataSet: TSQLQuery;
     procedure CheckTable;
     procedure CreateResultSet;
+    procedure CallLinkFoundTable(ATable: TghDBTable); virtual;
   public
     constructor Create(AConnector: TghDBConnector; const ATableName: string;
       AOwnerTable: TghDBTable); virtual; reintroduce;
@@ -123,19 +142,17 @@ type
     procedure LoadFromStream(AStream: TStream; AFormat: TDataPacketFormat = dfAny); virtual;
     procedure SaveToStream(AStream: TStream; AFormat: TDataPacketFormat = dfBinary); virtual;
     property Active: Boolean read GetActive;
-    property Columns[const AName: string]: TghDBColumn read GetColumn; default;
+    property Columns[const AName: string]: TghDBColumn read GetColumns; default;
     property ColumnCount: Longint read GetColumnCount;
     property Connector: TghDBConnector read FConnector write FConnector;
     property EOF: Boolean read GetEOF;
-    property Links[const ATableName: string]: TghDBTable read GetLinks;
-    property LinkList: TFPHashObjectList read FLinkList;
+    property Links: TghDBTableList read FLinkList;
     property OwnerTable: TghDBTable read FOwnerTable write FOwnerTable;
     property Params: TghDBParams read FParams;
     property Reuse: Boolean read FReuse write FReuse;
     property RecordCount: Longint read GetRecordCount;
     property TableName: string read FTableName;
-    class property Relations[const ATableName: string]: TghDBTable read GetRelations;
-    class property RelationList: TFPHashObjectList read FRelationList;
+    class property Relations: TghDBTableList read FRelationList;
   end;
 
   TghDBBroker = class(TghDBStatement)
@@ -162,12 +179,11 @@ type
     FPassword: string;
     FUser: string;
     FSQL: TghDBSQL;
-    FTables: TFPHashObjectList;
+    FTables: TghDBTableList;
   protected
     FBroker: TghDBBroker;
     procedure CheckBroker;
     function GetTables(const ATableName: string): TghDBTable; virtual;
-    procedure AddTable(ATable: TghDBTable);
     function GetConnected: Boolean;
   public
     constructor Create; override;
@@ -303,18 +319,50 @@ begin
   Result := FDataSet;
 end;
 
-{ TghDBTable }
+{ TghDBTableList }
 
-class function TghDBTable.GetRelations(const ATableName: string): TghDBTable;
+function TghDBTableList.GetTables(const ATableName: string): TghDBTable;
 begin
-  Result := FRelationList.Find(ATableName) as TghDBTable;
+  Result := FindByName(ATableName);
   if Result = nil then
   begin
     Result := TghDBTable.Create(nil, ATableName);
-    Result.Reuse := False;
-    FRelationList.Add(ATableName, Result);
+    Add(Result);
+    DoNewTable(Result);
   end;
 end;
+
+procedure TghDBTableList.DoNewTable(ATable: TghDBTable);
+begin
+  if Assigned(FOnNewTable) then
+    FOnNewTable(ATable);
+end;
+
+procedure TghDBTableList.DoFoundTable(ATable: TghDBTable);
+begin
+  if Assigned(FOnFoundTable) then
+    FOnFoundTable(ATable);
+end;
+
+function TghDBTableList.FindByName(const AName: string): TghDBTable;
+var
+  I: Integer;
+  LTable: TghDBTable;
+begin
+  Result := nil;
+  for I := 0 to Count-1 do
+  begin
+    LTable := Items[I];
+    if LTable.TableName = AName then
+    begin
+      Result := LTable;
+      DoFoundTable(Result);
+      Exit;
+    end;
+  end;
+end;
+
+{ TghDBTable }
 
 function TghDBTable.GetRecordCount: Longint;
 begin
@@ -327,10 +375,15 @@ begin
   Result := Assigned(FDataSet) and FDataSet.Active;
 end;
 
-function TghDBTable.GetColumn(const AName: string): TghDBColumn;
+function TghDBTable.GetColumns(const AName: string): TghDBColumn;
 begin
   CheckTable;
   Result := TghDBColumn(FDataSet.FieldByName(AName));
+end;
+
+function TghDBTable.GetColumnCount: Longint;
+begin
+  Result := FDataSet.Fields.Count;
 end;
 
 function TghDBTable.GetEOF: Boolean;
@@ -364,13 +417,13 @@ begin
   CheckTable;
   LLink := nil;
   try
-    LModel := FRelationList.Find(ATableName) as TghDBTable;
+    LModel := FRelationList.FindByName(ATableName);
     if not Assigned(LModel) then
       raise EghDBError.Create(Self, 'Model not found.');
 
     LLink := TghDBTable.Create(FConnector, ATableName, Self);
     LLink.Reuse := False;
-    FLinkList.Add(ATableName, LLink);
+    FLinkList.Add(LLink);
 
     // TODO: Assign method
     LLink.FSelectColumns := LModel.FSelectColumns;
@@ -392,11 +445,6 @@ begin
       raise EghDBError.Create(Self, e.Message);
     end;
   end;
-end;
-
-function TghDBTable.GetColumnCount: Longint;
-begin
-  Result := FDataSet.Fields.Count;
 end;
 
 procedure TghDBTable.CheckTable;
@@ -451,6 +499,51 @@ begin
   end;
 end;
 
+procedure TghDBTable.CallLinkFoundTable(ATable: TghDBTable);
+var
+  LModel, LLink: TghDBTable;
+
+  procedure AutoFillParams;
+  var
+    I: Integer;
+    LField: TField;
+    LConditions: string;
+  begin
+    LConditions := UpperCase(LLink.FConditions);
+    for I := 0 to FDataSet.FieldCount-1 do
+    begin
+      LField := FDataSet.Fields[I];
+      if Pos(':' + UpperCase(LField.FieldName), LConditions) > 0 then
+      begin
+        LLink.Params[LField.FieldName].Value := LField.Value;
+      end;
+    end;
+  end;
+
+begin
+  CheckTable;
+  LModel := FRelationList.FindByName(ATable.TableName);
+  if not Assigned(LModel) then
+    raise EghDBError.Create(Self, 'Model not found.');
+
+  LLink := ATable;
+  LLink.Connector := FConnector;
+  LLink.OwnerTable := Self;
+  LLink.Reuse := False;
+
+  // TODO: Assign method
+  LLink.FSelectColumns := LModel.FSelectColumns;
+  LLink.FConditions := LModel.FConditions;
+  LLink.FOrderBy := LModel.FOrderBy;
+  LLink.FTableName := LModel.FTableName;
+
+  AutoFillParams;
+  if Assigned(LModel.FParams) then
+    LLink.FParams.AssignValues(LModel.FParams);
+
+  LLink.Open;
+end;
+
 constructor TghDBTable.Create(AConnector: TghDBConnector; const ATableName: string;
   AOwnerTable: TghDBTable);
 begin
@@ -460,7 +553,9 @@ begin
   FOwnerTable := AOwnerTable;
   FDataSet := nil;
   FParams := TghDBParams.Create;
-  FLinkList := TFPHashObjectList.Create(True);
+  FLinkList := TghDBTableList.Create(True);
+  FLinkList.OnNewTable := @CallLinkFoundTable;
+  FLinkList.OnFoundTable := @CallLinkFoundTable;
 end;
 
 constructor TghDBTable.Create(AConnector: TghDBConnector; const ATableName: string);
@@ -673,25 +768,16 @@ end;
 
 function TghDBConnector.GetTables(const ATableName: string): TghDBTable;
 begin
-  Result := FTables.Find(ATableName) as TghDBTable;
+  if ATableName = '' then
+    raise EghDBError.Create(Self, 'TableName not defined.');
+
+  Result := FTables.FindByName(ATableName);
   if (Result = nil) or (Result.Active and not Result.Reuse) then
   begin
     Result := TghDBTable.Create(Self, ATableName);
-    AddTable(Result);
-    {
-    // open table at the first time to get all columns
-    // but no resultset is returned
-    Result.Select('*').Where('1=2');  /// TODO: need it?
-    Result.Open;
-    }
+    Result.Reuse := False;
+    FTables.Add(Result);
   end;
-end;
-
-procedure TghDBConnector.AddTable(ATable: TghDBTable);
-begin
-  if ATable.TableName = '' then
-    raise EghDBError.Create(Self, 'TableName not defined.');
-  FTables.Add(ATable.TableName, ATable);
 end;
 
 function TghDBConnector.GetConnected: Boolean;
@@ -710,7 +796,7 @@ begin
   inherited;
   FBroker := nil;
   FSQL := TghDBSQL.Create(Self);
-  FTables := TFPHashObjectList.Create(True);
+  FTables := TghDBTableList.Create(True);
 end;
 
 destructor TghDBConnector.Destroy;
@@ -858,7 +944,7 @@ begin
 end;
 
 initialization
-  TghDBTable.FRelationList := TFPHashObjectList.Create(True);
+  TghDBTable.FRelationList := TghDBTableList.Create(True);
 
 finalization
   TghDBTable.FRelationList.Free;
