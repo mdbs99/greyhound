@@ -71,25 +71,24 @@ type
   end;
 
   TghDBTable = class(TghDBObject)
-  strict private class var
-    FRelationList: TFPHashObjectList;
   strict private
     FConnector: TghDBConnector;
-    FSelectColumns: string;
     FConditions: string;
+    FLinkList: TFPHashObjectList;
     FOrderBy: string;
+    FOwnerTable: TghDBTable;
     FParams: TghDBParams;
     FReuse: Boolean;
+    FSelectColumns: string;
     FTableName: string;
-    FLinkList: TFPHashObjectList;
-    FOwnerTable: TghDBTable;
+    class var FRelationList: TFPHashObjectList;
     function GetRecordCount: Longint;
     function GetActive: Boolean;
     function GetColumn(const AName: string): TghDBColumn;
     function GetEOF: Boolean;
-    class function GetRelations(const ATableName: string): TghDBTable; static;
     function GetLinks(const ATableName: string): TghDBTable;
     function GetColumnCount: Longint;
+    class function GetRelations(const ATableName: string): TghDBTable; static;
   protected
     FDataSet: TSQLQuery;
     procedure CheckTable;
@@ -109,7 +108,7 @@ type
     function Delete: TghDBTable;
     function Commit: TghDBTable;
     function Rollback: TghDBTable;
-    function Apply: TghDBTable; deprecated;
+    function Apply: TghDBTable; deprecated 'Use Commit instead';
     function Refresh: TghDBTable;
     function First: TghDBTable;
     function Prior: TghDBTable;
@@ -123,18 +122,20 @@ type
     procedure SaveToFile(const AFileName: string; AFormat: TDataPacketFormat = dfBinary); virtual;
     procedure LoadFromStream(AStream: TStream; AFormat: TDataPacketFormat = dfAny); virtual;
     procedure SaveToStream(AStream: TStream; AFormat: TDataPacketFormat = dfBinary); virtual;
-    class property Relations[const ATableName: string]: TghDBTable read GetRelations;
     property Active: Boolean read GetActive;
     property Columns[const AName: string]: TghDBColumn read GetColumn; default;
     property ColumnCount: Longint read GetColumnCount;
     property Connector: TghDBConnector read FConnector write FConnector;
     property EOF: Boolean read GetEOF;
     property Links[const ATableName: string]: TghDBTable read GetLinks;
+    property LinkList: TFPHashObjectList read FLinkList;
     property OwnerTable: TghDBTable read FOwnerTable write FOwnerTable;
     property Params: TghDBParams read FParams;
     property Reuse: Boolean read FReuse write FReuse;
     property RecordCount: Longint read GetRecordCount;
     property TableName: string read FTableName;
+    class property Relations[const ATableName: string]: TghDBTable read GetRelations;
+    class property RelationList: TFPHashObjectList read FRelationList;
   end;
 
   TghDBBroker = class(TghDBStatement)
@@ -304,6 +305,17 @@ end;
 
 { TghDBTable }
 
+class function TghDBTable.GetRelations(const ATableName: string): TghDBTable;
+begin
+  Result := FRelationList.Find(ATableName) as TghDBTable;
+  if Result = nil then
+  begin
+    Result := TghDBTable.Create(nil, ATableName);
+    Result.Reuse := False;
+    FRelationList.Add(ATableName, Result);
+  end;
+end;
+
 function TghDBTable.GetRecordCount: Longint;
 begin
   CheckTable;
@@ -325,17 +337,6 @@ function TghDBTable.GetEOF: Boolean;
 begin
   CheckTable;
   Result := FDataSet.EOF;
-end;
-
-class function TghDBTable.GetRelations(const ATableName: string): TghDBTable;
-begin
-  Result := FRelationList.Find(ATableName) as TghDBTable;
-  if Result = nil then
-  begin
-    Result := TghDBTable.Create(nil, ATableName);
-    Result.Reuse := False;
-    FRelationList.Add(ATableName, Result);
-  end;
 end;
 
 function TghDBTable.GetLinks(const ATableName: string): TghDBTable;

@@ -55,10 +55,10 @@ begin
     // Using a second instance from User table
     u2 := co.Tables['user'].Where('id = 2').Open;
     write('Show access to User 2: ');
-    // See the Link to access the Access table already exists.
+   
+   // See the Link to access the Access table already exists.
     writeln(u2.Links['access']['name'].AsString);
     u2.Close;
-
   finally
     co.Free;
   end;
