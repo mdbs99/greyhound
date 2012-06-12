@@ -90,7 +90,7 @@ type
   end;
 
   TghDBTable = class(TghDBObject)
-  strict private
+  private
     FConnector: TghDBConnector;
     FConditions: string;
     FLinkList: TghDBTableList;
