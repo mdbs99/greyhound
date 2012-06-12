@@ -57,7 +57,7 @@ begin
     co.SetBrokerClass(TghDBSQLite3Broker);
 
     // set params
-    co.Database := 'ghdb.sqlite';
+    co.Database := 'DB.sqlite';
 
     co.Connect;
     writeln('Connected.');

@@ -91,13 +91,12 @@ begin
     t.OrderBy('id').Open;
 
     ShowAllRecords;
-
-    writeln;
-    writeln('Done.');
-    writeln;
   finally
     co.Free;
   end;
 
+  writeln;
+  writeln('Done.');
+  writeln;
 end.
 
