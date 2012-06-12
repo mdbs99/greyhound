@@ -106,7 +106,6 @@ type
     function GetColumns(const AName: string): TghDBColumn;
     function GetColumnCount: Longint;
     function GetEOF: Boolean;
-    function GetLinks(const ATableName: string): TghDBTable;
   protected
     FDataSet: TSQLQuery;
     procedure CheckTable;
@@ -353,6 +352,7 @@ begin
   for I := 0 to Count-1 do
   begin
     LTable := Items[I];
+    // TODO: Check if Table.Reuse?
     if LTable.TableName = AName then
     begin
       Result := LTable;
@@ -390,61 +390,6 @@ function TghDBTable.GetEOF: Boolean;
 begin
   CheckTable;
   Result := FDataSet.EOF;
-end;
-
-function TghDBTable.GetLinks(const ATableName: string): TghDBTable;
-var
-  LModel, LLink: TghDBTable;
-
-  procedure AutoFillParams;
-  var
-    I: Integer;
-    LField: TField;
-    LConditions: string;
-  begin
-    LConditions := UpperCase(LLink.FConditions);
-    for I := 0 to FDataSet.FieldCount-1 do
-    begin
-      LField := FDataSet.Fields[I];
-      if Pos(':' + UpperCase(LField.FieldName), LConditions) > 0 then
-      begin
-        LLink.Params[LField.FieldName].Value := LField.Value;
-      end;
-    end;
-  end;
-
-begin
-  CheckTable;
-  LLink := nil;
-  try
-    LModel := FRelationList.FindByName(ATableName);
-    if not Assigned(LModel) then
-      raise EghDBError.Create(Self, 'Model not found.');
-
-    LLink := TghDBTable.Create(FConnector, ATableName, Self);
-    LLink.Reuse := False;
-    FLinkList.Add(LLink);
-
-    // TODO: Assign method
-    LLink.FSelectColumns := LModel.FSelectColumns;
-    LLink.FConditions := LModel.FConditions;
-    LLink.FOrderBy := LModel.FOrderBy;
-    LLink.FTableName := LModel.FTableName;
-
-    AutoFillParams;
-    if Assigned(LModel.FParams) then
-      LLink.FParams.AssignValues(LModel.FParams);
-
-    LLink.Open;
-
-    Result := LLink;
-  except
-    on e: Exception do
-    begin
-      LLink.Free;
-      raise EghDBError.Create(Self, e.Message);
-    end;
-  end;
 end;
 
 procedure TghDBTable.CheckTable;
