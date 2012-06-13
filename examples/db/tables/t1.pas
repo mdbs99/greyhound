@@ -69,7 +69,7 @@ begin
 
     // select (optional) and conditionals (optional)
     t.Close;
-    t.Select('id,name').WhereFmt('id = %d', [1]).Open;
+    t.Select('id,name').Where('id = %d', [1]).Open;
     writeln('User found: ' + t.Columns['name'].AsString);
 
     // editing...

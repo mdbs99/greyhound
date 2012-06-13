@@ -3,6 +3,7 @@ Release notes
 
 (2012-06-12)
 
+- Changed t.WhereFmt('', []) to t.Where('', []); overload.
 - Implemented t.Relations[] and t.Links[] properties.
 - Implemented TghDBTableList class
 - Changed all TFPHashObjectList table fields to TghDBTableList class;

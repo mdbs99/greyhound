@@ -134,8 +134,8 @@ type
     function Next: TghDBTable;
     function Last: TghDBTable;
     function Select(const AColumnNames: string): TghDBTable;
-    function Where(const AConditions: string): TghDBTable;
-    function WhereFmt(const AConditions: string; AArgs: array of const): TghDBTable;
+    function Where(const AConditions: string): TghDBTable; overload;
+    function Where(const AConditions: string; AArgs: array of const): TghDBTable; overload;
     function OrderBy(const AColumnNames: string): TghDBTable;
     procedure LoadFromFile(const AFileName: string; AFormat: TDataPacketFormat = dfAny); virtual;
     procedure SaveToFile(const AFileName: string; AFormat: TDataPacketFormat = dfBinary); virtual;
@@ -653,10 +653,9 @@ begin
   Result := Self;
 end;
 
-function TghDBTable.WhereFmt(const AConditions: string; AArgs: array of const): TghDBTable;
+function TghDBTable.Where(const AConditions: string; AArgs: array of const): TghDBTable;
 begin
-  FConditions := Format(AConditions, AArgs);
-  Result := Self;
+  Result := Self.Where(Format(AConditions, AArgs));
 end;
 
 function TghDBTable.OrderBy(const AColumnNames: string): TghDBTable;

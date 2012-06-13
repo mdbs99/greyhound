@@ -105,7 +105,7 @@ begin
     t := co.Tables[TAB_TMP];
 
     // select (optional) and conditionals (optional)
-    t.Select('id,name').WhereFmt('id = %d', [2]).Open;
+    t.Select('id,name').Where('id = %d', [2]).Open;
     writeln('From table: ' + t.Columns['name'].AsString);
 
     // editing...
