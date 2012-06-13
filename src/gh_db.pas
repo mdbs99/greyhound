@@ -199,7 +199,7 @@ type
     procedure RollbackRetaining;
     procedure DataSetToSQLQuery(ASource: TDataSet;
       out ADest: TSQLQuery; AOwner: TComponent = nil);
-    property DBBroker: TghDBBroker read FBroker;
+    property Broker: TghDBBroker read FBroker;
     property Database: string read FDatabase write FDatabase;
     property Connected: Boolean read GetConnected;
     property Host: string read FHost write FHost;
@@ -280,9 +280,9 @@ begin
   with FConnector do
   try
     StartTransaction;
-    DBBroker.Script.Assign(Self.Script);
-    DBBroker.Params.Assign(Self.Params);
-    Result := DBBroker.Execute;
+    Broker.Script.Assign(Self.Script);
+    Broker.Params.Assign(Self.Params);
+    Result := Broker.Execute;
     CommitRetaining;
   except
     on e: Exception do
@@ -298,9 +298,9 @@ begin
   with FConnector do
   try
     StartTransaction;
-    DBBroker.Script.Assign(Self.Script);
-    DBBroker.Params.Assign(Self.Params);
-    DBBroker.Open(AOwner, ADataSet);
+    Broker.Script.Assign(Self.Script);
+    Broker.Params.Assign(Self.Params);
+    Broker.Open(AOwner, ADataSet);
     CommitRetaining;
   except
     on e: Exception do
@@ -708,7 +708,7 @@ end;
 procedure TghDBConnector.CheckBroker;
 begin
   if not Assigned(FBroker) then
-    raise EghDBError.Create('DBBroker not assigned.');
+    raise EghDBError.Create('Broker not assigned.');
 end;
 
 function TghDBConnector.GetTables(const ATableName: string): TghDBTable;
