@@ -84,6 +84,7 @@ type
     procedure DoNewTable(ATable: TghDBTable);
     procedure DoFoundTable(ATable: TghDBTable);
   public
+    destructor Destroy; override;
     function FindByName(const AName: string): TghDBTable;
     property Tables[const ATableName: string]: TghDBTable read GetTables; default;
     property OnNewTable: TghDBTableNotifyEvent read FOnNewTable write FOnNewTable;
@@ -199,6 +200,7 @@ type
     procedure RollbackRetaining;
     procedure DataSetToSQLQuery(ASource: TDataSet;
       out ADest: TSQLQuery; AOwner: TComponent = nil);
+    procedure Notify(ATable: TghDBTable; AOperation: TOperation);
     property Broker: TghDBBroker read FBroker;
     property Database: string read FDatabase write FDatabase;
     property Connected: Boolean read GetConnected;
@@ -342,6 +344,22 @@ procedure TghDBTableList.DoFoundTable(ATable: TghDBTable);
 begin
   if Assigned(FOnFoundTable) then
     FOnFoundTable(ATable);
+end;
+
+destructor TghDBTableList.Destroy;
+var
+  I: Integer;
+  LTable: TghDBTable;
+begin
+  for I := 0 to Count -1 do
+  begin
+    LTable := Items[I];
+    Delete(I);
+    // disables notification
+    LTable.Connector := nil;
+    LTable.Free;
+  end;
+  inherited Destroy;
 end;
 
 function TghDBTableList.FindByName(const AName: string): TghDBTable;
@@ -514,6 +532,8 @@ begin
   FLinkList.Free;
   FParams.Free;
   FDataSet.Free;
+  if Assigned(FConnector) then
+    FConnector.Notify(Self, opRemove);
   inherited Destroy;
 end;
 
@@ -741,7 +761,7 @@ begin
   inherited;
   FBroker := nil;
   FSQL := TghDBSQL.Create(Self);
-  FTables := TghDBTableList.Create(True);
+  FTables := TghDBTableList.Create(False);
 end;
 
 destructor TghDBConnector.Destroy;
@@ -886,6 +906,12 @@ begin
     FreeAndNil(ADest);
     raise;
   end;
+end;
+
+procedure TghDBConnector.Notify(ATable: TghDBTable; AOperation: TOperation);
+begin
+  if AOperation = opRemove then
+    FTables.Remove(ATable);
 end;
 
 initialization
