@@ -82,25 +82,25 @@ type
     constructor Create; override;
     constructor Create(const AColumName: string; AValue: Variant);
     destructor Destroy; override;
-    function Checked: Boolean; virtual; abstract;
+    function Verify: Boolean; virtual; abstract;
     property Table: TghDBTable read FTable write FTable;
   end;
 
   TghDBDefaultConstraint = class(TghDBConstraint)
   public
-    function Checked: Boolean; override;
+    function Verify: Boolean; override;
   end;
 
   TghDBUniqueConstraint = class(TghDBConstraint)
   public
     constructor Create(const AColumNames: array of string; AValues: array of const); reintroduce;
-    function Checked: Boolean; override;
+    function Verify: Boolean; override;
   end;
 
   TghDBCheckConstraint = class(TghDBConstraint)
   public
     constructor Create(const AColumName: string; AValues: array of const); reintroduce;
-    function Checked: Boolean; override;
+    function Verify: Boolean; override;
   end;
 
   TghDBConstraintList = class(specialize TFPGObjectList<TghDBConstraint>)
@@ -448,7 +448,7 @@ end;
 
 { TghDBDefaultConstraint }
 
-function TghDBDefaultConstraint.Checked: Boolean;
+function TghDBDefaultConstraint.Verify: Boolean;
 var
   i: Integer;
   lColum: TghDBColumn;
@@ -480,7 +480,7 @@ begin
   end;
 end;
 
-function TghDBUniqueConstraint.Checked: Boolean;
+function TghDBUniqueConstraint.Verify: Boolean;
 begin
   Result := False;
 end;
@@ -493,7 +493,7 @@ begin
 
 end;
 
-function TghDBCheckConstraint.Checked: Boolean;
+function TghDBCheckConstraint.Verify: Boolean;
 begin
   Result := False;
 end;
@@ -609,7 +609,7 @@ begin
     begin
       if lConstraint is TghDBDefaultConstraint then
       begin
-        Result := TghDBDefaultConstraint(lConstraint).Checked;
+        Result := TghDBDefaultConstraint(lConstraint).Verify;
       end;
     end;
   end;
