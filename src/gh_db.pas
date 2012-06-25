@@ -133,7 +133,7 @@ type
     FDataSet: TSQLQuery;
     procedure CheckTable;
     procedure CreateResultSet; virtual;
-    procedure VerifyConstraints; virtual;
+    function VerifyConstraints: Boolean; virtual;
     // callback
     procedure CallLinkFoundTable(ATable: TghDBTable); virtual;
   public
@@ -454,11 +454,11 @@ var
   lColum: TghDBColumn;
 begin
   Result := True;
-  for i := 0 to FTable.GetColumns.Count -1 do
+  for i := 0 to FParams.Count -1 do
   begin
     lColum := FTable.GetColumns.FindField(FParams.Items[i].Name);
     if Assigned(lColum) then
-      FTable.Columns[lColum.FieldName].Value := lColum.Value;
+      lColum.Value := FParams.Items[i].Value;
   end;
 end;
 
@@ -595,22 +595,23 @@ begin
   end;
 end;
 
-procedure TghDBTable.VerifyConstraints;
+function TghDBTable.VerifyConstraints: Boolean;
 var
   i: Integer;
   lConstraint: TghDBConstraint;
 begin
+  Result := True;
   for i := 0 to GetConstraints.Count -1 do
   begin
     lConstraint := GetConstraints[i];
+    lConstraint.Table := Self;
     if FDataSet.State = dsInsert then
     begin
       if lConstraint is TghDBDefaultConstraint then
       begin
-        TghDBDefaultConstraint(lConstraint).Checked;
+        Result := TghDBDefaultConstraint(lConstraint).Checked;
       end;
     end;
-
   end;
 end;
 

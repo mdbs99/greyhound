@@ -15,14 +15,18 @@ var
   co: TghDBConnector;
   t: TghDBTable;
 
-procedure InsertRecord(id: Integer; const login, passwd, name: string);
+procedure InsertRecord(id: Integer; const login, passwd: string; const name: string = '');
 begin
+  writeln;
+  write('Inserting a record...');
   t.Insert;
   t.Columns['id'].Value := id;
   t.Columns['login'].Value := login;
   t.Columns['passwd'].Value := passwd;
-  //t.Columns['name'].Value := name;
+  if name <> '' then
+    t.Columns['name'].Value := name;
   t.Post;
+  writeln('ok.')
 end;
 
 procedure ShowAllRecords;
@@ -34,12 +38,14 @@ begin
   begin
     while not t.EOF do
     begin
-      writeln(t.Columns['name'].AsString);
+      writeln('id: ', t['id'].AsInteger, '  ',  t['name'].AsString);
       t.Next;
     end;
   end
   else
     writeln('No records found.');
+
+  writeln;
 end;
 
 begin
@@ -63,20 +69,22 @@ begin
     t := co.Tables[TAB_TMP].Open;
 
     // Adding a default constraint from User table:
-    // All constraints belongs to the class, not the instance... like relationship does.
-    t.Constraints.Add(TghDBDefaultConstraint.Create('name', 'Bob Marlei'));
+    t.Constraints.Add(TghDBDefaultConstraint.Create('name', 'Nick Brown'));
 
-    InsertRecord(1, 'bob', '123', 'Bob White');
+    // Not passed the <name> so, the "default constraint" will be used.
+    InsertRecord(1, 'bob', '123');
     t.Commit;
 
     ShowAllRecords;
 
     // select (optional) and conditionals (optional)
+    writeln('Selecting a record:');
     t.Close;
     t.Select('id,name').Where('id = %d', [1]).Open;
     writeln('User found: ' + t.Columns['name'].AsString);
 
     // editing...
+    writeln('Editing...');
     t.Edit;
     t.Columns['name'].AsString := 'John Black';
     t.Post;
