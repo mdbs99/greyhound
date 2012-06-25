@@ -1,5 +1,5 @@
 {
-    Greyhound Project
+    Greyhound
     Copyright (c) 2012
 
     See the files COPYING.GH, included in this
