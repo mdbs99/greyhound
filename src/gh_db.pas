@@ -400,9 +400,13 @@ begin
   for i := 0 to Count -1 do
   begin
     // disables notification
-    Items[i].Connector := nil;
-    Delete(i);
+    with Items[i] do
+    begin
+      Connector := nil;
+      Free;
+    end;
   end;
+
   inherited Destroy;
 end;
 
@@ -720,6 +724,7 @@ begin
   CheckTable;
   Result := Self;
   FDataSet.Append;
+  VerifyConstraints;
 end;
 
 function TghDBTable.Edit: TghDBTable;
@@ -921,7 +926,7 @@ begin
   inherited;
   FBroker := nil;
   FSQL := TghDBSQL.Create(Self);
-  FTables := TghDBTableList.Create(nil, True);
+  FTables := TghDBTableList.Create(nil, False);
 end;
 
 destructor TghDBConnector.Destroy;

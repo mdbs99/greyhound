@@ -19,7 +19,7 @@ procedure InsertRecord(id: Integer; const login, passwd: string; const name: str
 begin
   writeln;
   write('Inserting a record...');
-  t.Insert;
+  t.Append;
   t.Columns['id'].Value := id;
   t.Columns['login'].Value := login;
   t.Columns['passwd'].Value := passwd;
@@ -73,6 +73,9 @@ begin
 
     // Not passed the <name> so, the "default constraint" will be used.
     InsertRecord(1, 'bob', '123');
+
+    InsertRecord(2, 'jeni', '555', 'Jeni');
+
     t.Commit;
 
     ShowAllRecords;
@@ -95,7 +98,7 @@ begin
     // refresh to return all data and all collumns
     t.Close.Open;
 
-    InsertRecord(2, 'dani', '453', 'Daniele B.');
+    InsertRecord(3, 'dani', '453', 'Daniele B.');
     t.Commit;
 
     // order by
@@ -103,6 +106,19 @@ begin
     t.OrderBy('id').Open;
 
     ShowAllRecords;
+
+    // kill table
+    t.Free;
+
+    writeln;
+    writeln('Get a new table.');
+    // get a new table...
+    t := co.Tables[TAB_TMP].Open;
+    // ...and the Constraints continue to work!
+    InsertRecord(4, 'jj', '788');
+
+    ShowAllRecords;
+
   finally
     co.Free;
   end;
