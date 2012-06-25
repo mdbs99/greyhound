@@ -21,7 +21,7 @@ begin
   t.Columns['id'].Value := id;
   t.Columns['login'].Value := login;
   t.Columns['passwd'].Value := passwd;
-  t.Columns['name'].Value := name;
+  //t.Columns['name'].Value := name;
   t.Post;
 end;
 
@@ -61,6 +61,10 @@ begin
     // get the table object
     // you do not need to use t.Free
     t := co.Tables[TAB_TMP].Open;
+
+    // Adding a default constraint from User table:
+    // All constraints belongs to the class, not the instance... like relationship does.
+    t.Constraints.Add(TghDBDefaultConstraint.Create('name', 'Bob Marlei'));
 
     InsertRecord(1, 'bob', '123', 'Bob White');
     t.Commit;

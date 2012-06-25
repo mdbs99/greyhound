@@ -155,21 +155,21 @@ end;
 
 procedure TghDBSQLdbBroker.Open(AOwner: TComponent; out ADataSet: TDataSet);
 var
-  LQuery: TSQLQuery;
+  lQuery: TSQLQuery;
 begin
   ADataSet := nil;
-  LQuery := TSQLQuery.Create(AOwner);
+  lQuery := TSQLQuery.Create(AOwner);
   try
-    LQuery.DataBase := FConn;
-    LQuery.Transaction := FTran;
-    LQuery.PacketRecords := -1;
-    LQuery.SQL.Text := FScript.Text;
+    lQuery.DataBase := FConn;
+    lQuery.Transaction := FTran;
+    lQuery.PacketRecords := -1;
+    lQuery.SQL.Text := FScript.Text;
     if Assigned(FParams) then
-      LQuery.Params.Assign(FParams);
-    LQuery.Open;
-    ADataSet := LQuery;
+      lQuery.Params.Assign(FParams);
+    lQuery.Open;
+    ADataSet := lQuery;
   except
-    LQuery.Free;
+    lQuery.Free;
   end;
 end;
 
