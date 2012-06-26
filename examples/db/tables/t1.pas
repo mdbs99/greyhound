@@ -18,7 +18,6 @@ var
 procedure InsertRecord(id: Integer; const login, passwd: string; const name: string = '');
 begin
   writeln;
-  write('Inserting a record...');
   t.Append;
   t.Columns['id'].Value := id;
   t.Columns['login'].Value := login;
@@ -26,7 +25,7 @@ begin
   if name <> '' then
     t.Columns['name'].Value := name;
   t.Post;
-  writeln('ok.')
+  writeln('Inserted: ' + t.Columns['name'].AsString);
 end;
 
 procedure ShowAllRecords;
@@ -68,12 +67,11 @@ begin
     // you do not need to use t.Free
     t := co.Tables[TAB_TMP].Open;
 
-    // Adding a default constraint from User table:
-    t.Constraints.Add(TghDBDefaultConstraint.Create('name', 'Nick Brown'));
+    // Adding a Default constraint
+    t.Constraints.Defaults.Add('name', 'Nick Bool');
 
     // Not passed the <name> so, the "default constraint" will be used.
     InsertRecord(1, 'bob', '123');
-
     InsertRecord(2, 'jeni', '555', 'Jeni');
 
     t.Commit;
@@ -83,7 +81,7 @@ begin
     // select (optional) and conditionals (optional)
     writeln('Selecting a record:');
     t.Close;
-    t.Select('id,name').Where('id = %d', [1]).Open;
+    t.Select('*').Where('id = %d', [1]).Open;
     writeln('User found: ' + t.Columns['name'].AsString);
 
     // editing...
@@ -95,15 +93,8 @@ begin
 
     ShowAllRecords;
 
-    // refresh to return all data and all collumns
-    t.Close.Open;
-
     InsertRecord(3, 'dani', '453', 'Daniele B.');
     t.Commit;
-
-    // order by
-    t.Close;
-    t.OrderBy('id').Open;
 
     ShowAllRecords;
 
@@ -117,6 +108,17 @@ begin
     // ...and the Constraints continue to work!
     InsertRecord(4, 'jj', '788');
 
+    // Adding a Unique constraint
+    t.Constraints.Uniques.Add(['name']);
+    try
+      // Trying to insert Jeni, but she already exist!!
+      InsertRecord(5, 'jeni', '555', 'Jeni');
+    except
+      on e: Exception do
+        writeln(e.Message);
+    end;
+
+    t.Commit;
     ShowAllRecords;
 
   finally

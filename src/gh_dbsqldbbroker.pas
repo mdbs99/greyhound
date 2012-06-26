@@ -163,6 +163,7 @@ begin
     lQuery.DataBase := FConn;
     lQuery.Transaction := FTran;
     lQuery.PacketRecords := -1;
+    lQuery.UsePrimaryKeyAsKey := True;
     lQuery.SQL.Text := FScript.Text;
     if Assigned(FParams) then
       lQuery.Params.Assign(FParams);
