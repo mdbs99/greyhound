@@ -68,7 +68,7 @@ begin
     t := co.Tables[TAB_TMP].Open;
 
     // Adding a Default constraint
-    t.Constraints.Defaults.Add('name', 'Nick Bool');
+    t.Constraints.Add('name', 'Nick Bool');
 
     // Not passed the <name> so, the "default constraint" will be used.
     InsertRecord(1, 'bob', '123');
@@ -109,7 +109,7 @@ begin
     InsertRecord(4, 'jj', '788');
 
     // Adding a Unique constraint
-    t.Constraints.Uniques.Add(['name']);
+    t.Constraints.Add(['name']);
     try
       // Trying to insert Jeni, but she already exist!!
       InsertRecord(5, 'jeni', '555', 'Jeni');

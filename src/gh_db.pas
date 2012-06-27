@@ -75,64 +75,43 @@ type
   end;
 
   TghDBConstraint = class(TghDBObject)
-  private
-    procedure SetTable(AValue: TghDBTable);
   protected
     FParams: TghDBParams;
     FOwnerTable: TghDBTable;
+    procedure SetTable(AValue: TghDBTable);
   public
     constructor Create; override;
     destructor Destroy; override;
-    function Verify: Boolean; virtual; abstract;
-    property Table: TghDBTable read FOwnerTable write SetTable;
+    function Validate: Boolean; virtual; abstract;
+    property OwnerTable: TghDBTable read FOwnerTable write SetTable;
   end;
 
   TghDBDefaultConstraint = class(TghDBConstraint)
   public
     constructor Create(const AColumName: string; AValue: Variant); reintroduce;
-    function Verify: Boolean; override;
+    function Validate: Boolean; override;
   end;
 
   TghDBUniqueConstraint = class(TghDBConstraint)
   public
     constructor Create(const AColumNames: array of string); reintroduce;
-    function Verify: Boolean; override;
+    function Validate: Boolean; override;
   end;
 
   TghDBCheckConstraint = class(TghDBConstraint)
   public
     constructor Create(const AColumName: string; AValues: array of const); reintroduce;
-    function Verify: Boolean; override;
+    function Validate: Boolean; override;
   end;
 
-  TghDBConstraintList = class(specialize TFPGObjectList<TghDBConstraint>);
-
-  TghDBCheckConstraintList = class(TghDBConstraintList)
+  TghDBConstraintList = class(specialize TFPGObjectList<TghDBConstraint>)
   public
-  end;
-
-  TghDBDefaultConstraintList = class(TghDBConstraintList)
-  public
+    // Add a Default constraint
     function Add(const AColumName: string; AValue: Variant): Integer; overload;
-  end;
-
-  TghDBUniqueConstraintList = class(TghDBConstraintList)
-  public
+    // Add a Unique constraint
     function Add(const AColumNames: array of string): Integer; overload;
-  end;
-
-  TghDBConstraints = class(TghDBObject)
-  private
-    FChecks: TghDBCheckConstraintList;
-    FDefaults: TghDBDefaultConstraintList;
-    FUniques: TghDBUniqueConstraintList;
-  public
-    constructor Create; override;
-    destructor Destroy; override;
-    procedure Add(AConstraint: TghDBConstraint); overload;
-    property Checks: TghDBCheckConstraintList read FChecks;
-    property Defaults: TghDBDefaultConstraintList read FDefaults;
-    property Uniques: TghDBUniqueConstraintList read FUniques;
+    // Add a Check constraint
+    function Add(const AColumName: string; AValues: array of const): Integer; overload;
   end;
 
   // TODO : Create BufTable using TBufDataSet
@@ -150,14 +129,14 @@ type
     FReuse: Boolean;
     FSelectColumns: string;
     FTableName: string;
-    class var FRelationList: TFPHashObjectList;
-    class var FConstraintList: TFPHashObjectList;
+    class var FRelations: TFPHashObjectList;
+    class var FConstraints: TFPHashObjectList;
     function GetRecordCount: Longint;
     function GetActive: Boolean;
     function GetColumn(const AName: string): TghDBColumn;
     function GetEOF: Boolean;
     function GetRelations: TghDBTableList;
-    function GetConstraints: TghDBConstraints;
+    function GetConstraints: TghDBConstraintList;
   protected
     FDataSet: TSQLQuery;
     procedure CheckTable;
@@ -208,7 +187,7 @@ type
     property RecordCount: Longint read GetRecordCount;
     property TableName: string read FTableName;
     property Relations: TghDBTableList read GetRelations;
-    property Constraints: TghDBConstraints read GetConstraints;
+    property Constraints: TghDBConstraintList read GetConstraints;
   end;
 
   TghDBTableNotifyEvent = procedure (ATable: TghDBTable) of object;
@@ -284,13 +263,6 @@ type
   end;
 
 implementation
-
-{ TghDBUniqueConstraintList }
-
-function TghDBUniqueConstraintList.Add(const AColumNames: array of string): Integer;
-begin
-  Result := inherited Add(TghDBUniqueConstraint.Create(AColumNames));
-end;
 
 { TghDBParams }
 
@@ -497,7 +469,7 @@ begin
   FParams[AColumName].Value := AValue;
 end;
 
-function TghDBDefaultConstraint.Verify: Boolean;
+function TghDBDefaultConstraint.Validate: Boolean;
 var
   i: Integer;
   lColum: TghDBColumn;
@@ -522,7 +494,7 @@ begin
     FParams[AColumNames[i]];
 end;
 
-function TghDBUniqueConstraint.Verify: Boolean;
+function TghDBUniqueConstraint.Validate: Boolean;
 var
   lTable: TghDBTable;
   lWhere: string;
@@ -583,45 +555,27 @@ begin
   //
 end;
 
-function TghDBCheckConstraint.Verify: Boolean;
+function TghDBCheckConstraint.Validate: Boolean;
 begin
   Result := False;
 end;
 
-{ TghDBDefaultConstraintList }
+{ TghDBConstraintList }
 
-function TghDBDefaultConstraintList.Add(const AColumName: string;
-  AValue: Variant): Integer;
+function TghDBConstraintList.Add(const AColumName: string; AValue: Variant): Integer;
 begin
-  Result := inherited Add(TghDBDefaultConstraint.Create(AColumName, AValue));
+  Result := Add(TghDBDefaultConstraint.Create(AColumName, AValue));
 end;
 
-{ TghDBConstraints }
-
-constructor TghDBConstraints.Create;
+function TghDBConstraintList.Add(const AColumNames: array of string): Integer;
 begin
-  inherited Create;
-  FChecks := TghDBCheckConstraintList.Create(True);
-  FDefaults := TghDBDefaultConstraintList.Create(True);
-  FUniques := TghDBUniqueConstraintList.Create(True);
+  Result := Add(TghDBUniqueConstraint.Create(AColumNames));
 end;
 
-destructor TghDBConstraints.Destroy;
+function TghDBConstraintList.Add(const AColumName: string;
+  AValues: array of const): Integer;
 begin
-  FChecks.Free;
-  FDefaults.Free;
-  FUniques.Free;
-  inherited Destroy;
-end;
-
-procedure TghDBConstraints.Add(AConstraint: TghDBConstraint);
-begin
-  if AConstraint is TghDBCheckConstraint then
-    FChecks.Add(AConstraint)
-  else if AConstraint is TghDBDefaultConstraint then
-    FDefaults.Add(AConstraint)
-  else if AConstraint is TghDBUniqueConstraint then
-    FUniques.Add(AConstraint)
+  Result := Add(TghDBCheckConstraint.Create(AColumName, AValues));
 end;
 
 { TghDBTable }
@@ -651,21 +605,21 @@ end;
 
 function TghDBTable.GetRelations: TghDBTableList;
 begin
-  Result := TghDBTableList(FRelationList.Find(FTableName));
+  Result := TghDBTableList(FRelations.Find(FTableName));
   if Result = nil then
   begin
     Result := TghDBTableList.Create(nil, True);
-    FRelationList.Add(FTableName, Result);
+    FRelations.Add(FTableName, Result);
   end;
 end;
 
-function TghDBTable.GetConstraints: TghDBConstraints;
+function TghDBTable.GetConstraints: TghDBConstraintList;
 begin
-  Result := TghDBConstraints(FConstraintList.Find(FTableName));
+  Result := TghDBConstraintList(FConstraints.Find(FTableName));
   if Result = nil then
   begin
-    Result := TghDBConstraints.Create;
-    FConstraintList.Add(FTableName, Result);
+    Result := TghDBConstraintList.Create;
+    FConstraints.Add(FTableName, Result);
   end;
 end;
 
@@ -727,12 +681,14 @@ var
   lConstraint: TghDBConstraint;
 begin
   Result := True;
-  for i := 0 to GetConstraints.Defaults.Count -1 do
+  for i := 0 to GetConstraints.Count -1 do
   begin
-    lConstraint := GetConstraints.Defaults[i];
-    lConstraint.Table := Self;
+    lConstraint := GetConstraints[i];
     if lConstraint is TghDBDefaultConstraint then
-      Result := TghDBDefaultConstraint(lConstraint).Verify;
+    begin
+      lConstraint.OwnerTable := Self;
+      Result := TghDBDefaultConstraint(lConstraint).Validate;
+    end;
   end;
 end;
 
@@ -742,13 +698,13 @@ var
   lConstraint: TghDBConstraint;
 begin
   Result := True;
-  for i := 0 to GetConstraints.Uniques.Count -1 do
+  for i := 0 to GetConstraints.Count -1 do
   begin
-    lConstraint := GetConstraints.Uniques[i];
-    lConstraint.Table := Self;
+    lConstraint := GetConstraints[i];
     if lConstraint is TghDBUniqueConstraint then
     begin
-      Result := TghDBUniqueConstraint(lConstraint).Verify;
+      lConstraint.OwnerTable := Self;
+      Result := TghDBUniqueConstraint(lConstraint).Validate;
       if not Result then
         Break;
     end;
@@ -1224,11 +1180,11 @@ begin
 end;
 
 initialization
-   TghDBTable.FRelationList := TFPHashObjectList.Create(True);
-   TghDBTable.FConstraintList := TFPHashObjectList.Create(True);
+   TghDBTable.FRelations := TFPHashObjectList.Create(True);
+   TghDBTable.FConstraints := TFPHashObjectList.Create(True);
 
 finalization
-   TghDBTable.FRelationList.Free;
-   TghDBTable.FConstraintList.Free;
+   TghDBTable.FRelations.Free;
+   TghDBTable.FConstraints.Free;
 
 end.

@@ -1,4 +1,4 @@
-Greyhound Project
+Greyhound
 Copyright (c) 2012 by Marcos Douglas B. dos Santos
 
 Make your code more simple, fast and clean.
