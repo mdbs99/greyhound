@@ -122,6 +122,7 @@ type
   private
     FConnector: TghDBConnector;
     FConditions: string;
+    FErrors: TStrings;
     FLinks: TghDBTableList;
     FOrderBy: string;
     FOwnerTable: TghDBTable;
@@ -129,6 +130,7 @@ type
     FReuse: Boolean;
     FSelectColumns: string;
     FTableName: string;
+    FEnforceConstraints: Boolean;
     class var FRelations: TFPHashObjectList;
     class var FConstraints: TFPHashObjectList;
     function GetRecordCount: Longint;
@@ -171,7 +173,8 @@ type
     function Where(const AConditions: string; AArgs: array of const): TghDBTable; overload;
     function OrderBy(const AColumnNames: string): TghDBTable;
     function GetColumns: TghDBColumns;
-    function IsValid: Boolean; virtual;
+    function HasErrors: Boolean;
+    function GetErrors: TStrings;
     procedure LoadFromFile(const AFileName: string; AFormat: TDataPacketFormat = dfAny); virtual;
     procedure SaveToFile(const AFileName: string; AFormat: TDataPacketFormat = dfBinary); virtual;
     procedure LoadFromStream(AStream: TStream; AFormat: TDataPacketFormat = dfAny); virtual;
@@ -188,6 +191,7 @@ type
     property TableName: string read FTableName;
     property Relations: TghDBTableList read GetRelations;
     property Constraints: TghDBConstraintList read GetConstraints;
+    property EnforceConstraints: Boolean read FEnforceConstraints;
   end;
 
   TghDBTableNotifyEvent = procedure (ATable: TghDBTable) of object;
@@ -680,6 +684,8 @@ var
   i: Integer;
   lConstraint: TghDBConstraint;
 begin
+  if not FEnforceConstraints then
+    Exit;
   Result := True;
   for i := 0 to GetConstraints.Count -1 do
   begin
@@ -697,6 +703,8 @@ var
   i: Integer;
   lConstraint: TghDBConstraint;
 begin
+  if not FEnforceConstraints then
+    Exit;
   Result := True;
   for i := 0 to GetConstraints.Count -1 do
   begin
@@ -763,8 +771,10 @@ begin
   inherited Create;
   FConnector := AConnector;
   FTableName := ATableName;
+  FEnforceConstraints := True;
   FOwnerTable := AOwnerTable;
   FDataSet := nil;
+  FErrors := TStringList.Create;
   FParams := TghDBParams.Create;
   FLinks := TghDBTableList.Create(Self, True);
   FLinks.OnNewTable := @CallLinkFoundTable;
@@ -778,6 +788,7 @@ end;
 
 destructor TghDBTable.Destroy;
 begin
+  FErrors.Free;
   FLinks.Free;
   FParams.Free;
   FDataSet.Free;
@@ -944,9 +955,14 @@ begin
   Result := FDataSet.Fields;
 end;
 
-function TghDBTable.IsValid: Boolean;
+function TghDBTable.HasErrors: Boolean;
 begin
-  Result := True;
+  Result := FErrors.Count > 0;
+end;
+
+function TghDBTable.GetErrors: TStrings;
+begin
+  Result := FErrors;
 end;
 
 procedure TghDBTable.LoadFromFile(const AFileName: string; AFormat: TDataPacketFormat);
