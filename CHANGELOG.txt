@@ -1,6 +1,12 @@
 Release notes
 ==========================================================
 
+(2012-07-01)
+
+- Support for Constraints: Default, Unique and Check constraints.
+- Implemented t.Constraints property.
+
+
 (2012-06-12)
 
 - Changed t.WhereFmt('', []) to t.Where('', []); overload.

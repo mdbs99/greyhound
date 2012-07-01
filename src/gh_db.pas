@@ -79,29 +79,37 @@ type
     FParams: TghDBParams;
     FOwnerTable: TghDBTable;
     procedure SetTable(AValue: TghDBTable);
+    function NamesToStr: string;
   public
     constructor Create; override;
     destructor Destroy; override;
-    function Validate: Boolean; virtual; abstract;
+    procedure Execute; virtual; abstract;
     property OwnerTable: TghDBTable read FOwnerTable write SetTable;
   end;
 
   TghDBDefaultConstraint = class(TghDBConstraint)
   public
     constructor Create(const AColumName: string; AValue: Variant); reintroduce;
-    function Validate: Boolean; override;
+    procedure Execute; override;
   end;
 
-  TghDBUniqueConstraint = class(TghDBConstraint)
+  TghDBValidationConstraint = class(TghDBConstraint)
+  public
+    function GetError: string; virtual; abstract;
+  end;
+
+  TghDBUniqueConstraint = class(TghDBValidationConstraint)
   public
     constructor Create(const AColumNames: array of string); reintroduce;
-    function Validate: Boolean; override;
+    procedure Execute; override;
+    function GetError: string; override;
   end;
 
-  TghDBCheckConstraint = class(TghDBConstraint)
+  TghDBCheckConstraint = class(TghDBValidationConstraint)
   public
     constructor Create(const AColumName: string; AValues: array of const); reintroduce;
-    function Validate: Boolean; override;
+    procedure Execute; override;
+    function GetError: string; override;
   end;
 
   TghDBConstraintList = class(specialize TFPGObjectList<TghDBConstraint>)
@@ -122,7 +130,7 @@ type
   private
     FConnector: TghDBConnector;
     FConditions: string;
-    FErrors: TStrings;
+    FPostErrors: TStrings;
     FLinks: TghDBTableList;
     FOrderBy: string;
     FOwnerTable: TghDBTable;
@@ -143,8 +151,8 @@ type
     FDataSet: TSQLQuery;
     procedure CheckTable;
     procedure CreateResultSet; virtual;
-    function VerifyDefaultConstraints: Boolean; virtual;
-    function VerifyUniqueConstraints: Boolean; virtual;
+    function CheckValues: Boolean; virtual;
+    procedure SetDefaultValues; virtual;
     // callback
     procedure CallLinkFoundTable(ATable: TghDBTable); virtual;
   public
@@ -157,12 +165,11 @@ type
     function Insert: TghDBTable;
     function Append: TghDBTable;
     function Edit: TghDBTable;
-    function Post: TghDBTable;
+    function Post: Boolean;
     function Cancel: TghDBTable;
     function Delete: TghDBTable;
     function Commit: TghDBTable;
     function Rollback: TghDBTable;
-    function Apply: TghDBTable;
     function Refresh: TghDBTable;
     function First: TghDBTable;
     function Prior: TghDBTable;
@@ -174,7 +181,7 @@ type
     function OrderBy(const AColumnNames: string): TghDBTable;
     function GetColumns: TghDBColumns;
     function HasErrors: Boolean;
-    function GetErrors: TStrings;
+    function GetPostErrors: TStrings;
     procedure LoadFromFile(const AFileName: string; AFormat: TDataPacketFormat = dfAny); virtual;
     procedure SaveToFile(const AFileName: string; AFormat: TDataPacketFormat = dfBinary); virtual;
     procedure LoadFromStream(AStream: TStream; AFormat: TDataPacketFormat = dfAny); virtual;
@@ -452,6 +459,19 @@ begin
   FOwnerTable := AValue;
 end;
 
+function TghDBConstraint.NamesToStr: string;
+var
+  i: Integer;
+begin
+  Result := '';
+  for i := 0 to FParams.Count-1 do
+  begin
+    if i > 0 then
+      Result += ', ';
+    Result += FParams.Items[i].Name;
+  end;
+end;
+
 constructor TghDBConstraint.Create;
 begin
   inherited Create;
@@ -473,12 +493,11 @@ begin
   FParams[AColumName].Value := AValue;
 end;
 
-function TghDBDefaultConstraint.Validate: Boolean;
+procedure TghDBDefaultConstraint.Execute;
 var
   i: Integer;
   lColum: TghDBColumn;
 begin
-  Result := True;
   for i := 0 to FParams.Count -1 do
   begin
     lColum := FOwnerTable.GetColumns.FindField(FParams.Items[i].Name);
@@ -498,7 +517,7 @@ begin
     FParams[AColumNames[i]];
 end;
 
-function TghDBUniqueConstraint.Validate: Boolean;
+procedure TghDBUniqueConstraint.Execute;
 var
   lTable: TghDBTable;
   lWhere: string;
@@ -545,10 +564,16 @@ begin
   try
     SetPK;
     SetValues;
-    Result := lTable.Where(lWhere).Open.RecordCount = 0;
+    if lTable.Where(lWhere).Open.RecordCount > 0 then
+      FOwnerTable.GetPostErrors.Add(GetError);
   finally
     lTable.Free;
   end;
+end;
+
+function TghDBUniqueConstraint.GetError: string;
+begin
+  Result := Format('Violated the unique constraint for columns: %s.', [NamesToStr]);
 end;
 
 { TghDBCheckConstraint }
@@ -559,9 +584,14 @@ begin
   //
 end;
 
-function TghDBCheckConstraint.Validate: Boolean;
+procedure TghDBCheckConstraint.Execute;
 begin
-  Result := False;
+  //
+end;
+
+function TghDBCheckConstraint.GetError: string;
+begin
+
 end;
 
 { TghDBConstraintList }
@@ -679,42 +709,39 @@ begin
   end;
 end;
 
-function TghDBTable.VerifyDefaultConstraints: Boolean;
+function TghDBTable.CheckValues: Boolean;
+var
+  i: Integer;
+begin
+  Result := True;
+
+  if not FEnforceConstraints then
+    Exit;
+
+  for i := 0 to GetConstraints.Count -1 do
+  begin
+    if GetConstraints[i] is TghDBValidationConstraint then
+      with TghDBValidationConstraint(GetConstraints[i]) do
+      begin
+        OwnerTable := Self;
+        Execute;
+      end;
+  end;
+  Result := FPostErrors.Count = 0;
+end;
+
+procedure TghDBTable.SetDefaultValues;
 var
   i: Integer;
   lConstraint: TghDBConstraint;
 begin
-  if not FEnforceConstraints then
-    Exit;
-  Result := True;
   for i := 0 to GetConstraints.Count -1 do
   begin
     lConstraint := GetConstraints[i];
     if lConstraint is TghDBDefaultConstraint then
     begin
       lConstraint.OwnerTable := Self;
-      Result := TghDBDefaultConstraint(lConstraint).Validate;
-    end;
-  end;
-end;
-
-function TghDBTable.VerifyUniqueConstraints: Boolean;
-var
-  i: Integer;
-  lConstraint: TghDBConstraint;
-begin
-  if not FEnforceConstraints then
-    Exit;
-  Result := True;
-  for i := 0 to GetConstraints.Count -1 do
-  begin
-    lConstraint := GetConstraints[i];
-    if lConstraint is TghDBUniqueConstraint then
-    begin
-      lConstraint.OwnerTable := Self;
-      Result := TghDBUniqueConstraint(lConstraint).Validate;
-      if not Result then
-        Break;
+      TghDBDefaultConstraint(lConstraint).Execute;
     end;
   end;
 end;
@@ -774,7 +801,7 @@ begin
   FEnforceConstraints := True;
   FOwnerTable := AOwnerTable;
   FDataSet := nil;
-  FErrors := TStringList.Create;
+  FPostErrors := TStringList.Create;
   FParams := TghDBParams.Create;
   FLinks := TghDBTableList.Create(Self, True);
   FLinks.OnNewTable := @CallLinkFoundTable;
@@ -788,7 +815,7 @@ end;
 
 destructor TghDBTable.Destroy;
 begin
-  FErrors.Free;
+  FPostErrors.Free;
   FLinks.Free;
   FParams.Free;
   FDataSet.Free;
@@ -810,39 +837,42 @@ end;
 
 function TghDBTable.Open: TghDBTable;
 begin
-  Result := Self;
   CreateResultSet;
+  Result := Self;
 end;
 
 function TghDBTable.Insert: TghDBTable;
 begin
   CheckTable;
-  Result := Self;
   FDataSet.Insert;
-  VerifyDefaultConstraints;
+  SetDefaultValues;
+  Result := Self;
 end;
 
 function TghDBTable.Append: TghDBTable;
 begin
   CheckTable;
-  Result := Self;
   FDataSet.Append;
-  VerifyDefaultConstraints;
+  SetDefaultValues;
+  Result := Self;
 end;
 
 function TghDBTable.Edit: TghDBTable;
 begin
   CheckTable;
-  Result := Self;
   FDataSet.Edit;
+  Result := Self;
 end;
 
-function TghDBTable.Post: TghDBTable;
+function TghDBTable.Post: Boolean;
 begin
   CheckTable;
-  Result := Self;
-  if VerifyUniqueConstraints then
-    FDataSet.Post
+  Result := CheckValues;
+  if Result then
+  begin
+    FDataSet.Post;
+    FPostErrors.Clear;
+  end
   else
     FDataSet.Cancel;
 end;
@@ -850,25 +880,33 @@ end;
 function TghDBTable.Cancel: TghDBTable;
 begin
   CheckTable;
-  Result := Self;
   FDataSet.Cancel;
+  FPostErrors.Clear;
+  Result := Self;
 end;
 
 function TghDBTable.Delete: TghDBTable;
 begin
   CheckTable;
-  Result := Self;
   FDataSet.Delete;
+  Result := Self;
 end;
 
 function TghDBTable.Commit: TghDBTable;
 begin
   CheckTable;
-  Result := Self;
+
+  if FDataSet.State in [dsInsert, dsEdit] then
+  begin
+    if not Post then
+      raise EghDBError.Create(Self, FPostErrors.Text);
+  end;
+
   FConnector.StartTransaction;
   try
     FDataSet.ApplyUpdates(0);
     FConnector.CommitRetaining;
+    FPostErrors.Clear;
   except
     on e: Exception do
     begin
@@ -876,54 +914,52 @@ begin
       raise EghDBError.Create(Self, e.Message);
     end;
   end;
+
+  Result := Self;
 end;
 
 function TghDBTable.Rollback: TghDBTable;
 begin
   CheckTable;
-  Result := Self;
   FDataSet.CancelUpdates;
-end;
-
-function TghDBTable.Apply: TghDBTable;
-begin
-  Result := Commit;
+  FPostErrors.Clear;
+  Result := Self;
 end;
 
 function TghDBTable.Refresh: TghDBTable;
 begin
   CheckTable;
-  Result := Self;
   // TODO: call Close and Open methods but without clean the parameters
   Open;
+  Result := Self;
 end;
 
 function TghDBTable.First: TghDBTable;
 begin
   CheckTable;
-  Result := Self;
   FDataSet.First;
+  Result := Self;
 end;
 
 function TghDBTable.Prior: TghDBTable;
 begin
   CheckTable;
-  Result := Self;
   FDataSet.Prior;
+  Result := Self;
 end;
 
 function TghDBTable.Next: TghDBTable;
 begin
   CheckTable;
-  Result := Self;
   FDataSet.Next;
+  Result := Self;
 end;
 
 function TghDBTable.Last: TghDBTable;
 begin
   CheckTable;
-  Result := Self;
   FDataSet.Last;
+  Result := Self;
 end;
 
 function TghDBTable.Select(const AColumnNames: string): TghDBTable;
@@ -957,12 +993,12 @@ end;
 
 function TghDBTable.HasErrors: Boolean;
 begin
-  Result := FErrors.Count > 0;
+  Result := FPostErrors.Count > 0;
 end;
 
-function TghDBTable.GetErrors: TStrings;
+function TghDBTable.GetPostErrors: TStrings;
 begin
-  Result := FErrors;
+  Result := FPostErrors;
 end;
 
 procedure TghDBTable.LoadFromFile(const AFileName: string; AFormat: TDataPacketFormat);

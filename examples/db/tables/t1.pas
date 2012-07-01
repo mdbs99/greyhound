@@ -24,8 +24,10 @@ begin
   t.Columns['passwd'].Value := passwd;
   if name <> '' then
     t.Columns['name'].Value := name;
-  t.Post;
-  writeln('Inserted: ' + t.Columns['name'].AsString);
+  if t.Post then
+    writeln('Inserted: ' + t.Columns['name'].AsString)
+  else
+    writeln(t.GetPostErrors.Text);
 end;
 
 procedure ShowAllRecords;
@@ -110,13 +112,9 @@ begin
 
     // Adding a Unique constraint
     t.Constraints.Add(['name']);
-    try
-      // Trying to insert Jeni, but she already exist!!
-      InsertRecord(5, 'jeni', '555', 'Jeni');
-    except
-      on e: Exception do
-        writeln(e.Message);
-    end;
+
+    // Trying to insert Jeni, but she already exist!!
+    InsertRecord(5, 'jeni', '555', 'Jeni');
 
     t.Commit;
     ShowAllRecords;
