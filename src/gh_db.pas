@@ -130,7 +130,7 @@ type
   private
     FConnector: TghDBConnector;
     FConditions: string;
-    FPostErrors: TStrings;
+    FErrors: TStrings;
     FLinks: TghDBTableList;
     FOrderBy: string;
     FOwnerTable: TghDBTable;
@@ -181,7 +181,7 @@ type
     function OrderBy(const AColumnNames: string): TghDBTable;
     function GetColumns: TghDBColumns;
     function HasErrors: Boolean;
-    function GetPostErrors: TStrings;
+    function GetErrors: TStrings;
     procedure LoadFromFile(const AFileName: string; AFormat: TDataPacketFormat = dfAny); virtual;
     procedure SaveToFile(const AFileName: string; AFormat: TDataPacketFormat = dfBinary); virtual;
     procedure LoadFromStream(AStream: TStream; AFormat: TDataPacketFormat = dfAny); virtual;
@@ -565,7 +565,7 @@ begin
     SetPK;
     SetValues;
     if lTable.Where(lWhere).Open.RecordCount > 0 then
-      FOwnerTable.GetPostErrors.Add(GetError);
+      FOwnerTable.GetErrors.Add(GetError);
   finally
     lTable.Free;
   end;
@@ -727,7 +727,7 @@ begin
         Execute;
       end;
   end;
-  Result := FPostErrors.Count = 0;
+  Result := FErrors.Count = 0;
 end;
 
 procedure TghDBTable.SetDefaultValues;
@@ -801,7 +801,7 @@ begin
   FEnforceConstraints := True;
   FOwnerTable := AOwnerTable;
   FDataSet := nil;
-  FPostErrors := TStringList.Create;
+  FErrors := TStringList.Create;
   FParams := TghDBParams.Create;
   FLinks := TghDBTableList.Create(Self, True);
   FLinks.OnNewTable := @CallLinkFoundTable;
@@ -815,7 +815,7 @@ end;
 
 destructor TghDBTable.Destroy;
 begin
-  FPostErrors.Free;
+  FErrors.Free;
   FLinks.Free;
   FParams.Free;
   FDataSet.Free;
@@ -871,7 +871,7 @@ begin
   if Result then
   begin
     FDataSet.Post;
-    FPostErrors.Clear;
+    FErrors.Clear;
   end
   else
     FDataSet.Cancel;
@@ -881,7 +881,7 @@ function TghDBTable.Cancel: TghDBTable;
 begin
   CheckTable;
   FDataSet.Cancel;
-  FPostErrors.Clear;
+  FErrors.Clear;
   Result := Self;
 end;
 
@@ -899,14 +899,14 @@ begin
   if FDataSet.State in [dsInsert, dsEdit] then
   begin
     if not Post then
-      raise EghDBError.Create(Self, FPostErrors.Text);
+      raise EghDBError.Create(Self, FErrors.Text);
   end;
 
   FConnector.StartTransaction;
   try
     FDataSet.ApplyUpdates(0);
     FConnector.CommitRetaining;
-    FPostErrors.Clear;
+    FErrors.Clear;
   except
     on e: Exception do
     begin
@@ -922,7 +922,7 @@ function TghDBTable.Rollback: TghDBTable;
 begin
   CheckTable;
   FDataSet.CancelUpdates;
-  FPostErrors.Clear;
+  FErrors.Clear;
   Result := Self;
 end;
 
@@ -993,12 +993,12 @@ end;
 
 function TghDBTable.HasErrors: Boolean;
 begin
-  Result := FPostErrors.Count > 0;
+  Result := FErrors.Count > 0;
 end;
 
-function TghDBTable.GetPostErrors: TStrings;
+function TghDBTable.GetErrors: TStrings;
 begin
-  Result := FPostErrors;
+  Result := FErrors;
 end;
 
 procedure TghDBTable.LoadFromFile(const AFileName: string; AFormat: TDataPacketFormat);

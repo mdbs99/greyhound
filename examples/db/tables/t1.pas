@@ -27,7 +27,7 @@ begin
   if t.Post then
     writeln('Inserted: ' + t.Columns['name'].AsString)
   else
-    writeln(t.GetPostErrors.Text);
+    writeln(t.GetErrors.Text);
 end;
 
 procedure ShowAllRecords;
