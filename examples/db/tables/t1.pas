@@ -117,8 +117,15 @@ begin
     InsertRecord(5, 'jeni', '555', 'Jeni');
 
     t.Commit;
-    ShowAllRecords;
 
+    // Adding a Check constraint
+    t.Constraints.Add('login', ['L1', 'L2']);
+
+    // Trying to insert... error! Because this violated the Check Constraint.
+    InsertRecord(6, 'AAA', '000', 'Login1');
+
+    t.Commit;
+    ShowAllRecords;
   finally
     co.Free;
   end;
