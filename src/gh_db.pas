@@ -18,7 +18,7 @@ interface
 
 uses
   // fpc
-  Classes, SysUtils, DB, contnrs, fgl, BufDataset, sqldb,
+  Classes, SysUtils, DB, Variants, contnrs, fgl, BufDataset, sqldb,
   // gh
   gh_Global;
 
@@ -80,6 +80,7 @@ type
     FOwnerTable: TghDBTable;
     procedure SetTable(AValue: TghDBTable);
     function NamesToStr: string;
+    function ValuesToStr: string;
   public
     constructor Create; override;
     destructor Destroy; override;
@@ -107,7 +108,7 @@ type
 
   TghDBCheckConstraint = class(TghDBValidationConstraint)
   public
-    constructor Create(const AColumName: string; AValues: array of const); reintroduce;
+    constructor Create(const AColumName: string; AValues: array of Variant); reintroduce;
     procedure Execute; override;
     function GetError: string; override;
   end;
@@ -119,7 +120,7 @@ type
     // Add a Unique constraint
     function Add(const AColumNames: array of string): Integer; overload;
     // Add a Check constraint
-    function Add(const AColumName: string; AValues: array of const): Integer; overload;
+    function Add(const AColumName: string; AValues: array of Variant): Integer; overload;
   end;
 
   // TODO : Create BufTable using TBufDataSet
@@ -472,6 +473,19 @@ begin
   end;
 end;
 
+function TghDBConstraint.ValuesToStr: string;
+var
+  i: Integer;
+begin
+  Result := '';
+  for i := 0 to FParams.Count-1 do
+  begin
+    if i > 0 then
+      Result += ', ';
+    Result += VarToStr(FParams.Items[i].Value);
+  end;
+end;
+
 constructor TghDBConstraint.Create;
 begin
   inherited Create;
@@ -573,25 +587,60 @@ end;
 
 function TghDBUniqueConstraint.GetError: string;
 begin
-  Result := Format('Violated the unique constraint for columns: %s.', [NamesToStr]);
+  Result := Format('Violated unique constraint for columns: %s.', [NamesToStr]);
 end;
 
 { TghDBCheckConstraint }
 
 constructor TghDBCheckConstraint.Create(const AColumName: string;
-  AValues: array of const);
+  AValues: array of Variant);
+var
+  i: Integer;
 begin
-  //
+  inherited Create;
+  for i := Low(AValues) to High(AValues) do
+  begin
+    with TParam.Create(FParams) do
+    begin
+      Name := AColumName;
+      Value := AValues[i];
+    end;
+  end;
 end;
 
 procedure TghDBCheckConstraint.Execute;
+var
+  i: Integer;
+  lParam: TParam;
+  lColumn: TghDBColumn;
+  lAccept: Boolean;
 begin
-  //
+  lParam := FParams.Items[0];
+  lColumn := FOwnerTable.GetColumns.FindField(lParam.Name);
+
+  if lColumn = nil then
+    raise EghDBError.CreateFmt(Self, 'Column "%s" not found.', [lParam.Name]);
+
+  lAccept := False;
+  for i := 0 to FParams.Count -1 do
+  begin
+    if lColumn.Value = FParams.Items[i].Value then
+    begin
+      lAccept := True;
+      Break;
+    end;
+  end;
+
+  if not lAccept then
+    FOwnerTable.GetErrors.Add(GetError);
 end;
 
 function TghDBCheckConstraint.GetError: string;
+const
+  MSG_1 = 'Violated the check constraint for column: %s.'#13#10
+        + 'The permitted values are: %s';
 begin
-
+  Result := Format(MSG_1, [FParams.Items[0].Name, ValuesToStr]);
 end;
 
 { TghDBConstraintList }
@@ -607,7 +656,7 @@ begin
 end;
 
 function TghDBConstraintList.Add(const AColumName: string;
-  AValues: array of const): Integer;
+  AValues: array of Variant): Integer;
 begin
   Result := Add(TghDBCheckConstraint.Create(AColumName, AValues));
 end;
