@@ -467,7 +467,9 @@ begin
   Result := '';
   for i := 0 to FParams.Count-1 do
   begin
-    if i > 0 then
+    if (i > 0) and (i = FParams.Count-1) then
+      Result += ' and '
+    else if i > 0 then
       Result += ', ';
     Result += FParams.Items[i].Name;
   end;
@@ -480,7 +482,9 @@ begin
   Result := '';
   for i := 0 to FParams.Count-1 do
   begin
-    if i > 0 then
+    if (i > 0) and (i = FParams.Count-1) then
+      Result += ' and '
+    else if i > 0 then
       Result += ', ';
     Result += VarToStr(FParams.Items[i].Value);
   end;
@@ -587,7 +591,7 @@ end;
 
 function TghDBUniqueConstraint.GetError: string;
 begin
-  Result := Format('Violated unique constraint for columns: %s.', [NamesToStr]);
+  Result := Format('Violated unique constraint for column(s) %s.', [NamesToStr]);
 end;
 
 { TghDBCheckConstraint }
@@ -637,8 +641,7 @@ end;
 
 function TghDBCheckConstraint.GetError: string;
 const
-  MSG_1 = 'Violated the check constraint for column: %s.'#13#10
-        + 'The permitted values are: %s';
+  MSG_1 = 'Violated the check constraint for column %s. The permitted values are %s';
 begin
   Result := Format(MSG_1, [FParams.Items[0].Name, ValuesToStr]);
 end;
