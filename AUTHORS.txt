@@ -6,6 +6,10 @@ the Greyhound project.
 
 Lead Developer and Maintainer
 -----------------------------
-Marcos Douglas B. dos Santos <mdbs99@delfire.net>
+Marcos Douglas B. dos Santos <mdbs99 at delfire.net>
  
 
+Contributors
+-----------------------------
+Silvio Clecio
+Luciano Souza
