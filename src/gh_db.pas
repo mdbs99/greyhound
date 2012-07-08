@@ -18,7 +18,7 @@ interface
 
 uses
   // fpc
-  Classes, SysUtils, DB, Variants, contnrs, fgl, BufDataset, sqldb,
+  Classes, SysUtils, DB, contnrs, fgl, BufDataset, sqldb,
   // gh
   gh_Global;
 
@@ -486,7 +486,7 @@ begin
       Result += ' and '
     else if i > 0 then
       Result += ', ';
-    Result += VarToStr(FParams.Items[i].Value);
+    Result += FParams.Items[i].AsString;
   end;
 end;
 
