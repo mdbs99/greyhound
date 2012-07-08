@@ -3,7 +3,6 @@ program t1;
 {$mode objfpc}{$H+}
 
 uses
-  heaptrc,
   Classes, SysUtils, DB,
   // gh
   gh_DB, gh_DBSQLdbBroker, gh_DBJSON;
