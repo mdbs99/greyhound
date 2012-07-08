@@ -220,8 +220,8 @@ type
     property OnFoundTable: TghDBTableNotifyEvent read FOnFoundTable write FOnFoundTable;
   end;
 
-  TghDBBrokerClass = class of TghDBBroker;
-  TghDBBroker = class(TghDBStatement)
+  TghDBConnectorBrokerClass = class of TghDBConnectorBroker;
+  TghDBConnectorBroker = class(TghDBStatement)
   public
     procedure Connect(const AHost, ADatabase, AUser, APasswd: string); virtual; abstract;
     function Connected: Boolean; virtual; abstract;
@@ -245,14 +245,14 @@ type
     FSQL: TghDBSQL;
     FTables: TghDBTableList;
   protected
-    FBroker: TghDBBroker;
+    FBroker: TghDBConnectorBroker;
     procedure CheckBroker;
     function GetTables(const ATableName: string): TghDBTable; virtual;
     function GetConnected: Boolean;
   public
     constructor Create; override;
     destructor Destroy; override;
-    procedure SetBrokerClass(ABroker: TghDBBrokerClass);
+    procedure SetBrokerClass(ABroker: TghDBConnectorBrokerClass);
     procedure Connect; virtual;
     procedure Disconnect; virtual;
     procedure StartTransaction;
@@ -264,7 +264,7 @@ type
     procedure DataSetToSQLQuery(ASource: TDataSet;
       out ADest: TSQLQuery; AOwner: TComponent = nil);
     procedure Notify(ATable: TghDBTable; AOperation: TOperation);
-    property Broker: TghDBBroker read FBroker;
+    property Broker: TghDBConnectorBroker read FBroker;
     property Database: string read FDatabase write FDatabase;
     property Connected: Boolean read GetConnected;
     property Host: string read FHost write FHost;
@@ -1141,7 +1141,7 @@ begin
   inherited Destroy;
 end;
 
-procedure TghDBConnector.SetBrokerClass(ABroker: TghDBBrokerClass);
+procedure TghDBConnector.SetBrokerClass(ABroker: TghDBConnectorBrokerClass);
 begin
   if Assigned(FBroker) then
     FBroker.Free;

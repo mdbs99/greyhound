@@ -41,22 +41,26 @@
         <Filename Value="t1.pas"/>
         <IsPartOfProject Value="True"/>
         <UnitName Value="t1"/>
-        <IsVisibleTab Value="True"/>
         <EditorIndex Value="0"/>
         <WindowIndex Value="0"/>
-        <TopLine Value="46"/>
-        <CursorPos X="62" Y="65"/>
-        <UsageCount Value="24"/>
+        <TopLine Value="1"/>
+        <CursorPos X="1" Y="1"/>
+        <UsageCount Value="27"/>
         <Loaded Value="True"/>
       </Unit0>
       <Unit1>
         <Filename Value="dummy.pas"/>
         <IsPartOfProject Value="True"/>
         <UnitName Value="dummy"/>
+        <EditorIndex Value="2"/>
         <WindowIndex Value="0"/>
-        <TopLine Value="130"/>
-        <CursorPos X="8" Y="142"/>
-        <UsageCount Value="24"/>
+        <TopLine Value="19"/>
+        <CursorPos X="41" Y="34"/>
+        <UsageCount Value="27"/>
+        <Bookmarks Count="1">
+          <Item0 X="23" Y="258" ID="1"/>
+        </Bookmarks>
+        <Loaded Value="True"/>
       </Unit1>
     </Units>
   </ProjectOptions>
@@ -83,15 +87,6 @@
     </Other>
   </CompilerOptions>
   <Debugging>
-    <BreakPoints Count="1">
-      <Item1>
-        <Kind Value="bpkSource"/>
-        <WatchScope Value="wpsLocal"/>
-        <WatchKind Value="wpkWrite"/>
-        <Source Value="t1.pas"/>
-        <Line Value="15"/>
-      </Item1>
-    </BreakPoints>
     <Exceptions Count="3">
       <Item1>
         <Name Value="EAbort"/>
