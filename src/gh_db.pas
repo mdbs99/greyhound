@@ -143,7 +143,6 @@ type
     FSelectColumns: string;
     FTableName: string;
     FEnforceConstraints: Boolean;
-    class var FInstanceCount: Integer;
     class var FRelations: TFPHashObjectList;
     class var FConstraints: TFPHashObjectList;
     function GetRecordCount: Longint;
@@ -883,14 +882,6 @@ begin
   FLinks := TghDBTableList.Create(Self, True);
   FLinks.OnNewTable := @CallLinkFoundTable;
   FLinks.OnFoundTable := @CallLinkFoundTable;
-
-  //if FInstanceCount = 0 then
-  //begin
-  //  FRelations := TFPHashObjectList.Create(True);
-  //  FConstraints := TFPHashObjectList.Create(True);
-  //end;
-  //
-  //FInstanceCount += 1;
 end;
 
 constructor TghDBTable.Create(AConnector: TghDBConnector; const ATableName: string);
@@ -900,13 +891,6 @@ end;
 
 destructor TghDBTable.Destroy;
 begin
-  //FInstanceCount -= 1;
-  //if FInstanceCount = 0 then
-  //begin
-  //  FRelations.Free;
-  //  FConstraints.Free;
-  //end;
-
   FErrors.Free;
   FParams.Free;
   FLinks.Free;
