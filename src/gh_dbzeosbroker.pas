@@ -27,7 +27,7 @@ uses
   gh_DB;
 
 type
-  TghDBZeosBroker = class(TghDBBroker)
+  TghDBZeosBroker = class(TghDBConnectorBroker)
   protected
     FConn: TZConnection;
   public

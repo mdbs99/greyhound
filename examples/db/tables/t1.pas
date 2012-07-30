@@ -24,10 +24,14 @@ begin
   t.Columns['passwd'].Value := passwd;
   if name <> '' then
     t.Columns['name'].Value := name;
-  if t.Post then
-    writeln('Inserted: ' + t.Columns['name'].AsString)
-  else
+
+  if t.Post.HasErrors then
+  begin
     writeln(t.GetErrors.Text);
+    Exit;
+  end;
+
+  writeln('Inserted: ' + t.Columns['name'].AsString)
 end;
 
 procedure ShowAllRecords;
@@ -125,6 +129,7 @@ begin
     InsertRecord(6, 'AAA', '000', 'Login1');
 
     t.Commit;
+
     ShowAllRecords;
   finally
     co.Free;
