@@ -31,6 +31,7 @@ begin
     // All relationships belongs to the class, not the instance so,
     // you do this only once for all project.
     // Now all instances of User table have a link to access the Access table.
+
     co.Tables['user'].Relations['access'].Where('id = :access_id');
 
     // get the user table instance
@@ -39,6 +40,7 @@ begin
     writeln;
     writeln('All records:');
     u.First;
+
     while not u.EOF do
     begin
       // print user
@@ -59,8 +61,8 @@ begin
 
     // See the Link to access the Access table already exists.
     writeln(u2.Links['access']['name'].AsString);
-    u2.Close;
 
+    u2.Close;
   finally
     co.Free;
   end;
