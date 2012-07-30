@@ -18,7 +18,14 @@ interface
 
 uses
   // fpc
-  Classes, SysUtils, DB, contnrs, fgl, BufDataset, sqldb,
+  Classes,
+  SysUtils,
+  DB,
+  contnrs,
+  fgl,
+  BufDataset,
+  sqldb,
+
   // gh
   gh_Global;
 
@@ -123,10 +130,6 @@ type
     function Add(const AColumName: string; AValues: array of Variant): Integer; overload;
   end;
 
-  // TODO : Create BufTable using TBufDataSet
-  TghDBBufTable = class(TghDBObject)
-  end;
-
   TghDBTable = class(TghDBObject)
   private
     FConnector: TghDBConnector;
@@ -150,6 +153,8 @@ type
     function GetConstraints: TghDBConstraintList;
   protected
     FDataSet: TSQLQuery;
+    class procedure ClassInitialization;
+    class procedure ClassFinalization;
     procedure CheckTable;
     procedure CreateResultSet; virtual;
     function CheckValues: Boolean; virtual;
@@ -166,7 +171,7 @@ type
     function Insert: TghDBTable;
     function Append: TghDBTable;
     function Edit: TghDBTable;
-    function Post: Boolean;
+    function Post: TghDBTable;
     function Cancel: TghDBTable;
     function Delete: TghDBTable;
     function Commit: TghDBTable;
@@ -218,6 +223,16 @@ type
     property Tables[const ATableName: string]: TghDBTable read GetTables; default;
     property OnNewTable: TghDBTableNotifyEvent read FOnNewTable write FOnNewTable;
     property OnFoundTable: TghDBTableNotifyEvent read FOnFoundTable write FOnFoundTable;
+  end;
+
+  TghDBTableAdapter = class(TghDBObject)
+  private
+    FTable: TghDBTable;
+  public
+    constructor Create(ATable: TghDBTable); reintroduce;
+    procedure Update; virtual; abstract;
+    procedure Syncronize; virtual;
+    property Table: TghDBTable read FTable write FTable;
   end;
 
   TghDBConnectorBrokerClass = class of TghDBConnectorBroker;
@@ -419,13 +434,12 @@ destructor TghDBTableList.Destroy;
 var
   i: Integer;
 begin
-  for i := 0 to Count -1 do
+  if Self.FreeObjects then
   begin
-    // disables notification
-    with Items[i] do
+    for i := 0 to Count -1 do
     begin
-      Connector := nil;
-      Free;
+      // disable notifications
+      Items[i].Connector := nil;
     end;
   end;
 
@@ -450,6 +464,18 @@ begin
       Exit;
     end;
   end;
+end;
+
+{ TghDBTableAdapter }
+
+constructor TghDBTableAdapter.Create(ATable: TghDBTable);
+begin
+  Self.Table := ATable;
+end;
+
+procedure TghDBTableAdapter.Syncronize;
+begin
+  Update;
 end;
 
 { TghDBConstraint }
@@ -694,7 +720,7 @@ begin
   Result := TghDBTableList(FRelations.Find(FTableName));
   if Result = nil then
   begin
-    Result := TghDBTableList.Create(nil, True);
+    Result := TghDBTableList.Create(Self, True);
     FRelations.Add(FTableName, Result);
   end;
 end;
@@ -704,9 +730,21 @@ begin
   Result := TghDBConstraintList(FConstraints.Find(FTableName));
   if Result = nil then
   begin
-    Result := TghDBConstraintList.Create;
+    Result := TghDBConstraintList.Create(True);
     FConstraints.Add(FTableName, Result);
   end;
+end;
+
+class procedure TghDBTable.ClassInitialization;
+begin
+  FRelations := TFPHashObjectList.Create(True);
+  FConstraints := TFPHashObjectList.Create(True);
+end;
+
+class procedure TghDBTable.ClassFinalization;
+begin
+  FRelations.Free;
+  FConstraints.Free;
 end;
 
 procedure TghDBTable.CheckTable;
@@ -862,14 +900,14 @@ end;
 
 constructor TghDBTable.Create(AConnector: TghDBConnector; const ATableName: string);
 begin
-  Create(AConnector, ATableName, nil);
+  Self.Create(AConnector, ATableName, nil);
 end;
 
 destructor TghDBTable.Destroy;
 begin
   FErrors.Free;
-  FLinks.Free;
   FParams.Free;
+  FLinks.Free;
   FDataSet.Free;
   if Assigned(FConnector) then
     FConnector.Notify(Self, opRemove);
@@ -916,17 +954,17 @@ begin
   Result := Self;
 end;
 
-function TghDBTable.Post: Boolean;
+function TghDBTable.Post: TghDBTable;
 begin
   CheckTable;
-  Result := CheckValues;
-  if Result then
+  if CheckValues then
   begin
     FDataSet.Post;
     FErrors.Clear;
   end
   else
     FDataSet.Cancel;
+  Result := Self;
 end;
 
 function TghDBTable.Cancel: TghDBTable;
@@ -950,7 +988,7 @@ begin
 
   if FDataSet.State in [dsInsert, dsEdit] then
   begin
-    if not Post then
+    if Post.HasErrors then
       raise EghDBError.Create(Self, FErrors.Text);
   end;
 
@@ -1134,7 +1172,16 @@ begin
 end;
 
 destructor TghDBConnector.Destroy;
+var
+  i: Integer;
+  lTable: TghDBTable;
 begin
+  for i := 0 to FTables.Count -1 do
+  begin
+    lTable := FTables.Items[i];
+    FTables.Remove(lTable);
+    lTable.Free;
+  end;
   FTables.Free;
   FSQL.Free;
   FBroker.Free;
@@ -1280,15 +1327,15 @@ end;
 procedure TghDBConnector.Notify(ATable: TghDBTable; AOperation: TOperation);
 begin
   if AOperation = opRemove then
+  begin
     FTables.Remove(ATable);
+  end;
 end;
 
 initialization
-   TghDBTable.FRelations := TFPHashObjectList.Create(True);
-   TghDBTable.FConstraints := TFPHashObjectList.Create(True);
+   TghDBTable.ClassInitialization;
 
 finalization
-   TghDBTable.FRelations.Free;
-   TghDBTable.FConstraints.Free;
+   TghDBTable.ClassFinalization;
 
 end.
