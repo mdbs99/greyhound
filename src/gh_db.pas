@@ -36,6 +36,7 @@ type
   TghDBColumns = TFields;
 
 { forward declarations }
+
   TghDBConnector = class;
   TghDBTable = class;
   TghDBTableList = class;
