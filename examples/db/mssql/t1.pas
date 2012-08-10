@@ -6,10 +6,12 @@ uses
   heaptrc,
   Classes, SysUtils, DB,
   // gh
-  gh_db, gh_dbsqldbbroker;
+  gh_db, gh_DBSQLdb;
+
+{$DEFINE MSSQLBroker}
 
 const
-  TAB_TMP = 'user_tmp';
+  TAB_TMP = '#user_tmp';
 
 var
   co: TghDBConnector;
@@ -25,21 +27,20 @@ begin
   with co.SQL.Open do
     while not EOF do
     begin
-      writeln('User: ' + FieldByName('name').AsString);
+      writeln('User: ', FieldByName('id').AsString, '-', FieldByName('name').AsString);
       Next;
     end;
 end;
 
-procedure InsertUser(ID: Integer; const ALogin, APasswd, AName: string);
+procedure InsertUser(const ALogin, APasswd, AName: string);
 begin
   writeln;
-  writeln('Inserting ', ID, ' ', ALogin, ' ', AName);
+  writeln('Inserting ', ALogin, ' ', AName);
 
   with co.SQL do
   begin
     Clear;
-    Script.Text := 'insert into '+TAB_TMP+' values (:id, :login, :passwd, :name)';
-    Params['id'].AsInteger := ID;
+    Script.Text := 'insert into '+TAB_TMP+' values (:login, :passwd, :name)';
     Params['login'].AsString := ALogin;
     Params['passwd'].AsString := APasswd;
     Params['name'].AsString := AName;
@@ -67,7 +68,7 @@ begin
     // creating a temp table
     co.SQL.Clear;
     co.SQL.Script.Add('create table '+TAB_TMP+' ( ');
-    co.SQL.Script.Add('  [id] int not null primary key ');
+    co.SQL.Script.Add('  [id] int identity not null primary key ');
     co.SQL.Script.Add(' ,[login] varchar(20) not null ');
     co.SQL.Script.Add(' ,[passwd] varchar(30) null ');
     co.SQL.Script.Add(' ,[name] varchar(50) null )');
@@ -75,13 +76,13 @@ begin
     writeln('Table created.');
 
     // insert
-    InsertUser(1, 'mjane', '123', 'Mary Jane');
+    InsertUser('mjane', '123', 'Mary Jane');
 
     ExecSelect;
 
     // using transaction
     co.StartTransaction;
-    InsertUser(2, 'venon', 'xxx', 'Venon');
+    InsertUser('venon', 'xxx', 'Venon');
     ExecSelect;
     writeln('Rollback');
     co.Rollback;
@@ -90,21 +91,23 @@ begin
 
     // again, using Commit
     co.StartTransaction;
-    InsertUser(2, 'pparker', '1', 'Peter Parker');
+    InsertUser('pparker', '1', 'Peter Parker');
     writeln('Commit');
     co.Commit;
 
     ExecSelect;
 
     // drop table
+    co.SQL.Clear;
     co.SQL.Script.Text := 'drop table '+TAB_TMP;
     co.SQL.Execute;
-    writeln;
-    writeln('Done.');
-    writeln;
   finally
     co.Free;
   end;
+
+  writeln;
+  writeln('Done.');
+  writeln;
 
 end.
 

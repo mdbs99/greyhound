@@ -10,7 +10,7 @@
     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
 }
 
-unit gh_DBZeosBroker;
+unit gh_DBZeos;
 
 {$i gh_def.inc}
 
