@@ -1,6 +1,11 @@
 Release notes
 ==========================================================
 
+(2012-08-12)[2]
+
+- Now TghDBConnectorBroker inherits from TghDBObject.
+- The new TghDBConnectorBroker interface is compatible with TghDBConnector because they have a SQL property too but the class is TghDBSQLHandler, no TghDBSQL;
+
 (2012-08-12)
 
 - Implemented TghDBSQLHandler class;

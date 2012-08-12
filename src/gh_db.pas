@@ -59,27 +59,31 @@ type
     property Script: TStrings read FScript;
   end;
 
+  TghDBSQLHandlerOpenEvent = procedure (Sender: TObject; out ADataSet: TDataSet; AOwner: TComponent) of object;
+  TghDBSQLHandlerExecuteEvent = function (Sender: TObject): NativeInt of object;
   TghDBSQLHandler = class(TghDBStatement)
   private
+    FPrepared: Boolean;
+    FOnOpen: TghDBSQLHandlerOpenEvent;
+    FOnExecute: TghDBSQLHandlerExecuteEvent;
     FBeforeOpen: TNotifyEvent;
-    FAfterOpen: TNotifyEvent;
+    FAfterOpen: TDataSetNotifyEvent;
     FBeforeExecute: TNotifyEvent;
     FAfterExecute: TNotifyEvent;
-    FPrepared: Boolean;
   protected
-    procedure InternalOpen(out ADataSet: TDataSet; AOwner: TComponent = nil); virtual; abstract;
-    function InternalExecute: NativeInt; virtual; abstract;
+    procedure DoOpen(out ADataSet: TDataSet; AOwner: TComponent);
+    function DoExecute: NativeInt;
     procedure DoBeforeOpen;
-    procedure DoAfterOpen;
+    procedure DoAfterOpen(ADataSet: TDataSet);
     procedure DoBeforeExecute;
     procedure DoAfterExecute;
   public
     procedure Clear; override;
-    procedure Open(out ADataSet: TDataSet; AOwner: TComponent = nil);
-    function Execute: NativeInt;
     property Prepared: Boolean read FPrepared write FPrepared;
+    property OnOpen: TghDBSQLHandlerOpenEvent read FOnOpen write FOnOpen;
+    property OnExecute: TghDBSQLHandlerExecuteEvent read FOnExecute write FOnExecute;
     property BeforeOpen: TNotifyEvent read FBeforeOpen write FBeforeOpen;
-    property AfterOpen: TNotifyEvent read FAfterOpen write FAfterOpen;
+    property AfterOpen: TDataSetNotifyEvent read FAfterOpen write FAfterOpen;
     property BeforeExecute: TNotifyEvent read FBeforeExecute write FBeforeExecute;
     property AfterExecute: TNotifyEvent read FAfterExecute write FAfterExecute;
   end;
@@ -87,12 +91,13 @@ type
   TghDBSQL = class(TghDBSQLHandler)
   private
     FConnector: TghDBConnector;
-  protected
-    procedure InternalOpen(out ADataSet: TDataSet; AOwner: TComponent = nil); override;
-    function InternalExecute: NativeInt; override;
+    procedure InternalOpen(Sender: TObject; out ADataSet: TDataSet; AOwner: TComponent);
+    function InternalExecute(Sender: TObject): NativeInt;
   public
     constructor Create(AConn: TghDBConnector); reintroduce;
     destructor Destroy; override;
+    procedure Open(out ADataSet: TDataSet; AOwner: TComponent = nil);
+    function Execute: NativeInt;
   end;
 
   TghDBConstraint = class(TghDBObject)
@@ -268,8 +273,14 @@ type
   end;
 
   TghDBConnectorBrokerClass = class of TghDBConnectorBroker;
-  TghDBConnectorBroker = class(TghDBSQLHandler)
+  TghDBConnectorBroker = class(TghDBObject)
+  protected
+    FSQL: TghDBSQLHandler;
+    procedure CallSQLOpen(Sender: TObject; out ADataSet: TDataSet; AOwner: TComponent); virtual; abstract;
+    function CallSQLExecute(Sender: TObject): NativeInt; virtual; abstract;
   public
+    constructor Create; override;
+    destructor Destroy; override;
     procedure Connect(const AHost, ADatabase, AUser, APasswd: string); virtual; abstract;
     function Connected: Boolean; virtual; abstract;
     procedure Disconnect; virtual; abstract;
@@ -278,6 +289,7 @@ type
     procedure CommitRetaining; virtual; abstract;
     procedure Rollback; virtual; abstract;
     procedure RollbackRetaining; virtual; abstract;
+    property SQL: TghDBSQLHandler read FSQL;
   end;
 
   TghDBConnector = class(TghDBObject)
@@ -320,6 +332,22 @@ type
   end;
 
 implementation
+
+{ TghDBConnectorBroker }
+
+constructor TghDBConnectorBroker.Create;
+begin
+  inherited Create;
+  FSQL := TghDBSQLHandler.Create;
+  FSQL.OnOpen := @CallSQLOpen;
+  FSQL.OnExecute := @CallSQLExecute;
+end;
+
+destructor TghDBConnectorBroker.Destroy;
+begin
+  FSQL.Free;
+  inherited Destroy;
+end;
 
 { TghDBParams }
 
@@ -373,16 +401,34 @@ end;
 
 { TghDBSQLHandler }
 
+procedure TghDBSQLHandler.DoOpen(out ADataSet: TDataSet; AOwner: TComponent);
+begin
+  DoBeforeOpen;
+  if Assigned(OnOpen) then
+  begin
+    OnOpen(Self, ADataSet, AOwner);
+    DoAfterOpen(ADataSet);
+  end;
+end;
+
+function TghDBSQLHandler.DoExecute: NativeInt;
+begin
+  DoBeforeExecute;
+  if Assigned(OnExecute) then
+    Result := OnExecute(Self);
+  DoAfterExecute;
+end;
+
 procedure TghDBSQLHandler.DoBeforeOpen;
 begin
   if Assigned(FBeforeOpen) then
     FBeforeOpen(Self);
 end;
 
-procedure TghDBSQLHandler.DoAfterOpen;
+procedure TghDBSQLHandler.DoAfterOpen(ADataSet: TDataSet);
 begin
   if Assigned(FAfterOpen) then
-    FAfterOpen(Self);
+    FAfterOpen(ADataSet);
 end;
 
 procedure TghDBSQLHandler.DoBeforeExecute;
@@ -403,31 +449,18 @@ begin
   FPrepared := False;
 end;
 
-procedure TghDBSQLHandler.Open(out ADataSet: TDataSet; AOwner: TComponent);
-begin
-  DoBeforeOpen;
-  InternalOpen(ADataSet, AOwner);
-  DoAfterOpen;
-end;
-
-function TghDBSQLHandler.Execute: NativeInt;
-begin
-  DoBeforeExecute;
-  Result := InternalExecute;
-  DoAfterExecute;
-end;
-
 { TghDBSQL }
 
-procedure TghDBSQL.InternalOpen(out ADataSet: TDataSet; AOwner: TComponent);
+procedure TghDBSQL.InternalOpen(Sender: TObject; out ADataSet: TDataSet;
+  AOwner: TComponent);
 begin
   with FConnector do
   try
     StartTransaction;
-    Broker.Script.Assign(Self.Script);
-    Broker.Params.Assign(Self.Params);
-    Broker.Prepared := Self.Prepared;
-    Broker.Open(ADataSet, AOwner);
+    Broker.SQL.Script.Assign(Self.Script);
+    Broker.SQL.Params.Assign(Self.Params);
+    Broker.SQL.Prepared := Self.Prepared;
+    Broker.SQL.DoOpen(ADataSet, AOwner);
     CommitRetaining;
   except
     on e: Exception do
@@ -439,15 +472,15 @@ begin
   end;
 end;
 
-function TghDBSQL.InternalExecute: NativeInt;
+function TghDBSQL.InternalExecute(Sender: TObject): NativeInt;
 begin
   with FConnector do
   try
     StartTransaction;
-    Broker.Script.Assign(Self.Script);
-    Broker.Params.Assign(Self.Params);
-    Broker.Prepared := Self.Prepared;
-    Result := Broker.Execute;
+    Broker.SQL.Script.Assign(Self.Script);
+    Broker.SQL.Params.Assign(Self.Params);
+    Broker.SQL.Prepared := Self.Prepared;
+    Result := Broker.SQL.DoExecute;
     CommitRetaining;
   except
     on e: Exception do
@@ -462,11 +495,23 @@ constructor TghDBSQL.Create(AConn: TghDBConnector);
 begin
   inherited Create;
   FConnector := AConn;
+  OnOpen := @InternalOpen;
+  OnExecute := @InternalExecute;
 end;
 
 destructor TghDBSQL.Destroy;
 begin
   inherited Destroy;
+end;
+
+procedure TghDBSQL.Open(out ADataSet: TDataSet; AOwner: TComponent);
+begin
+  InternalOpen(Self, ADataSet, AOwner);
+end;
+
+function TghDBSQL.Execute: NativeInt;
+begin
+  Result := InternalExecute(Self);
 end;
 
 { TghDBConstraint }
@@ -1188,8 +1233,13 @@ begin
   begin
     for i := 0 to Count -1 do
     begin
-      // disable notifications
-      Items[i].Connector := nil;
+      with Items[i] do
+      begin
+        // FIRST, close table!
+        Close;
+        // now, disable notifications to Connector
+        Connector := nil;
+      end;
     end;
   end;
 

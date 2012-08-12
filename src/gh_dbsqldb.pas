@@ -20,7 +20,7 @@ uses
   // fpc
   Classes, SysUtils, DB, sqldb,
   {$IFDEF MSSQLBroker} mssqlconn, {$ENDIF}
-  {$IFDEF SQLite3Broker}sqlite3conn, {$ENDIF}
+  {$IFDEF SQLite3Broker} sqlite3conn, {$ENDIF}
   // gh
   gh_DB;
 
@@ -30,8 +30,8 @@ type
     FConn: TSQLConnector;
     FTran: TSQLTransaction;
     FQuery: TSQLQuery;
-    procedure InternalOpen(out ADataSet: TDataSet; AOwner: TComponent = nil); override;
-    function InternalExecute: NativeInt; override;
+    procedure CallSQLOpen(Sender: TObject; out ADataSet: TDataSet; AOwner: TComponent); override;
+    function CallSQLExecute(Sender: TObject): NativeInt; override;
   public
     constructor Create; override;
     destructor Destroy; override;
@@ -70,7 +70,7 @@ implementation
 
 { TghDBSQLdbBroker }
 
-procedure TghDBSQLdbBroker.InternalOpen(out ADataSet: TDataSet;
+procedure TghDBSQLdbBroker.CallSQLOpen(Sender: TObject; out ADataSet: TDataSet;
   AOwner: TComponent);
 var
   lQ: TSQLQuery;
@@ -82,10 +82,10 @@ begin
     lQ.Transaction := FTran;
     lQ.PacketRecords := -1;
     lQ.UsePrimaryKeyAsKey := True;
-    lQ.SQL.Text := FScript.Text;
-    if Assigned(FParams) then
-      lQ.Params.Assign(FParams);
-    if Self.Prepared then
+    lQ.SQL.Text := FSQL.Script.Text;
+    if Assigned(FSQL.Params) then
+      lQ.Params.Assign(FSQL.Params);
+    if FSQL.Prepared then
       lQ.Prepare;
     lQ.Open;
     ADataSet := lQ;
@@ -94,18 +94,18 @@ begin
   end;
 end;
 
-function TghDBSQLdbBroker.InternalExecute: NativeInt;
+function TghDBSQLdbBroker.CallSQLExecute(Sender: TObject): NativeInt;
 begin
-  if not FQuery.SQL.Equals(FScript) then
-    FQuery.SQL.Assign(FScript);
+  if not FQuery.SQL.Equals(FSQL.Script) then
+    FQuery.SQL.Assign(FSQL.Script);
 
-  if Self.Prepared then
+  if FSQL.Prepared then
     FQuery.Prepare
   else
     FQuery.UnPrepare;
 
-  if Assigned(FParams) then
-    FQuery.Params.Assign(FParams);
+  if Assigned(FSQL.Params) then
+    FQuery.Params.Assign(FSQL.Params);
 
   FQuery.ExecSQL;
   Result := FQuery.RowsAffected;
