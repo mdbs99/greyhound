@@ -1,6 +1,16 @@
 Release notes
 ==========================================================
 
+(2012-08-12)
+
+- Implemented TghDBSQLHandler class;
+- Implemented some events to TghDBSQLHandler;
+- Now TghDBConnectorBroker inherits from TghDBSQLHandler;
+- Removed TghDBConnectorBroker.Open method;
+- Removed TghDBConnectorBroker.Execute method;
+- Implemented TghDBSQLdbBroker.InternalOpen method;
+- Implemented TghDBSQLdbBroker.InternalExecute method;
+
 (2012-08-06)
 
 - Started TghDBTableAdapter class;

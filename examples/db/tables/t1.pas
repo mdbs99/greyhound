@@ -66,6 +66,7 @@ begin
     writeln('Connected.');
 
     // delete all records
+    co.SQL.Clear;
     co.SQL.Script.Text := 'delete from ' + TAB_TMP;
     co.SQL.Execute;
 

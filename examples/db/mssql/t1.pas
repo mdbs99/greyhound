@@ -17,6 +17,8 @@ var
   co: TghDBConnector;
 
 procedure ExecSelect;
+var
+  ds: TDataSet;
 begin
   writeln;
   writeln('Show data:');
@@ -24,12 +26,16 @@ begin
   co.SQL.Clear;
   co.SQL.Script.Text := 'select * from ' + TAB_TMP;
 
-  with co.SQL.Open do
-    while not EOF do
+  co.SQL.Open(ds);
+  try
+    while not ds.EOF do
     begin
-      writeln('User: ', FieldByName('id').AsString, '-', FieldByName('name').AsString);
-      Next;
+      writeln('User: ', ds.FieldByName('id').AsString, '-', ds.FieldByName('name').AsString);
+      ds.Next;
     end;
+  finally
+    ds.Free;
+  end;
 end;
 
 procedure InsertUser(const ALogin, APasswd, AName: string);
@@ -40,6 +46,7 @@ begin
   with co.SQL do
   begin
     Clear;
+    Prepared := True;
     Script.Text := 'insert into '+TAB_TMP+' values (:login, :passwd, :name)';
     Params['login'].AsString := ALogin;
     Params['passwd'].AsString := APasswd;
@@ -57,10 +64,10 @@ begin
     co.SetBrokerClass(TghDBMSSQLBroker);
 
     // set params
-    co.Host := 'YOUR_HOST';
-    co.Database := 'YOUR_DATABASE';
-    co.User := 'YOUR_USER';
-    co.Password := 'YOUR_PASSWORD';
+    co.Host := 'localhost'; //'YOUR_HOST';
+    co.Database := 'Db_DO'; //'YOUR_DATABASE';
+    co.User := 'dox'; //'YOUR_USER';
+    co.Password := 'dox';// 'YOUR_PASSWORD';
 
     co.Connect;
     writeln('Connected.');

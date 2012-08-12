@@ -30,6 +30,8 @@ type
     FConn: TSQLConnector;
     FTran: TSQLTransaction;
     FQuery: TSQLQuery;
+    procedure InternalOpen(out ADataSet: TDataSet; AOwner: TComponent = nil); override;
+    function InternalExecute: NativeInt; override;
   public
     constructor Create; override;
     destructor Destroy; override;
@@ -41,8 +43,6 @@ type
     procedure CommitRetaining; override;
     procedure Rollback; override;
     procedure RollbackRetaining; override;
-    function Execute: NativeInt; override;
-    procedure Open(AOwner: TComponent; out ADataSet: TDataSet); override;
     property Connection: TSQLConnector read FConn;
   end;
 
@@ -54,7 +54,7 @@ type
   {$ENDIF}
 
   {$IFDEF MSSQLBroker}
-  // especialization for MSSQLServer and Sybase
+  // Especialization for MSSQLServer and Sybase
   TghDBMSSQLBroker = class(TghDBSQLdbBroker)
   public
     constructor Create; override;
@@ -69,6 +69,47 @@ type
 implementation
 
 { TghDBSQLdbBroker }
+
+procedure TghDBSQLdbBroker.InternalOpen(out ADataSet: TDataSet;
+  AOwner: TComponent);
+var
+  lQ: TSQLQuery;
+begin
+  ADataSet := nil;
+  lQ := TSQLQuery.Create(AOwner);
+  try
+    lQ.DataBase := FConn;
+    lQ.Transaction := FTran;
+    lQ.PacketRecords := -1;
+    lQ.UsePrimaryKeyAsKey := True;
+    lQ.SQL.Text := FScript.Text;
+    if Assigned(FParams) then
+      lQ.Params.Assign(FParams);
+    if Self.Prepared then
+      lQ.Prepare;
+    lQ.Open;
+    ADataSet := lQ;
+  except
+    lQ.Free;
+  end;
+end;
+
+function TghDBSQLdbBroker.InternalExecute: NativeInt;
+begin
+  if not FQuery.SQL.Equals(FScript) then
+    FQuery.SQL.Assign(FScript);
+
+  if Self.Prepared then
+    FQuery.Prepare
+  else
+    FQuery.UnPrepare;
+
+  if Assigned(FParams) then
+    FQuery.Params.Assign(FParams);
+
+  FQuery.ExecSQL;
+  Result := FQuery.RowsAffected;
+end;
 
 constructor TghDBSQLdbBroker.Create;
 begin
@@ -133,45 +174,6 @@ end;
 procedure TghDBSQLdbBroker.RollbackRetaining;
 begin
   FTran.CommitRetaining;
-end;
-
-function TghDBSQLdbBroker.Execute: NativeInt;
-begin
-  if not FQuery.SQL.Equals(FScript) then
-  begin
-    FQuery.UnPrepare;
-    FQuery.SQL.Assign(FScript);
-  end;
-
-  if not FQuery.Prepared then
-    FQuery.Prepare;
-
-  if Assigned(FParams) then
-    FQuery.Params.Assign(FParams);
-
-  FQuery.ExecSQL;
-  Result := FQuery.RowsAffected;
-end;
-
-procedure TghDBSQLdbBroker.Open(AOwner: TComponent; out ADataSet: TDataSet);
-var
-  lQuery: TSQLQuery;
-begin
-  ADataSet := nil;
-  lQuery := TSQLQuery.Create(AOwner);
-  try
-    lQuery.DataBase := FConn;
-    lQuery.Transaction := FTran;
-    lQuery.PacketRecords := -1;
-    lQuery.UsePrimaryKeyAsKey := True;
-    lQuery.SQL.Text := FScript.Text;
-    if Assigned(FParams) then
-      lQuery.Params.Assign(FParams);
-    lQuery.Open;
-    ADataSet := lQuery;
-  except
-    lQuery.Free;
-  end;
 end;
 
 {$IFDEF SQLite3Broker}
