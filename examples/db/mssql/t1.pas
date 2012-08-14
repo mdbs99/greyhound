@@ -108,6 +108,7 @@ begin
     co.SQL.Clear;
     co.SQL.Script.Text := 'drop table '+TAB_TMP;
     co.SQL.Execute;
+
   finally
     co.Free;
   end;

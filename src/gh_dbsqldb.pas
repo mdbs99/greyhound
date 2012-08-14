@@ -97,16 +97,15 @@ end;
 function TghDBSQLdbBroker.CallSQLExecute(Sender: TObject): NativeInt;
 begin
   if not FQuery.SQL.Equals(FSQL.Script) then
+  begin
     FQuery.SQL.Assign(FSQL.Script);
-
-  if FSQL.Prepared then
-    FQuery.Prepare
-  else
-    FQuery.UnPrepare;
-
-  if Assigned(FSQL.Params) then
-    FQuery.Params.Assign(FSQL.Params);
-
+    if FSQL.Prepared then
+      FQuery.Prepare
+    else
+      FQuery.UnPrepare;
+    if Assigned(FSQL.Params) then
+      FQuery.Params.Assign(FSQL.Params);
+  end;
   FQuery.ExecSQL;
   Result := FQuery.RowsAffected;
 end;

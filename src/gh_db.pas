@@ -91,8 +91,8 @@ type
   TghDBSQL = class(TghDBSQLHandler)
   private
     FConnector: TghDBConnector;
-    procedure InternalOpen(Sender: TObject; out ADataSet: TDataSet; AOwner: TComponent);
-    function InternalExecute(Sender: TObject): NativeInt;
+    procedure InternalOpen(Sender: TObject; out ADataSet: TDataSet; AOwner: TComponent); virtual;
+    function InternalExecute(Sender: TObject): NativeInt; virtual;
   public
     constructor Create(AConn: TghDBConnector); reintroduce;
     destructor Destroy; override;
@@ -183,10 +183,9 @@ type
     // callback
     procedure CallFoundTable(Sender: TObject; ATable: TghDBTable); virtual;
   public
-    constructor Create(AConn: TghDBConnector); virtual; reintroduce;
-    constructor Create(AConn: TghDBConnector; const ATableName: string;
-      AOwnerTable: TghDBTable); virtual;
-    constructor Create(AConn: TghDBConnector; const ATableName: string); virtual;
+    constructor Create(AConn: TghDBConnector); virtual; overload; reintroduce;
+    constructor Create(AConn: TghDBConnector; const ATableName: string); virtual; overload;
+    constructor Create(AConn: TghDBConnector; const ATableName: string; AOwnerTable: TghDBTable); virtual; overload;
     destructor Destroy; override;
     function Close: TghDBTable;
     function Open: TghDBTable;
@@ -273,7 +272,7 @@ type
   end;
 
   TghDBConnectorBrokerClass = class of TghDBConnectorBroker;
-  TghDBConnectorBroker = class(TghDBObject)
+  TghDBConnectorBroker = class abstract(TghDBObject)
   protected
     FSQL: TghDBSQLHandler;
     procedure CallSQLOpen(Sender: TObject; out ADataSet: TDataSet; AOwner: TComponent); virtual; abstract;
@@ -332,22 +331,6 @@ type
   end;
 
 implementation
-
-{ TghDBConnectorBroker }
-
-constructor TghDBConnectorBroker.Create;
-begin
-  inherited Create;
-  FSQL := TghDBSQLHandler.Create;
-  FSQL.OnOpen := @CallSQLOpen;
-  FSQL.OnExecute := @CallSQLExecute;
-end;
-
-destructor TghDBConnectorBroker.Destroy;
-begin
-  FSQL.Free;
-  inherited Destroy;
-end;
 
 { TghDBParams }
 
@@ -456,6 +439,7 @@ end;
 procedure TghDBSQL.InternalOpen(Sender: TObject; out ADataSet: TDataSet;
   AOwner: TComponent);
 begin
+  ADataSet := nil;
   with FConnector do
   try
     StartTransaction;
@@ -955,17 +939,17 @@ begin
   FLinks.OnFoundTable := @CallFoundTable;
 end;
 
-constructor TghDBTable.Create(AConn: TghDBConnector; const ATableName: string;
-  AOwnerTable: TghDBTable);
+constructor TghDBTable.Create(AConn: TghDBConnector; const ATableName: string);
 begin
   Create(AConn);
   FTableName := ATableName;
-  FOwnerTable := AOwnerTable;
 end;
 
-constructor TghDBTable.Create(AConn: TghDBConnector; const ATableName: string);
+constructor TghDBTable.Create(AConn: TghDBConnector; const ATableName: string;
+  AOwnerTable: TghDBTable);
 begin
-  Create(AConn, ATableName, nil);
+  Create(AConn, ATableName);
+  FOwnerTable := AOwnerTable
 end;
 
 destructor TghDBTable.Destroy;
@@ -1297,6 +1281,22 @@ end;
 procedure TghDBDataSetTableAdapter.Update;
 begin
   // wait...
+end;
+
+{ TghDBConnectorBroker }
+
+constructor TghDBConnectorBroker.Create;
+begin
+  inherited Create;
+  FSQL := TghDBSQLHandler.Create;
+  FSQL.OnOpen := @CallSQLOpen;
+  FSQL.OnExecute := @CallSQLExecute;
+end;
+
+destructor TghDBConnectorBroker.Destroy;
+begin
+  FSQL.Free;
+  inherited Destroy;
 end;
 
 { TghDBConnector }
