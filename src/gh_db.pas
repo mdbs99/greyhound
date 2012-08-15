@@ -64,6 +64,7 @@ type
   TghDBSQLHandler = class(TghDBStatement)
   private
     FPrepared: Boolean;
+    FIsBatch: Boolean;
     FOnOpen: TghDBSQLHandlerOpenEvent;
     FOnExecute: TghDBSQLHandlerExecuteEvent;
     FBeforeOpen: TNotifyEvent;
@@ -80,6 +81,7 @@ type
   public
     procedure Clear; override;
     property Prepared: Boolean read FPrepared write FPrepared;
+    property IsBatch: Boolean read FIsBatch write FIsBatch;
     property OnOpen: TghDBSQLHandlerOpenEvent read FOnOpen write FOnOpen;
     property OnExecute: TghDBSQLHandlerExecuteEvent read FOnExecute write FOnExecute;
     property BeforeOpen: TNotifyEvent read FBeforeOpen write FBeforeOpen;
@@ -432,6 +434,7 @@ procedure TghDBSQLHandler.Clear;
 begin
   inherited Clear;
   FPrepared := False;
+  FIsBatch := False;
 end;
 
 { TghDBSQL }
@@ -446,15 +449,13 @@ begin
     Broker.SQL.Script.Assign(Self.Script);
     Broker.SQL.Params.Assign(Self.Params);
     Broker.SQL.Prepared := Self.Prepared;
+    Broker.SQL.IsBatch := Self.IsBatch;
     Broker.SQL.DoOpen(ADataSet, AOwner);
     CommitRetaining;
   except
-    on e: Exception do
-    begin
-      FreeAndNil(ADataSet);
-      RollbackRetaining;
-      raise EghDBError.Create(Self, e.Message);
-    end;
+    ADataSet.Free;
+    RollbackRetaining;
+    raise;
   end;
 end;
 
@@ -469,11 +470,8 @@ begin
     Result := Broker.SQL.DoExecute;
     CommitRetaining;
   except
-    on e: Exception do
-    begin
-      RollbackRetaining;
-      raise EghDBError.Create(Self, e.Message);
-    end;
+    RollbackRetaining;
+    raise;
   end;
 end;
 

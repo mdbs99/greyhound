@@ -25,9 +25,18 @@ uses
   gh_DB;
 
 type
+  TghSQLConnector = class(TSQLConnector)
+  private
+    FIsBatch: Boolean;
+  protected
+    function StrToStatementType(s : string): TStatementType; override;
+  public
+    property IsBatch: Boolean read FIsBatch write FIsBatch;
+  end;
+
   TghDBSQLdbBroker = class(TghDBConnectorBroker)
   protected
-    FConn: TSQLConnector;
+    FConn: TghSQLConnector;
     FTran: TSQLTransaction;
     FQuery: TSQLQuery;
     procedure CallSQLOpen(Sender: TObject; out ADataSet: TDataSet; AOwner: TComponent); override;
@@ -43,7 +52,7 @@ type
     procedure CommitRetaining; override;
     procedure Rollback; override;
     procedure RollbackRetaining; override;
-    property Connection: TSQLConnector read FConn;
+    property Connection: TghSQLConnector read FConn;
   end;
 
   {$IFDEF SQLite3Broker}
@@ -54,6 +63,7 @@ type
   {$ENDIF}
 
   {$IFDEF MSSQLBroker}
+
   // Especialization for MSSQLServer and Sybase
   TghDBMSSQLBroker = class(TghDBSQLdbBroker)
   public
@@ -68,6 +78,16 @@ type
 
 implementation
 
+{ TghSQLConnector }
+
+function TghSQLConnector.StrToStatementType(s: string): TStatementType;
+begin
+  if IsBatch then
+    Result := stExecProcedure
+  else
+    Result := inherited;
+end;
+
 { TghDBSQLdbBroker }
 
 procedure TghDBSQLdbBroker.CallSQLOpen(Sender: TObject; out ADataSet: TDataSet;
@@ -75,45 +95,56 @@ procedure TghDBSQLdbBroker.CallSQLOpen(Sender: TObject; out ADataSet: TDataSet;
 var
   lQ: TSQLQuery;
 begin
-  ADataSet := nil;
-  lQ := TSQLQuery.Create(AOwner);
+  FConn.IsBatch := Self.SQL.IsBatch;
   try
-    lQ.DataBase := FConn;
-    lQ.Transaction := FTran;
-    lQ.PacketRecords := -1;
-    lQ.UsePrimaryKeyAsKey := True;
-    lQ.SQL.Text := FSQL.Script.Text;
-    if Assigned(FSQL.Params) then
-      lQ.Params.Assign(FSQL.Params);
-    if FSQL.Prepared then
-      lQ.Prepare;
-    lQ.Open;
-    ADataSet := lQ;
-  except
-    lQ.Free;
+    ADataSet := nil;
+    lQ := TSQLQuery.Create(AOwner);
+    try
+      lQ.DataBase := FConn;
+      lQ.Transaction := FTran;
+      lQ.PacketRecords := -1;
+      lQ.UsePrimaryKeyAsKey := True;
+      lQ.SQL.Text := FSQL.Script.Text;
+      if Assigned(FSQL.Params) then
+        lQ.Params.Assign(FSQL.Params);
+      if FSQL.Prepared then
+        lQ.Prepare;
+      lQ.Open;
+      ADataSet := lQ;
+    except
+      lQ.Free;
+    end;
+  finally
+    FConn.IsBatch := False;
   end;
 end;
 
 function TghDBSQLdbBroker.CallSQLExecute(Sender: TObject): NativeInt;
 begin
-  if not FQuery.SQL.Equals(FSQL.Script) then
-  begin
-    FQuery.SQL.Assign(FSQL.Script);
+  FConn.IsBatch := Self.SQL.IsBatch;
+  try
+    if not FQuery.SQL.Equals(FSQL.Script) then
+      FQuery.SQL.Assign(FSQL.Script);
+
     if FSQL.Prepared then
       FQuery.Prepare
     else
       FQuery.UnPrepare;
+
     if Assigned(FSQL.Params) then
       FQuery.Params.Assign(FSQL.Params);
+
+    FQuery.ExecSQL;
+    Result := FQuery.RowsAffected;
+  finally
+    FConn.IsBatch := False;
   end;
-  FQuery.ExecSQL;
-  Result := FQuery.RowsAffected;
 end;
 
 constructor TghDBSQLdbBroker.Create;
 begin
   inherited Create;
-  FConn := TSQLConnector.Create(nil);
+  FConn := TghSQLConnector.Create(nil);
   FTran := TSQLTransaction.Create(nil);
   FTran.DataBase := FConn;
   FConn.Transaction := FTran;
