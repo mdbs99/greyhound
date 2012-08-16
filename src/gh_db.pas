@@ -79,6 +79,7 @@ type
     procedure DoBeforeExecute;
     procedure DoAfterExecute;
   public
+    procedure Assign(ASource: TghDBStatement); override;
     procedure Clear; override;
     property Prepared: Boolean read FPrepared write FPrepared;
     property IsBatch: Boolean read FIsBatch write FIsBatch;
@@ -430,6 +431,19 @@ begin
     FAfterExecute(Self);
 end;
 
+procedure TghDBSQLHandler.Assign(ASource: TghDBStatement);
+var
+  lHandler: TghDBSQLHandler;
+begin
+  inherited;
+  if ASource is TghDBSQLHandler then
+  begin
+    lHandler := TghDBSQLHandler(ASource);
+    Self.Prepared := lHandler.Prepared;
+    Self.IsBatch := lHandler.IsBatch;
+  end;
+end;
+
 procedure TghDBSQLHandler.Clear;
 begin
   inherited Clear;
@@ -446,10 +460,7 @@ begin
   with FConnector do
   try
     StartTransaction;
-    Broker.SQL.Script.Assign(Self.Script);
-    Broker.SQL.Params.Assign(Self.Params);
-    Broker.SQL.Prepared := Self.Prepared;
-    Broker.SQL.IsBatch := Self.IsBatch;
+    Broker.SQL.Assign(Self);
     Broker.SQL.DoOpen(ADataSet, AOwner);
     CommitRetaining;
   except
@@ -464,9 +475,7 @@ begin
   with FConnector do
   try
     StartTransaction;
-    Broker.SQL.Script.Assign(Self.Script);
-    Broker.SQL.Params.Assign(Self.Params);
-    Broker.SQL.Prepared := Self.Prepared;
+    Broker.SQL.Assign(Self);
     Result := Broker.SQL.DoExecute;
     CommitRetaining;
   except
