@@ -6,15 +6,19 @@ uses
   heaptrc,
   Classes, SysUtils, DB,
   // gh
-  gh_db, gh_dbsqldbbroker;
+  gh_db, gh_DBSQLdb;
+
+{$DEFINE MSSQLBroker}
 
 const
-  TAB_TMP = 'user_tmp';
+  TAB_TMP = '#user_tmp';
 
 var
   co: TghDBConnector;
 
 procedure ExecSelect;
+var
+  ds: TDataSet;
 begin
   writeln;
   writeln('Show data:');
@@ -22,24 +26,28 @@ begin
   co.SQL.Clear;
   co.SQL.Script.Text := 'select * from ' + TAB_TMP;
 
-  with co.SQL.Open do
-    while not EOF do
+  co.SQL.Open(ds);
+  try
+    while not ds.EOF do
     begin
-      writeln('User: ' + FieldByName('name').AsString);
-      Next;
+      writeln('User: ', ds.FieldByName('id').AsString, '-', ds.FieldByName('name').AsString);
+      ds.Next;
     end;
+  finally
+    ds.Free;
+  end;
 end;
 
-procedure InsertUser(ID: Integer; const ALogin, APasswd, AName: string);
+procedure InsertUser(const ALogin, APasswd, AName: string);
 begin
   writeln;
-  writeln('Inserting ', ID, ' ', ALogin, ' ', AName);
+  writeln('Inserting ', ALogin, ' ', AName);
 
   with co.SQL do
   begin
     Clear;
-    Script.Text := 'insert into '+TAB_TMP+' values (:id, :login, :passwd, :name)';
-    Params['id'].AsInteger := ID;
+    Prepared := True;
+    Script.Text := 'insert into '+TAB_TMP+' values (:login, :passwd, :name)';
     Params['login'].AsString := ALogin;
     Params['passwd'].AsString := APasswd;
     Params['name'].AsString := AName;
@@ -56,10 +64,10 @@ begin
     co.SetBrokerClass(TghDBMSSQLBroker);
 
     // set params
-    co.Host := 'YOUR_HOST';
-    co.Database := 'YOUR_DATABASE';
-    co.User := 'YOUR_USER';
-    co.Password := 'YOUR_PASSWORD';
+    co.Host := 'localhost'; //'YOUR_HOST';
+    co.Database := 'Db_DO'; //'YOUR_DATABASE';
+    co.User := 'dox'; //'YOUR_USER';
+    co.Password := 'dox';// 'YOUR_PASSWORD';
 
     co.Connect;
     writeln('Connected.');
@@ -67,7 +75,7 @@ begin
     // creating a temp table
     co.SQL.Clear;
     co.SQL.Script.Add('create table '+TAB_TMP+' ( ');
-    co.SQL.Script.Add('  [id] int not null primary key ');
+    co.SQL.Script.Add('  [id] int identity not null primary key ');
     co.SQL.Script.Add(' ,[login] varchar(20) not null ');
     co.SQL.Script.Add(' ,[passwd] varchar(30) null ');
     co.SQL.Script.Add(' ,[name] varchar(50) null )');
@@ -75,13 +83,13 @@ begin
     writeln('Table created.');
 
     // insert
-    InsertUser(1, 'mjane', '123', 'Mary Jane');
+    InsertUser('mjane', '123', 'Mary Jane');
 
     ExecSelect;
 
     // using transaction
     co.StartTransaction;
-    InsertUser(2, 'venon', 'xxx', 'Venon');
+    InsertUser('venon', 'xxx', 'Venon');
     ExecSelect;
     writeln('Rollback');
     co.Rollback;
@@ -90,21 +98,24 @@ begin
 
     // again, using Commit
     co.StartTransaction;
-    InsertUser(2, 'pparker', '1', 'Peter Parker');
+    InsertUser('pparker', '1', 'Peter Parker');
     writeln('Commit');
     co.Commit;
 
     ExecSelect;
 
     // drop table
+    co.SQL.Clear;
     co.SQL.Script.Text := 'drop table '+TAB_TMP;
     co.SQL.Execute;
-    writeln;
-    writeln('Done.');
-    writeln;
+
   finally
     co.Free;
   end;
+
+  writeln;
+  writeln('Done.');
+  writeln;
 
 end.
 

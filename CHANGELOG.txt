@@ -1,6 +1,29 @@
 Release notes
 ==========================================================
 
+(2012-08-12)[2]
+
+- Now TghDBConnectorBroker inherits from TghDBObject.
+- The new TghDBConnectorBroker interface is compatible with TghDBConnector because they have a SQL property too but the class is TghDBSQLHandler, no TghDBSQL;
+
+(2012-08-12)
+
+- Implemented TghDBSQLHandler class;
+- Implemented some events to TghDBSQLHandler;
+- Now TghDBConnectorBroker inherits from TghDBSQLHandler;
+- Removed TghDBConnectorBroker.Open method;
+- Removed TghDBConnectorBroker.Execute method;
+- Implemented TghDBSQLdbBroker.InternalOpen method;
+- Implemented TghDBSQLdbBroker.InternalExecute method;
+
+(2012-08-06)
+
+- Started TghDBTableAdapter class;
+- Started new JSON support using TghDBTableAdapter class;
+- Renamed gh_dbsqldbbroker unit to gh_dbsqldb;
+- Renamed gh_dbzeosbroker unit to gh_dbzeos;
+- Cleanup;
+
 (2012-07-01)
 
 - Support for Constraints: Default, Unique and Check constraints.

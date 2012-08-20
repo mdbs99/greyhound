@@ -6,7 +6,7 @@ uses
   heaptrc,
   Classes, SysUtils,
   // gh
-  gh_db, gh_DBSQLdbBroker;
+  gh_db, gh_DBSQLdb;
 
 const
   TAB_TMP = 'user_tmp';
@@ -66,6 +66,7 @@ begin
     writeln('Connected.');
 
     // delete all records
+    co.SQL.Clear;
     co.SQL.Script.Text := 'delete from ' + TAB_TMP;
     co.SQL.Execute;
 

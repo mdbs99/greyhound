@@ -18,8 +18,15 @@ interface
 
 uses
   // fpc
-  Classes, SysUtils, variants, bufdataset, sqldb,
-  fpjson, fpjsondataset,
+  Classes,
+  SysUtils,
+  DB,
+  variants,
+  BufDataset,
+  sqldb,
+  fpjson,
+  fpjsondataset,
+
   // gh
   gh_DB;
 
@@ -40,6 +47,21 @@ type
   public
     procedure LoadFromStream(AStream: TStream; AFormat: TDataPacketFormat = dfAny); override;
     procedure SaveToStream(AStream: TStream; AFormat: TDataPacketFormat = dfBinary); override;
+  end;
+
+  TghDBJSONTableAdapter = class(TghDBTableAdapter)
+  private
+    FUseDateTimeAsString: Boolean;
+  protected
+    FJSONArray: TJSONArray;
+    class function GetJSONType(const AFieldType: TFieldType): ShortString;
+    procedure Adapt; override;
+  public
+    constructor Create(ATable: TghDBTable); override;
+    destructor Destroy; override;
+    procedure Update; override;
+    property JSON: TJSONArray read FJSONArray;
+    property UseDateTimeAsString: Boolean read FUseDateTimeAsString write FUseDateTimeAsString;
   end;
 
 implementation
@@ -154,5 +176,83 @@ begin
   FDataSet.First;
 end;
 
-end.
+{ TghDBJSONTableAdapter }
 
+class function TghDBJSONTableAdapter.GetJSONType(const AFieldType: TFieldType): ShortString;
+begin
+  case AFieldType of
+    ftUnknown, ftCursor, ftADT, ftArray, ftReference, ftDataSet,
+      ftInterface, ftIDispatch: Result := 'null';
+    ftString, ftBlob, ftMemo, ftFixedChar, ftWideString, ftOraBlob,
+      ftOraClob, ftFixedWideChar, ftWideMemo, ftBytes, ftVarBytes,
+      ftGraphic, ftFmtMemo, ftParadoxOle, ftDBaseOle, ftTypedBinary,
+      ftVariant, ftGuid: Result := 'string';
+    ftSmallint, ftInteger, ftLargeint, ftWord,
+      ftAutoInc: Result := 'int';
+    ftBoolean: Result := 'boolean';
+    ftFloat, ftCurrency, ftBCD, ftFMTBcd: Result := 'float';
+    ftDate, ftTime, ftDateTime, ftTimeStamp: Result := 'date';
+  end;
+end;
+
+procedure TghDBJSONTableAdapter.Adapt;
+var
+  i: Integer;
+  lColumn: TghDBColumn;
+  lColumnType, lColumnName: ShortString;
+  lJSON: TJSONObject;
+begin
+  FJSONArray.Clear;
+  FTable.First;
+  while not FTable.EOF do
+  begin
+    lJSON := TJSONObject.Create;
+    for i := 0 to FTable.GetColumns.Count-1 do
+    begin
+      lColumn := FTable.GetColumns[i];
+      lColumnType := GetJSONType(lColumn.DataType);
+      lColumnName := lColumn.FieldName;
+      if (lColumnType = 'null') or lColumn.IsNull then
+      begin
+        lJSON.Add(lColumnName);
+        Continue;
+      end;
+      if lColumnType = 'string' then
+        lJSON.Add(lColumnName, lColumn.AsString);
+      if lColumnType = 'boolean' then
+        lJSON.Add(lColumnName, lColumn.AsBoolean);
+      if lColumnType = 'date' then
+      begin
+        if FUseDateTimeAsString then
+          lJSON.Add(lColumnName, lColumn.AsString)
+        else
+          lJSON.Add(lColumnName, lColumn.AsFloat);
+      end;
+      if lColumnType = 'float' then
+        lJSON.Add(lColumnName, lColumn.AsFloat);
+      if lColumnType = 'int' then
+        lJSON.Add(lColumnName, lColumn.AsInteger);
+    end;
+    FJSONArray.Add(lJSON);
+    FTable.Next;
+  end;
+end;
+
+constructor TghDBJSONTableAdapter.Create(ATable: TghDBTable);
+begin
+  inherited Create(ATable);
+  FJSONArray := TJSONArray.Create;
+end;
+
+destructor TghDBJSONTableAdapter.Destroy;
+begin
+  FJSONArray.Free;
+  inherited Destroy;
+end;
+
+procedure TghDBJSONTableAdapter.Update;
+begin
+  // TODO
+end;
+
+end.

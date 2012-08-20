@@ -6,7 +6,7 @@ uses
   heaptrc,
   Classes, SysUtils,
   // gh
-  gh_DB, gh_DBSQLdbBroker;
+  gh_DB, gh_DBSQLdb;
 
 var
   co: TghDBConnector;
@@ -31,7 +31,6 @@ begin
     // All relationships belongs to the class, not the instance so,
     // you do this only once for all project.
     // Now all instances of User table have a link to access the Access table.
-
     co.Tables['user'].Relations['access'].Where('id = :access_id');
 
     // get the user table instance

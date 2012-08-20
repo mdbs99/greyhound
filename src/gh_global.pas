@@ -24,7 +24,7 @@ type
   EghError = class(Exception)
   public
     constructor Create(AInstance: TObject; const AMsg: string); overload;
-    constructor CreateFmt(AInstance: TObject; const AMsg: string; const Args: array of const); overload;
+    constructor CreateFmt(AInstance: TObject; const AMsg: string; const AArgs: array of const); overload;
   end;
 
   IghInterface = interface
@@ -34,7 +34,7 @@ type
   public
     constructor Create; virtual;
     destructor Destroy; override;
-    class function Iif(AConditional: Boolean; ATrueValue, AFalseValue: string): string;
+    class function Iif(AConditional: Boolean; ATrueValue,AFalseValue: string): string;
   end;
 
 implementation
@@ -47,12 +47,12 @@ begin
 end;
 
 constructor EghError.CreateFmt(AInstance: TObject; const AMsg: string;
-  const Args: array of const);
+  const AArgs: array of const);
 var
   lStr: string;
 begin
   lStr := Format('%s: %s', [AInstance.ClassName, AMsg]);
-  inherited CreateFmt(lStr, Args);
+  inherited CreateFmt(lStr, AArgs);
 end;
 
 { TghObject }

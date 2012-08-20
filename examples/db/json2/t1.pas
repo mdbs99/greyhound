@@ -3,17 +3,18 @@ program t1;
 {$mode objfpc}{$H+}
 
 uses
-  Classes, SysUtils, DB,
+  heaptrc,
+  Classes, SysUtils, DB, fpjson,
   // gh
   gh_DB, gh_DBSQLdb, gh_DBJSON;
 
 const
   TAB_TMP = 'user_tmp';
-  JSON_FILENAME = 'data.json';
 
 var
   co: TghDBConnector;
-  t: TghDBExtJSONTable;
+  t: TghDBTable;
+  a: TghDBJSONTableAdapter;
 
 procedure InsertRecord(id: Integer; const login, passwd, name: string);
 begin
@@ -44,7 +45,7 @@ end;
 
 begin
   co := TghDBConnector.Create;
-  t := TghDBExtJSONTable.Create(co, TAB_TMP);
+  a := TghDBJSONTableAdapter.Create(nil);
   try
     // set configurations
     // using SQLite
@@ -59,53 +60,43 @@ begin
     co.SQL.Script.Text := 'delete from ' + TAB_TMP;
     co.SQL.Execute;
 
-    // open table
-    t.Open;
+    t := co.Tables[TAB_TMP].Open;
 
     InsertRecord(1, 's.marsh', '123', 'Stan Marsh');
-    InsertRecord(2, 'k.broflovski', '123', 'Kyle Broflovski');
-    InsertRecord(3, 'e.cartman', '123', 'Eric Cartman');
-    InsertRecord(4, 'k.mccormick', '123', 'Kenny McCormick');
+    InsertRecord(2, 'k.broflovski', '456', 'Kyle Broflovski');
+    InsertRecord(3, 'e.cartman', '789', 'Eric Cartman');
+    InsertRecord(4, 'k.mccormick', '1011', 'Kenny McCormick');
     t.Commit;
 
     ShowAllRecords;
 
+    // adapt table to json
+    a.Table := t;
+
     // show JSON
     writeln('Show JSON:');
-    writeln(t.GetData);
+    writeln(a.JSON.AsJSON);
 
     writeln;
 
-    // save JSON in a file
-    t.SaveToFile(JSON_FILENAME);
+    // updating records using the real JSON objects from fpjson unit!
+    a.JSON.Objects[1]['name'].AsString := 'Bob';
+    a.JSON.Delete(0);
 
-    // delete all records
-    while not t.EOF do
-      t.Delete;
+    // update the real table
+    a.Update;
 
     // commit
     t.Commit;
 
     ShowAllRecords;
-
-    // reopen table, using JSON file
-    writeln('Reopen table, using JSON ', JSON_FILENAME, ' file...');
-    t.LoadFromFile(JSON_FILENAME);
-
-    writeln;
-    writeln('Show JSON without Metadata:');
-    t.PackMetadata := False;
-    writeln(t.GetData);
-
-    ShowAllRecords;
-
-    writeln;
-    writeln('Done.');
-    writeln;
   finally
-    t.Free;
+    a.Free;
     co.Free;
   end;
+
+  writeln;
+  writeln('Done.');
 
 end.
 

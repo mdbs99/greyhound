@@ -1,0 +1,52 @@
+{
+  "metaData" : {
+    "fields" : [
+      {
+        "name" : "id",
+        "type" : "int"
+      },
+      {
+        "name" : "login",
+        "type" : "string",
+        "maxlen" : 20
+      },
+      {
+        "name" : "passwd",
+        "type" : "string",
+        "maxlen" : 30
+      },
+      {
+        "name" : "name",
+        "type" : "string",
+        "maxlen" : 50
+      }
+    ],
+    "root" : "rows"
+  },
+  "rows" : [
+    {
+      "id" : 4,
+      "login" : "k.mccormick",
+      "passwd" : "123",
+      "name" : "Kenny McCormick"
+    },
+    {
+      "id" : 3,
+      "login" : "e.cartman",
+      "passwd" : "123",
+      "name" : "Eric Cartman"
+    },
+    {
+      "id" : 2,
+      "login" : "k.broflovski",
+      "passwd" : "123",
+      "name" : "Kyle Broflovski"
+    },
+    {
+      "id" : 1,
+      "login" : "s.marsh",
+      "passwd" : "123",
+      "name" : "Stan Marsh"
+    }
+  ]
+}
