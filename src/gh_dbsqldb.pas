@@ -38,7 +38,7 @@ type
   protected
     FConn: TghSQLConnector;
     FTran: TSQLTransaction;
-    FQuery: TSQLQuery;
+    FQuery: TghDBQuery;
     procedure CallSQLOpen(Sender: TObject; out ADataSet: TDataSet; AOwner: TComponent); override;
     function CallSQLExecute(Sender: TObject): NativeInt; override;
   public
@@ -63,8 +63,7 @@ type
   {$ENDIF}
 
   {$IFDEF MSSQLBroker}
-
-  // Especialization for MSSQLServer and Sybase
+   // Especialization for MSSQLServer and Sybase
   TghDBMSSQLBroker = class(TghDBSQLdbBroker)
   public
     constructor Create; override;
@@ -93,12 +92,12 @@ end;
 procedure TghDBSQLdbBroker.CallSQLOpen(Sender: TObject; out ADataSet: TDataSet;
   AOwner: TComponent);
 var
-  lQ: TSQLQuery;
+  lQ: TghDBQuery;
 begin
   FConn.IsBatch := Self.SQL.IsBatch;
   try
     ADataSet := nil;
-    lQ := TSQLQuery.Create(AOwner);
+    lQ := TghDBQuery.Create(AOwner);
     try
       lQ.DataBase := FConn;
       lQ.Transaction := FTran;
@@ -148,7 +147,7 @@ begin
   FTran := TSQLTransaction.Create(nil);
   FTran.DataBase := FConn;
   FConn.Transaction := FTran;
-  FQuery := TSQLQuery.Create(nil);
+  FQuery := TghDBQuery.Create(nil);
   FQuery.DataBase := FConn;
   FQuery.Transaction := FTran;
 end;

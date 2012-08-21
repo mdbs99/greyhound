@@ -1,6 +1,12 @@
 Release notes
 ==========================================================
 
+(2012-08-20)
+
+- Renamed t.DataSetToQuery method name to t.Transform;
+- Better method names to TghDBConstraintList;
+- New TghDBQuery class to use instead TSQLQuery;
+
 (2012-08-12)[2]
 
 - Now TghDBConnectorBroker inherits from TghDBObject.

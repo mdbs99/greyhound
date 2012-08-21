@@ -46,6 +46,11 @@ type
     property Param[const AName: string]: TParam read ParamByName; default;
   end;
 
+  TghDBQuery = class(TSQLQuery)
+  protected
+    procedure ApplyRecUpdate(UpdateKind : TUpdateKind); override;
+  end;
+
   TghDBStatement = class(TghDBObject)
   protected
     FParams: TghDBParams;
@@ -145,11 +150,11 @@ type
   TghDBConstraintList = class(specialize TFPGObjectList<TghDBConstraint>)
   public
     // Add a Default constraint
-    function Add(const AColumName: string; AValue: Variant): Integer; overload;
+    function AddDefault(const AColumName: string; AValue: Variant): Integer; overload;
     // Add a Unique constraint
-    function Add(const AColumNames: array of string): Integer; overload;
+    function AddUnique(const AColumNames: array of string): Integer;
     // Add a Check constraint
-    function Add(const AColumName: string; AValues: array of Variant): Integer; overload;
+    function AddCheck(const AColumName: string; AValues: array of Variant): Integer;
   end;
 
   TghDBTable = class(TghDBObject)
@@ -176,7 +181,7 @@ type
     procedure SetTableName(const AValue: string);
     procedure SetConnector(AValue: TghDBConnector);
   protected
-    FDataSet: TSQLQuery;
+    FDataSet: TghDBQuery;
     class procedure ClassInitialization;
     class procedure ClassFinalization;
     procedure CheckTable;
@@ -185,6 +190,8 @@ type
     procedure SetDefaultValues; virtual;
     // callback
     procedure CallFoundTable(Sender: TObject; ATable: TghDBTable); virtual;
+    procedure CallResolverError(Sender: TObject; DataSet: TCustomBufDataset;
+      E: EUpdateError; UpdateKind: TUpdateKind; var Response: TResolverResponse); virtual;
   public
     constructor Create(AConn: TghDBConnector); virtual; overload; reintroduce;
     constructor Create(AConn: TghDBConnector; const ATableName: string); virtual; overload;
@@ -320,8 +327,7 @@ type
     procedure CommitRetaining;
     procedure Rollback;
     procedure RollbackRetaining;
-    procedure DataSetToSQLQuery(ASource: TDataSet;
-      out ADest: TSQLQuery; AOwner: TComponent = nil);
+    procedure Transform(ASource: TDataSet; out ADest: TghDBQuery; AOwner: TComponent = nil);
     procedure Notify(ATable: TghDBTable; AOperation: TOperation);
     property Broker: TghDBConnectorBroker read FBroker;
     property Database: string read FDatabase write FDatabase;
@@ -355,6 +361,13 @@ begin
     lParam.Name := AName;
   end;
   Result := lParam as TParam;
+end;
+
+{ TghDBQuery }
+
+procedure TghDBQuery.ApplyRecUpdate(UpdateKind: TUpdateKind);
+begin
+  inherited ApplyRecUpdate(UpdateKind);
 end;
 
 { TghDBStatement }
@@ -703,17 +716,17 @@ end;
 
 { TghDBConstraintList }
 
-function TghDBConstraintList.Add(const AColumName: string; AValue: Variant): Integer;
+function TghDBConstraintList.AddDefault(const AColumName: string; AValue: Variant): Integer;
 begin
   Result := Add(TghDBDefaultConstraint.Create(AColumName, AValue));
 end;
 
-function TghDBConstraintList.Add(const AColumNames: array of string): Integer;
+function TghDBConstraintList.AddUnique(const AColumNames: array of string): Integer;
 begin
   Result := Add(TghDBUniqueConstraint.Create(AColumNames));
 end;
 
-function TghDBConstraintList.Add(const AColumName: string;
+function TghDBConstraintList.AddCheck(const AColumName: string;
   AValues: array of Variant): Integer;
 begin
   Result := Add(TghDBCheckConstraint.Create(AColumName, AValues));
@@ -836,15 +849,16 @@ begin
 
   FreeAndNil(FDataSet);
 
-  if lDataSet is TSQLQuery then
+  if lDataSet is TghDBQuery then
   begin
-    FDataSet := lDataSet as TSQLQuery;
+    FDataSet := lDataSet as TghDBQuery;
+    FDataSet.OnUpdateError := @CallResolverError;
     Exit;
   end;
 
   try
     // from [*dataset] to [tsqlquery]
-    FConnector.DataSetToSQLQuery(lDataSet, FDataSet);
+    FConnector.Transform(lDataSet, FDataSet);
   finally
     lDataSet.Free;
   end;
@@ -932,6 +946,16 @@ begin
 
   lLink.Open;
 end;
+
+{$HINTS OFF}
+procedure TghDBTable.CallResolverError(Sender: TObject;
+  DataSet: TCustomBufDataset; E: EUpdateError; UpdateKind: TUpdateKind;
+  var Response: TResolverResponse);
+begin
+  Response := rrAbort;
+  raise EghDBError.Create(Self, E.Message);
+end;
+{$HINTS ON}
 
 constructor TghDBTable.Create(AConn: TghDBConnector);
 begin
@@ -1177,7 +1201,7 @@ begin
   if Active then
     raise EghDBError.Create(Self, 'Table is active.');
   FDataSet.Free;
-  FDataSet := TSQLQuery.Create(nil);
+  FDataSet := TghDBQuery.Create(nil);
   FDataSet.LoadFromStream(AStream, AFormat);
 end;
 
@@ -1471,15 +1495,15 @@ begin
   end;
 end;
 
-procedure TghDBConnector.DataSetToSQLQuery(ASource: TDataSet;
-  out ADest: TSQLQuery; AOwner: TComponent);
+procedure TghDBConnector.Transform(ASource: TDataSet;
+  out ADest: TghDBQuery; AOwner: TComponent);
 var
   i: Integer;
 begin
   if (ASource = nil) or (not ASource.Active) then
     raise EghDBError.Create('Source is nil or isn''t active.');
 
-  ADest := TSQLQuery.Create(AOwner);
+  ADest := TghDBQuery.Create(AOwner);
   try
     ADest.FieldDefs.Assign(ASource.FieldDefs);
     ADest.CreateDataset;
