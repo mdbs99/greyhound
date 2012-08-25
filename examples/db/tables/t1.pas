@@ -75,7 +75,7 @@ begin
     t := co.Tables[TAB_TMP].Open;
 
     // Adding a Default constraint
-    t.Constraints.Add('name', 'Nick Bool');
+    t.Constraints.AddDefault('name', 'Nick Bool');
 
     // Not passed the <name> so, the "default constraint" will be used.
     InsertRecord(1, 'bob', '123');
@@ -116,7 +116,7 @@ begin
     InsertRecord(4, 'jj', '788');
 
     // Adding a Unique constraint
-    t.Constraints.Add(['name']);
+    t.Constraints.AddUnique(['name']);
 
     // Trying to insert Jeni, but she already exist!!
     InsertRecord(5, 'jeni', '555', 'Jeni');
@@ -124,7 +124,7 @@ begin
     t.Commit;
 
     // Adding a Check constraint
-    t.Constraints.Add('login', ['L1', 'L2']);
+    t.Constraints.AddCheck('login', ['L1', 'L2']);
 
     // Trying to insert... error! Because this violated the Check Constraint.
     InsertRecord(6, 'AAA', '000', 'Login1');

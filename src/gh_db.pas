@@ -111,7 +111,7 @@ type
   TghDBConstraint = class(TghDBObject)
   protected
     FParams: TghDBParams;
-    FOwnerTable: TghDBTable;
+    FTable: TghDBTable;
     procedure SetTable(AValue: TghDBTable);
     function NamesToBeautifulStr: string;
     function ValuesToBeautifulStr: string;
@@ -119,7 +119,7 @@ type
     constructor Create; override;
     destructor Destroy; override;
     procedure Execute; virtual; abstract;
-    property OwnerTable: TghDBTable read FOwnerTable write SetTable;
+    property Table: TghDBTable read FTable write SetTable;
   end;
 
   TghDBDefaultConstraint = class(TghDBConstraint)
@@ -524,8 +524,8 @@ end;
 
 procedure TghDBConstraint.SetTable(AValue: TghDBTable);
 begin
-  if FOwnerTable = AValue then Exit;
-  FOwnerTable := AValue;
+  if FTable = AValue then Exit;
+  FTable := AValue;
 end;
 
 function TghDBConstraint.NamesToBeautifulStr: string;
@@ -586,7 +586,7 @@ var
 begin
   for i := 0 to FParams.Count -1 do
   begin
-    lColum := FOwnerTable.GetColumns.FindField(FParams.Items[i].Name);
+    lColum := FTable.GetColumns.FindField(FParams.Items[i].Name);
     if Assigned(lColum) then
       lColum.Value := FParams.Items[i].Value;
   end;
@@ -613,7 +613,7 @@ var
     i: Integer;
     lIxDef: TIndexDef;
   begin
-    with FOwnerTable.FDataSet do
+    with FTable.FDataSet do
     begin
       for i := 0 to ServerIndexDefs.Count -1 do
       begin
@@ -621,7 +621,7 @@ var
         if ixPrimary in lIxDef.Options then
         begin
           lWhere += ' and (' + lIxDef.Fields + ' <> :' + lIxDef.Fields + ')';
-          lTable.Params[lIxDef.Fields].Value := FOwnerTable[lIxDef.Fields].Value;
+          lTable.Params[lIxDef.Fields].Value := FTable[lIxDef.Fields].Value;
         end;
       end;
     end;
@@ -636,7 +636,7 @@ var
     for i := 0 to FParams.Count -1 do
     begin
       lParam := FParams.Items[i];
-      lColumn := FOwnerTable.GetColumns.FindField(lParam.Name);
+      lColumn := FTable.GetColumns.FindField(lParam.Name);
       if lColumn = nil then
         raise EghDBError.CreateFmt(Self, 'Column "%s" not found.', [lParam.Name]);
       lWhere += ' and (' + lParam.Name + ' = :' + lParam.Name + ')';
@@ -646,12 +646,12 @@ var
 
 begin
   lWhere := '1=1 ';
-  lTable := TghDBTable.Create(FOwnerTable.Connector, FOwnerTable.TableName);
+  lTable := TghDBTable.Create(FTable.Connector, FTable.TableName);
   try
     SetPK;
     SetValues;
     if lTable.Where(lWhere).Open.RecordCount > 0 then
-      FOwnerTable.GetErrors.Add(GetError);
+      FTable.GetErrors.Add(GetError);
   finally
     lTable.Free;
   end;
@@ -688,7 +688,7 @@ var
   lAccept: Boolean;
 begin
   lParam := FParams.Items[0];
-  lColumn := FOwnerTable.GetColumns.FindField(lParam.Name);
+  lColumn := FTable.GetColumns.FindField(lParam.Name);
 
   if lColumn = nil then
     raise EghDBError.CreateFmt(Self, 'Column "%s" not found.', [lParam.Name]);
@@ -704,7 +704,7 @@ begin
   end;
 
   if not lAccept then
-    FOwnerTable.GetErrors.Add(GetError);
+    FTable.GetErrors.Add(GetError);
 end;
 
 function TghDBCheckConstraint.GetError: string;
@@ -895,7 +895,7 @@ begin
     lConstraint := GetConstraints[i];
     if lConstraint is TghDBDefaultConstraint then
     begin
-      lConstraint.OwnerTable := Self;
+      lConstraint.Table := Self;
       TghDBDefaultConstraint(lConstraint).Execute;
     end;
   end;

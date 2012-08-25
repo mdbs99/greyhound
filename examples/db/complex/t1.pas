@@ -16,19 +16,28 @@ var
   t: TghDBTable;
 
 procedure ExecSelect;
+var
+  ds: TDataSet;
 begin
   writeln;
   writeln('Show data:');
 
-  co.SQL.Clear;
-  co.SQL.Script.Text := 'select * from ' + TAB_TMP;
-
-  with co.SQL.Open do
-    while not EOF do
+  ds := nil;
+  try
+    with co.SQL do
     begin
-      writeln('User: ' + FieldByName('name').AsString);
-      Next;
+      Clear;
+      Script.Text := 'select * from ' + TAB_TMP;
+      Open(ds);
+      while not ds.EOF do
+      begin
+        writeln('User: ' + ds.FieldByName('name').AsString);
+        ds.Next;
+      end;
     end;
+  finally
+    ds.Free;
+  end;
 end;
 
 procedure InsertUser(ID: Integer; const ALogin, APasswd, AName: string);
@@ -112,7 +121,7 @@ begin
     t.Edit;
     t.Columns['name'].AsString := 'Venon';
     t.Post;
-    t.Apply;
+    t.Commit;
 
     ExecSelect;
 
