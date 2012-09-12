@@ -60,6 +60,14 @@ type
   public
     constructor Create; override;
   end;
+
+  {$IFDEF FPC2_6_0}
+  TSQLite3ConnectionDef = class(TConnectionDef)
+    class function TypeName: string; override;
+    class function ConnectionClass: TSQLConnectionClass; override;
+    class function Description: string; override;
+  end;
+  {$ENDIF}
   {$ENDIF}
 
   {$IFDEF MSSQLBroker}
@@ -215,6 +223,25 @@ begin
   FConn.ConnectorType := TSQLite3ConnectionDef.TypeName;
 end;
 
+{$IFDEF FPC2_6_0}
+{ TSQLite3ConnectionDef }
+
+class function TSQLite3ConnectionDef.TypeName: string;
+begin
+  Result := 'SQLite3';
+end;
+
+class function TSQLite3ConnectionDef.ConnectionClass: TSQLConnectionClass;
+begin
+  Result := TSQLite3Connection;
+end;
+
+class function TSQLite3ConnectionDef.Description: string;
+begin
+  Result := 'Connect to a SQLite3 database directly via the client library';
+end;
+
+{$ENDIF}
 {$ENDIF}
 
 {$IFDEF MSSQLBroker}

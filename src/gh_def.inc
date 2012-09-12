@@ -17,6 +17,8 @@
   {$IF ((FPC_VERSION >= 2) and (FPC_RELEASE >= 6) and (FPC_PATCH >= 1))}
     {$DEFINE MSSQLBroker}
     {$DEFINE JSON_SUPPORT}
+  {$ELSE}
+    {$DEFINE FPC2_6_0}
   {$ENDIF}
 {$ENDIF}
 
