@@ -23,114 +23,118 @@ uses
   Classes, SysUtils,
   // laz
   FileUtil, LazUTF8, LCLIntf,
-{$IFDEF WINDOWS}
-  Windows,
-{$ENDIF}
   // gh
   gh_Global;
 
 // encoding
-function gh_SysEncoding(const S: string): string;
-function gh_ExeEncoding(const S: string): string;
+function gh_SysEncoding(const S: string): string; inline;
+function gh_ExeEncoding(const S: string): string; inline;
 
 // exe
-function gh_GetExeParam(AIndex: Integer): string;
-function gh_GetExePath: string;
-function gh_GetExeName: string;
-
-// file and path
-function gh_AddPathDelimiter(const APath: string): string;
-function gh_FindFirst(const APath: string; AAttr: LongInt; out ARec: TSearchRec): LongInt;
-function gh_FindNext(var ARec: TSearchRec): LongInt;
-function gh_GetCurrentDir: string;
-function gh_SetCurrentDir(const ANewDir: string): Boolean;
-function gh_ExpandFileName(const AFileName: string): string;
-function gh_FileExists(const AFileName: string): Boolean;
-function gh_FileSize(const AFileName: string): Integer;
-function gh_RenameFile(const AOldName, ANewName: string): Boolean;
-function gh_DeleteFile(const AFileName: string): Boolean;
-function gh_ExtractFileDir(const AFileName: string): string;
-function gh_ExtractFilePath(const AFileName: string): string;
-function gh_ExtractFileName(const AFileName: string): string;
-function gh_ExtractFileNameOnly(const AFileName: string): string;
-function gh_ExtractFileExt(const AFileName: string): string;
-function gh_ChangeFileExt(const AFileName, AExt: string): string;
-function gh_DirExists(const ADir: string): Boolean;
-function gh_ForceDir(const ADir: string): Boolean;
+function gh_ExeGetParam(AIndex: Integer): string;
+function gh_ExeGetPath: string;
+function gh_ExeGetName: string;
+function gh_ExeGetCurrDir: string;
+function gh_ExeSetCurrDir(const ANewDir: string): Boolean;
 
 // util
-function gh_OpenURL(const AUrl: string): Boolean;
+function gh_UrlOpen(const AUrl: string): Boolean;
+
+// file and path
+function gh_DirExists(const ADir: string): Boolean;
+function gh_DirForce(const ADir: string): Boolean;
+function gh_DirAddDelim(const APath: string): string;
+function gh_FileFindFirst(const APath: string; AAttr: LongInt; out ARec: TSearchRec): LongInt;
+function gh_FileFindNext(var ARec: TSearchRec): LongInt;
+function gh_FileExpandName(const AFileName: string): string;
+function gh_FileExists(const AFileName: string): Boolean;
+function gh_FileSize(const AFileName: string): Integer;
+function gh_FileRename(const AOldName, ANewName: string): Boolean;
+function gh_FileDelete(const AFileName: string): Boolean;
+function gh_FileExtractDir(const AFileName: string): string;
+function gh_FileExtractPath(const AFileName: string): string;
+function gh_FileExtractName(const AFileName: string): string;
+function gh_FileExtractNameOnly(const AFileName: string): string;
+function gh_FileExtractExt(const AFileName: string): string;
+function gh_FileChangeExt(const AFileName, AExt: string): string;
 
 implementation
 
 function gh_SysEncoding(const S: string): string;
 begin
-  {$IFDEF WINDOWS}
-  Result := Utf8ToAnsi(S);
-  {$ELSE}
-  Result := S;
-  {$ENDIF}
+  Result := UTF8ToSys(S);
 end;
 
 function gh_ExeEncoding(const S: string): string;
 begin
-  {$IFDEF WINDOWS}
-  Result := AnsiToUtf8(S);
-  {$ELSE}
-  Result := S;
-  {$ENDIF}
+  Result := SysToUTF8(S);
 end;
 
-function gh_GetExeParam(AIndex: Integer): string;
+function gh_ExeGetParam(AIndex: Integer): string;
 begin
   Result := gh_ExeEncoding(ParamStr(AIndex));
 end;
 
-function gh_GetExePath: string;
+function gh_ExeGetPath: string;
 begin
-  Result := gh_AddPathDelimiter(gh_ExtractFileDir(gh_GetExeParam(0)));
+  Result := gh_DirAddDelim(gh_FileExtractDir(gh_ExeGetParam(0)));
 end;
 
-function gh_GetExeName: string;
+function gh_ExeGetName: string;
 begin
-  Result := gh_ChangeFileExt(gh_ExtractFileName(gh_GetExeParam(0)), '');
+  Result := gh_FileChangeExt(gh_FileExtractName(gh_ExeGetParam(0)), '');
 end;
 
-function gh_AddPathDelimiter(const APath: string): string;
+function gh_ExeGetCurrDir: string;
+begin
+  Result := gh_ExeEncoding(SysUtils.GetCurrentDir);
+end;
+
+function gh_ExeSetCurrDir(const ANewDir: string): Boolean;
+begin
+  Result := SysUtils.SetCurrentDir(gh_SysEncoding(ANewDir));
+end;
+
+function gh_UrlOpen(const AUrl: string): Boolean;
+begin
+  Result := LCLIntf.OpenURL(AUrl);
+end;
+
+function gh_DirExists(const ADir: string): Boolean;
+begin
+  Result := SysUtils.DirectoryExists(gh_SysEncoding(ADir));
+end;
+
+function gh_DirForce(const ADir: string): Boolean;
+begin
+  Result := SysUtils.ForceDirectories(gh_SysEncoding(ADir));
+end;
+
+function gh_DirAddDelim(const APath: string): string;
 begin
   Result := IncludeTrailingPathDelimiter(APath);
 end;
 
-function gh_FindFirst(const APath: string; AAttr: LongInt; out ARec: TSearchRec): LongInt;
+function gh_FileFindFirst(const APath: string; AAttr: LongInt; out ARec: TSearchRec): LongInt;
 begin
-  Result := FindFirst(gh_SysEncoding(APath), AAttr, ARec);
+  Result := SysUtils.FindFirst(gh_SysEncoding(APath), AAttr, ARec);
   ARec.Name := gh_ExeEncoding(ARec.Name);
 end;
 
-function gh_FindNext(var ARec: TSearchRec): LongInt;
+function gh_FileFindNext(var ARec: TSearchRec): LongInt;
 begin
-  Result := FindNext(ARec);
+  Result := SysUtils.FindNext(ARec);
   ARec.Name := gh_ExeEncoding(ARec.Name);
 end;
 
-function gh_GetCurrentDir: string;
+function gh_FileExpandName(const AFileName: string): string;
 begin
-  Result := gh_ExeEncoding(GetCurrentDir);
-end;
-
-function gh_SetCurrentDir(const ANewDir: string): Boolean;
-begin
-  Result := SetCurrentDir(gh_SysEncoding(ANewDir));
-end;
-
-function gh_ExpandFileName(const AFileName: string): string;
-begin
-  Result := gh_ExeEncoding(ExpandFileName(gh_SysEncoding(AFileName)));
+  Result := gh_ExeEncoding(SysUtils.ExpandFileName(gh_SysEncoding(AFileName)));
 end;
 
 function gh_FileExists(const AFileName: string): Boolean;
 begin
-  Result := FileExists(gh_SysEncoding(AFileName));
+  Result := SysUtils.FileExists(gh_SysEncoding(AFileName));
 end;
 
 function gh_FileSize(const AFileName: string): Integer;
@@ -138,59 +142,44 @@ begin
   // TODO
 end;
 
-function gh_RenameFile(const AOldName, ANewName: string): Boolean;
+function gh_FileRename(const AOldName, ANewName: string): Boolean;
 begin
-  Result := RenameFile(gh_SysEncoding(AOldName), gh_SysEncoding(ANewName));
+  Result := SysUtils.RenameFile(gh_SysEncoding(AOldName), gh_SysEncoding(ANewName));
 end;
 
-function gh_DeleteFile(const AFileName: string): Boolean;
+function gh_FileDelete(const AFileName: string): Boolean;
 begin
   Result := SysUtils.DeleteFile(gh_SysEncoding(AFileName));
 end;
 
-function gh_ExtractFileDir(const AFileName: string): string;
+function gh_FileExtractDir(const AFileName: string): string;
 begin
-  Result := gh_ExeEncoding(ExtractFileDir(gh_SysEncoding(AFileName)));
+  Result := gh_ExeEncoding(SysUtils.ExtractFileDir(gh_SysEncoding(AFileName)));
 end;
 
-function gh_ExtractFilePath(const AFileName: string): string;
+function gh_FileExtractPath(const AFileName: string): string;
 begin
-  Result := gh_ExeEncoding(gh_AddPathDelimiter(ExtractFilePath(gh_SysEncoding(AFilename))));
+  Result := gh_ExeEncoding(SysUtils.ExtractFilePath(gh_SysEncoding(AFilename)));
 end;
 
-function gh_ExtractFileName(const AFileName: string): string;
+function gh_FileExtractName(const AFileName: string): string;
 begin
-  Result := gh_ExeEncoding(ExtractFileName(gh_SysEncoding(AFilename)));
+  Result := gh_ExeEncoding(SysUtils.ExtractFileName(gh_SysEncoding(AFilename)));
 end;
 
-function gh_ExtractFileNameOnly(const AFileName: string): string;
+function gh_FileExtractNameOnly(const AFileName: string): string;
 begin
-  Result := gh_ExeEncoding(ExtractFileNameOnly(gh_SysEncoding(AFilename)));
+  Result := gh_ExeEncoding(FileUtil.ExtractFileNameOnly(gh_SysEncoding(AFilename)));
 end;
 
-function gh_ExtractFileExt(const AFileName: string): string;
+function gh_FileExtractExt(const AFileName: string): string;
 begin
-  Result := gh_ExeEncoding(ExtractFileExt(gh_SysEncoding(AFileName)));
+  Result := gh_ExeEncoding(SysUtils.ExtractFileExt(gh_SysEncoding(AFileName)));
 end;
 
-function gh_ChangeFileExt(const AFileName, AExt: string): string;
+function gh_FileChangeExt(const AFileName, AExt: string): string;
 begin
-  Result := gh_ExeEncoding(ChangeFileExt(gh_SysEncoding(AFilename), AExt));
-end;
-
-function gh_DirExists(const ADir: string): Boolean;
-begin
-  Result := DirectoryExists(gh_SysEncoding(ADir));
-end;
-
-function gh_ForceDir(const ADir: string): Boolean;
-begin
-  Result := ForceDirectories(gh_SysEncoding(ADir));
-end;
-
-function gh_OpenURL(const AUrl: string): Boolean;
-begin
-  Result := LCLIntf.OpenURL(AUrl);
+  Result := gh_ExeEncoding(SysUtils.ChangeFileExt(gh_SysEncoding(AFilename), AExt));
 end;
 
 end.
