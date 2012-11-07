@@ -170,6 +170,8 @@ type
     FReuse: Boolean;
     FSelectColumns: string;
     FEnforceConstraints: Boolean;
+    FBeforeCommit: TNotifyEvent;
+    FAfterCommit: TNotifyEvent;
     class var FRelations: TFPHashObjectList;
     class var FConstraints: TFPHashObjectList;
     function GetRecordCount: Longint;
@@ -188,6 +190,9 @@ type
     procedure CreateResultSet; virtual;
     function CheckValues: Boolean; virtual;
     procedure SetDefaultValues; virtual;
+    // events
+    procedure DoBeforeCommit; virtual;
+    procedure DoAfterCommit; virtual;
     // callback
     procedure CallFoundTable(Sender: TObject; ATable: TghDBTable); virtual;
     procedure CallResolverError(Sender: TObject; DataSet: TCustomBufDataset;
@@ -236,6 +241,8 @@ type
     property Relations: TghDBTableList read GetRelations;
     property Constraints: TghDBConstraintList read GetConstraints;
     property EnforceConstraints: Boolean read FEnforceConstraints;
+    property BeforeCommit: TNotifyEvent read FBeforeCommit write FBeforeCommit;
+    property AfterCommit: TNotifyEvent read FAfterCommit write FAfterCommit;
   end;
 
   TghDBTableNotifyEvent = procedure (Sender: TObject; ATable: TghDBTable) of object;
@@ -308,7 +315,6 @@ type
     FHost: string;
     FPassword: string;
     FUser: string;
-    FSQL: TghDBSQL;
     FTables: TghDBTableList;
   protected
     FBroker: TghDBConnectorBroker;
@@ -335,7 +341,6 @@ type
     property Host: string read FHost write FHost;
     property User: string read FUser write FUser;
     property Password: string read FPassword write FPassword;
-    property SQL: TghDBSQL read FSQL;
     property Tables[const ATableName: string]: TghDBTable read GetTables;
   end;
 
@@ -821,30 +826,34 @@ procedure TghDBTable.CreateResultSet;
 var
   lDataSet: TDataSet;
   lSelectColumns: string;
+  lSQL: TghDBSQL;
 begin
   lSelectColumns := Iif(FSelectColumns = '', '*', FSelectColumns);
   lDataSet := nil;
+  lSQL := TghDBSQL.Create(FConnector);
   try
-    FConnector.SQL.Clear;
+    try
+      lSQL.Script.Add('select ' + lSelectColumns + ' from ' + FTableName);
+      lSQL.Script.Add('where 1=1');
 
-    FConnector.SQL.Script.Add('select ' + lSelectColumns + ' from ' + FTableName);
-    FConnector.SQL.Script.Add('where 1=1');
+      if FConditions <> '' then
+        lSQL.Script.Add('and ' + FConditions);
 
-    if FConditions <> '' then
-      FConnector.SQL.Script.Add('and ' + FConditions);
+      lSQL.Params.Assign(FParams);
 
-    FConnector.SQL.Params.Assign(FParams);
+      if FOrderBy <> '' then
+        lSQL.Script.Add('order by ' + FOrderBy);
 
-    if FOrderBy <> '' then
-      FConnector.SQL.Script.Add('order by ' + FOrderBy);
-
-    FConnector.SQL.Open(lDataSet);
-  except
-    on e: Exception do
-    begin
-      lDataSet.Free;
-      raise;
+      lSQL.Open(lDataSet);
+    except
+      on e: Exception do
+      begin
+        lDataSet.Free;
+        raise;
+      end;
     end;
+  finally
+    lSQL.Free;
   end;
 
   FreeAndNil(FDataSet);
@@ -899,6 +908,18 @@ begin
       TghDBDefaultConstraint(lConstraint).Execute;
     end;
   end;
+end;
+
+procedure TghDBTable.DoBeforeCommit;
+begin
+  if Assigned(FBeforeCommit) then
+    FBeforeCommit(Self);
+end;
+
+procedure TghDBTable.DoAfterCommit;
+begin
+  if Assigned(FAfterCommit) then
+    FAfterCommit(Self);
 end;
 
 procedure TghDBTable.CallFoundTable(Sender: TObject; ATable: TghDBTable);
@@ -1075,9 +1096,11 @@ begin
 
   FConnector.StartTransaction;
   try
+    DoBeforeCommit;
     FDataSet.ApplyUpdates(0);
     FConnector.CommitRetaining;
     FErrors.Clear;
+    DoAfterCommit;
   except
     on e: Exception do
     begin
@@ -1367,7 +1390,6 @@ constructor TghDBConnector.Create;
 begin
   inherited;
   FBroker := nil;
-  FSQL := TghDBSQL.Create(Self);
   FTables := TghDBTableList.Create(nil, False);
 end;
 
@@ -1383,7 +1405,6 @@ begin
     lTable.Free;
   end;
   FTables.Free;
-  FSQL.Free;
   FBroker.Free;
   inherited Destroy;
 end;

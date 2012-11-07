@@ -48,7 +48,7 @@ function gh_FileFindFirst(const APath: string; AAttr: LongInt; out ARec: TSearch
 function gh_FileFindNext(var ARec: TSearchRec): LongInt;
 function gh_FileExpandName(const AFileName: string): string;
 function gh_FileExists(const AFileName: string): Boolean;
-function gh_FileSize(const AFileName: string): Integer;
+function gh_FileSize(const AFileName: string): Int64;
 function gh_FileRename(const AOldName, ANewName: string): Boolean;
 function gh_FileDelete(const AFileName: string): Boolean;
 function gh_FileExtractDir(const AFileName: string): string;
@@ -137,9 +137,9 @@ begin
   Result := SysUtils.FileExists(gh_SysEncoding(AFileName));
 end;
 
-function gh_FileSize(const AFileName: string): Integer;
+function gh_FileSize(const AFileName: string): Int64;
 begin
-  // TODO
+  Result := FileUtil.FileSize(AFileName);
 end;
 
 function gh_FileRename(const AOldName, ANewName: string): Boolean;
