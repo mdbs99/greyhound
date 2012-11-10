@@ -11,7 +11,7 @@ Features
 ====================================================
 
 
-Database (DB) Module
+Data Module
 ----------------------------------------------------
 - Use one simple interface, but you can choose any Lib (aka Broker) to connect in a DBMS like SQLdb, Zeos or whatever you want;
 - CRUD: TghDBTable class to manipulate one table easily, like a ActiveRecord, 
