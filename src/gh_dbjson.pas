@@ -251,8 +251,60 @@ begin
 end;
 
 procedure TghDBJSONTableAdapter.Update;
+{
+Seria mais ou menos assim:
+1- cada objeto JSON não encontrado na Table interna, será incluído;
+2- cada objeto JSON com 1 ou mais campos diferentes do mesmo
+registro da Table interna, será atualizado;
+3- cada registro da Table interna não encontrado nos objetos JSON,
+serão excluídos.
+}
+var
+  i, x: Integer;
+  lColumn: TghDBColumn;
+  lJSONObject: TJSONObject;
+  lJSONData: TJSONData;
 begin
-  // TODO
+  for i := 0 to FJSONArray.Count -1 do
+  begin
+    lJSONObject := FJSONArray.Objects[i];
+    FTable.Edit;
+    for x := 0 to lJSONObject.Count -1 do
+    begin
+      lColumn := FTable.GetColumns.FindField(lJSONObject.Names[x]);
+      if not Assigned(lColumn) then
+        Continue;
+      lJSONData := lJSONObject.Items[x];
+      if lJSONData.IsNull then
+        lColumn.Clear
+      else
+      begin
+        case lColumn.DataType of
+          ftUnknown, ftCursor, ftADT, ftArray, ftReference, ftDataSet,
+            ftInterface, ftIDispatch: lColumn.Clear;
+          ftString, ftBlob, ftMemo, ftFixedChar, ftWideString, ftOraBlob,
+            ftOraClob, ftFixedWideChar, ftWideMemo, ftBytes, ftVarBytes,
+            ftGraphic, ftFmtMemo, ftParadoxOle, ftDBaseOle, ftTypedBinary,
+            ftVariant,ftGuid:
+              begin
+                lColumn.AsString := lJSONData.AsString;
+                writeln(lColumn.AsString);
+              end;
+          ftSmallint, ftInteger, ftLargeint, ftWord,
+            ftAutoInc: lColumn.AsInteger := lJSONData.AsInteger;
+          ftBoolean: lColumn.AsBoolean := lJSONData.AsBoolean;
+          ftFloat, ftCurrency, ftBCD, ftFMTBcd: lColumn.AsFloat := lJSONData.AsFloat;
+          ftDate, ftTime, ftDateTime, ftTimeStamp:
+            if UseDateTimeAsString then
+              lColumn.AsDateTime := StrToDateTime(lJSONData.AsString)
+            else
+              lColumn.AsDateTime := lJSONData.AsFloat;
+        end;
+      end;
+    end;
+    FTable.Post;
+    FTable.Next;
+  end;
 end;
 
 end.

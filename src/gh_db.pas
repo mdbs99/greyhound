@@ -37,9 +37,10 @@ type
 
   TghDBParams = class(TParams)
   strict private
-    FLock: Boolean;
+    FLocked: Boolean;
   public
     procedure Lock;
+    procedure UnLock;
     // Create a param automatically if not exist.
     function ParamByName(const AName: string): TParam; reintroduce;
     // An alias less verbose; changed the default property.
@@ -182,6 +183,7 @@ type
     function GetConstraints: TghDBConstraintList;
     procedure SetTableName(const AValue: string);
     procedure SetConnector(AValue: TghDBConnector);
+    function GetState: TDataSetState;
   protected
     FDataSet: TghDBQuery;
     class procedure ClassInitialization;
@@ -231,6 +233,7 @@ type
     property Active: Boolean read GetActive;
     property Columns[const AName: string]: TghDBColumn read GetColumn; default;
     property Connector: TghDBConnector read FConnector write SetConnector;
+    property State: TDataSetState read GetState;
     property EOF: Boolean read GetEOF;
     property Links: TghDBTableList read FLinks;
     property OwnerTable: TghDBTable read FOwnerTable write FOwnerTable;
@@ -350,7 +353,12 @@ implementation
 
 procedure TghDBParams.Lock;
 begin
-  FLock := True;
+  FLocked := True;
+end;
+
+procedure TghDBParams.UnLock;
+begin
+  FLocked := False;
 end;
 
 function TghDBParams.ParamByName(const AName: string): TParam;
@@ -360,7 +368,7 @@ begin
   lParam := FindParam(AName);
   if not Assigned(lParam) then
   begin
-    if FLock then
+    if FLocked then
       raise EghDBError.Create(Self, 'Params were locked.');
     lParam := TParam.Create(Self);
     lParam.Name := AName;
@@ -802,6 +810,12 @@ begin
     raise EghDBError.Create(Self, 'Table is active.');
 
   FConnector := AValue;
+end;
+
+function TghDBTable.GetState: TDataSetState;
+begin
+  CheckTable;
+  Result := FDataSet.State;
 end;
 
 class procedure TghDBTable.ClassInitialization;

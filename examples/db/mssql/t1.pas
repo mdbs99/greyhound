@@ -4,7 +4,7 @@ program t1;
 
 uses
   heaptrc,
-  Classes, SysUtils, DB,
+  Classes, SysUtils, DB, mssqlconn,
   // gh
   gh_db, gh_DBSQLdb;
 
@@ -25,7 +25,6 @@ begin
 
   co.SQL.Clear;
   co.SQL.Script.Text := 'select * from ' + TAB_TMP;
-
   co.SQL.Open(ds);
   try
     while not ds.EOF do
@@ -51,9 +50,8 @@ begin
     Params['login'].AsString := ALogin;
     Params['passwd'].AsString := APasswd;
     Params['name'].AsString := AName;
+    Execute;
   end;
-
-  co.SQL.Execute;
 end;
 
 begin
@@ -64,10 +62,10 @@ begin
     co.SetBrokerClass(TghDBMSSQLBroker);
 
     // set params
-    co.Host := 'localhost'; //'YOUR_HOST';
-    co.Database := 'Db_DO'; //'YOUR_DATABASE';
-    co.User := 'dox'; //'YOUR_USER';
-    co.Password := 'dox';// 'YOUR_PASSWORD';
+    co.Host := 'YOUR_HOST';
+    co.Database := 'YOUR_DATABASE';
+    co.User := 'YOUR_USER';
+    co.Password := 'YOUR_PASSWORD';
 
     co.Connect;
     writeln('Connected.');
