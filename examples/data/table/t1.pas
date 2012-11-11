@@ -6,14 +6,15 @@ uses
   heaptrc,
   Classes, SysUtils,
   // gh
-  gh_db, gh_DBSQLdb;
+  gh_SQL;
 
 const
   TAB_TMP = 'user_tmp';
 
 var
-  co: TghDBConnector;
-  t: TghDBTable;
+  co: TghSQLConnector;
+  t: TghSQLTable;
+  sql: TghSQLObject;
 
 procedure InsertRecord(id: Integer; const login, passwd: string; const name: string = '');
 begin
@@ -54,11 +55,12 @@ begin
 end;
 
 begin
-  co := TghDBConnector.Create;
+  co := TghSQLConnector.Create;
+  sql := TghSQLObject.Create(co);
   try
     // set configurations
     // using SQLite
-    co.SetBrokerClass(TghDBSQLite3Broker);
+    co.SetLibClass(TghSQLite3Lib);
 
     // set params
     co.Database := 'DB.sqlite';
@@ -66,9 +68,9 @@ begin
     writeln('Connected.');
 
     // delete all records
-    co.SQL.Clear;
-    co.SQL.Script.Text := 'delete from ' + TAB_TMP;
-    co.SQL.Execute;
+    sql.Clear;
+    sql.Script.Text := 'delete from ' + TAB_TMP;
+    sql.Execute;
 
     // get the table object
     // you do not need to use t.Free
@@ -133,6 +135,7 @@ begin
 
     ShowAllRecords;
   finally
+    sql.Free;
     co.Free;
   end;
 
