@@ -6,7 +6,7 @@ uses
   heaptrc,
   Classes, SysUtils,
   // gh
-  gh_SQL;
+  gh_SQL, gh_SQLdbLib;
 
 const
   TAB_TMP = 'user_tmp';

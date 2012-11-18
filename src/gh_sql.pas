@@ -1,6 +1,6 @@
 {
     Greyhound
-    Copyright (c) 2012
+    Copyright (C) 2012  -  Marcos Douglas B. dos Santos
 
     See the files COPYING.GH, included in this
     distribution, for details about the copyright.
@@ -19,17 +19,12 @@ interface
 uses
   // fpc
   Classes, SysUtils, DB, contnrs, fgl, BufDataset, sqldb,
-  // SQLdb
-  {$IFDEF MSSQL_LIB} mssqlconn, {$ENDIF}
-  {$IFDEF SQLITE3_LIB} sqlite3conn, {$ENDIF}
   // gh
-  gh_Global;
+  gh_Global, gh_Data;
 
 type
-  EghDataError = class(EghError);
-  TghDataObject = class(TghObject);
-  TghDataColumn = TField;
-  TghDataColumns = TFields;
+  EghSQL = class(EghData);
+  TghSQL = class(TghData);
 
 { forward declarations }
 
@@ -38,24 +33,12 @@ type
   TghSQLTableList = class;
   TghSQLConstraintList = class;
 
-  TghDataParams = class(TParams)
-  strict private
-    FLocked: Boolean;
-  public
-    procedure Lock;
-    procedure UnLock;
-    // Create a param automatically if not exist.
-    function ParamByName(const AName: string): TParam; reintroduce;
-    // An alias less verbose; changed the default property.
-    property Param[const AName: string]: TParam read ParamByName; default;
-  end;
+{ classes }
 
-  TghSQLQuery = class(TSQLQuery)
-  protected
-    procedure ApplyRecUpdate(UpdateKind : TUpdateKind); override;
-  end;
+  TghSQLQuery = class(TSQLQuery);
+  TghSQLQueryClass = class of TghSQLQuery;
 
-  TghSQLStatement = class(TghDataObject)
+  TghSQLStatement = class(TghSQL)
   protected
     FParams: TghDataParams;
     FScript: TStrings;
@@ -102,7 +85,7 @@ type
 
   TghSQLObject = class(TghSQLHandler)
   private
-    FConnector: TghSQLConnector;
+    FConn: TghSQLConnector;
     procedure InternalOpen(Sender: TObject; out ADataSet: TDataSet; AOwner: TComponent); virtual;
     function InternalExecute(Sender: TObject): NativeInt; virtual;
   public
@@ -112,7 +95,7 @@ type
     function Execute: NativeInt;
   end;
 
-  TghSQLConstraint = class(TghDataObject)
+  TghSQLConstraint = class(TghSQL)
   private
     FOwnerTable: TghSQLTable;
     procedure SetOwnerTable(AValue: TghSQLTable);
@@ -166,7 +149,7 @@ type
     property OwnerTable: TghSQLTable read FOwnerTable write SetOwnerTable;
   end;
 
-  TghSQLTable = class(TghDataObject)
+  TghSQLTable = class(TghSQL)
   private
     FTableName: string;
     FConnector: TghSQLConnector;
@@ -197,7 +180,7 @@ type
     class procedure ClassInitialization;
     class procedure ClassFinalization;
     procedure CheckTable;
-    procedure CreateResultSet; virtual;
+    procedure InternalOpen; virtual;
     function CheckValues: Boolean; virtual;
     procedure SetDefaultValues; virtual;
     // events
@@ -276,7 +259,7 @@ type
     procedure Update;
   end;
 
-  TghSQLTableAdapter = class(TghDataObject, IghSQLTableAdapter)
+  TghSQLTableAdapter = class(TghSQL, IghSQLTableAdapter)
   private
     procedure SetTable(AValue: TghSQLTable);
   protected
@@ -296,8 +279,9 @@ type
     procedure Update; override;
   end;
 
+  EghSQLLib = class(EghSQL);
   TghSQLLibClass = class of TghSQLLib;
-  TghSQLLib = class abstract(TghDataObject)
+  TghSQLLib = class abstract(TghSQL)
   protected
     FSQL: TghSQLHandler;
     procedure CallSQLOpen(Sender: TObject; out ADataSet: TDataSet; AOwner: TComponent); virtual; abstract;
@@ -316,65 +300,7 @@ type
     property SQL: TghSQLHandler read FSQL;
   end;
 
-  TghSQLdbConnector = class(TSQLConnector)
-  private
-    FIsBatch: Boolean;
-  protected
-    function StrToStatementType(s : string): TStatementType; override;
-  public
-    property IsBatch: Boolean read FIsBatch write FIsBatch;
-  end;
-
-  TghSQLdbLib = class(TghSQLLib)
-  protected
-    FConn: TghSQLdbConnector;
-    FTran: TSQLTransaction;
-    FQuery: TghSQLQuery;
-    procedure CallSQLOpen(Sender: TObject; out ADataSet: TDataSet; AOwner: TComponent); override;
-    function CallSQLExecute(Sender: TObject): NativeInt; override;
-  public
-    constructor Create; override;
-    destructor Destroy; override;
-    procedure Connect(const AHost, ADatabase, AUser, APasswd: string); override;
-    function Connected: Boolean; override;
-    procedure Disconnect; override;
-    procedure StartTransaction; override;
-    procedure Commit; override;
-    procedure CommitRetaining; override;
-    procedure Rollback; override;
-    procedure RollbackRetaining; override;
-    property Connection: TghSQLdbConnector read FConn;
-  end;
-
-{$IFDEF SQLITE3_LIB}
-  TghSQLite3Lib = class(TghSQLdbLib)
-  public
-    constructor Create; override;
-  end;
-
-  {$IFDEF FPC2_6_0}
-  TSQLite3ConnectionDef = class(TConnectionDef)
-    class function TypeName: string; override;
-    class function ConnectionClass: TSQLConnectionClass; override;
-    class function Description: string; override;
-  end;
-  {$ENDIF}
-{$ENDIF}
-
-{$IFDEF MSSQL_LIB}
-   // Especialization for MSSQLServer and Sybase
-  TghMSSQLLib = class(TghSQLdbLib)
-  public
-    constructor Create; override;
-    procedure StartTransaction; override;
-    procedure Commit; override;
-    procedure CommitRetaining; override;
-    procedure Rollback; override;
-    procedure RollbackRetaining; override;
-  end;
-{$ENDIF}
-
-  TghSQLConnector = class(TghDataObject)
+  TghSQLConnector = class(TghSQL)
   strict private
     FTransCount: SmallInt;
     FDatabase: string;
@@ -383,14 +309,14 @@ type
     FUser: string;
     FTables: TghSQLTableList;
   protected
-    FBroker: TghSQLLib;
-    procedure CheckBroker;
+    FLib: TghSQLLib;
+    procedure CheckLib;
     function GetTables(const ATableName: string): TghSQLTable; virtual;
     function GetConnected: Boolean;
   public
     constructor Create; override;
     destructor Destroy; override;
-    procedure SetLibClass(ABroker: TghSQLLibClass);
+    procedure SetLibClass(ALib: TghSQLLibClass);
     procedure Connect; virtual;
     procedure Disconnect; virtual;
     procedure StartTransaction;
@@ -401,7 +327,7 @@ type
     procedure RollbackRetaining;
     procedure Transform(ASource: TDataSet; out ADest: TghSQLQuery; AOwner: TComponent = nil);
     procedure Notify(ATable: TghSQLTable; AOperation: TOperation);
-    property Broker: TghSQLLib read FBroker;
+    property Lib: TghSQLLib read FLib;
     property Database: string read FDatabase write FDatabase;
     property Connected: Boolean read GetConnected;
     property Host: string read FHost write FHost;
@@ -411,40 +337,6 @@ type
   end;
 
 implementation
-
-{ TghDataParams }
-
-procedure TghDataParams.Lock;
-begin
-  FLocked := True;
-end;
-
-procedure TghDataParams.UnLock;
-begin
-  FLocked := False;
-end;
-
-function TghDataParams.ParamByName(const AName: string): TParam;
-var
-  lParam: TParam;
-begin
-  lParam := FindParam(AName);
-  if not Assigned(lParam) then
-  begin
-    if FLocked then
-      raise EghDataError.Create(Self, 'Params were locked.');
-    lParam := TParam.Create(Self);
-    lParam.Name := AName;
-  end;
-  Result := lParam as TParam;
-end;
-
-{ TghSQLQuery }
-
-procedure TghSQLQuery.ApplyRecUpdate(UpdateKind: TUpdateKind);
-begin
-  inherited ApplyRecUpdate(UpdateKind);
-end;
 
 { TghSQLStatement }
 
@@ -546,11 +438,11 @@ procedure TghSQLObject.InternalOpen(Sender: TObject; out ADataSet: TDataSet;
   AOwner: TComponent);
 begin
   ADataSet := nil;
-  with FConnector do
+  with FConn do
   try
     StartTransaction;
-    Broker.SQL.Assign(Self);
-    Broker.SQL.DoOpen(ADataSet, AOwner);
+    Lib.SQL.Assign(Self);
+    Lib.SQL.DoOpen(ADataSet, AOwner);
     CommitRetaining;
   except
     ADataSet.Free;
@@ -561,11 +453,11 @@ end;
 
 function TghSQLObject.InternalExecute(Sender: TObject): NativeInt;
 begin
-  with FConnector do
+  with FConn do
   try
     StartTransaction;
-    Broker.SQL.Assign(Self);
-    Result := Broker.SQL.DoExecute;
+    Lib.SQL.Assign(Self);
+    Result := Lib.SQL.DoExecute;
     CommitRetaining;
   except
     RollbackRetaining;
@@ -576,7 +468,7 @@ end;
 constructor TghSQLObject.Create(AConn: TghSQLConnector);
 begin
   inherited Create;
-  FConnector := AConn;
+  FConn := AConn;
   OnOpen := @InternalOpen;
   OnExecute := @InternalExecute;
 end;
@@ -714,7 +606,7 @@ var
       lParam := FParams.Items[i];
       lColumn := FOwnerTable.GetColumns.FindField(lParam.Name);
       if lColumn = nil then
-        raise EghDataError.CreateFmt(Self, 'Column "%s" not found.', [lParam.Name]);
+        raise EghSQL.CreateFmt(Self, 'Column "%s" not found.', [lParam.Name]);
       lWhere += ' and (' + lParam.Name + ' = :' + lParam.Name + ')';
       lTable.Params[lParam.Name].Value := lColumn.Value;
     end;
@@ -767,7 +659,7 @@ begin
   lColumn := FOwnerTable.GetColumns.FindField(lParam.Name);
 
   if lColumn = nil then
-    raise EghDataError.CreateFmt(Self, 'Column "%s" not found.', [lParam.Name]);
+    raise EghSQL.CreateFmt(Self, 'Column "%s" not found.', [lParam.Name]);
 
   lAccept := False;
   for i := 0 to FParams.Count -1 do
@@ -878,7 +770,7 @@ begin
     Exit;
 
   if Self.Active then
-    raise EghDataError.Create(Self, 'Table is active.');
+    raise EghSQL.Create(Self, 'Table is active.');
 
   FTableName := AValue;
 end;
@@ -889,7 +781,7 @@ begin
     Exit;
 
   if Self.Active then
-    raise EghDataError.Create(Self, 'Table is active.');
+    raise EghSQL.Create(Self, 'Table is active.');
 
   FConnector := AValue;
 end;
@@ -915,10 +807,10 @@ end;
 procedure TghSQLTable.CheckTable;
 begin
   if not Active then
-    raise EghDataError.Create(Self, 'Table not active');
+    raise EghSQL.Create(Self, 'Table not active');
 end;
 
-procedure TghSQLTable.CreateResultSet;
+procedure TghSQLTable.InternalOpen;
 var
   lDataSet: TDataSet;
   lSelectColumns: string;
@@ -1043,7 +935,7 @@ begin
   CheckTable;
   lModel := GetRelations.FindByName(ATable.TableName);
   if not Assigned(lModel) then
-    raise EghDataError.Create(Self, 'Model not found.');
+    raise EghSQL.Create(Self, 'Model not found.');
 
   lLink := ATable;
   lLink.Connector := FConnector;
@@ -1070,7 +962,7 @@ procedure TghSQLTable.CallResolverError(Sender: TObject;
   var Response: TResolverResponse);
 begin
   Response := rrAbort;
-  raise EghDataError.Create(Self, E.Message);
+  raise EghSQL.Create(Self, E.Message);
 end;
 {$HINTS ON}
 
@@ -1124,7 +1016,7 @@ end;
 
 function TghSQLTable.Open: TghSQLTable;
 begin
-  CreateResultSet;
+  InternalOpen;
   Result := Self;
 end;
 
@@ -1187,7 +1079,7 @@ begin
   if FDataSet.State in [dsInsert, dsEdit] then
   begin
     if Post.HasErrors then
-      raise EghDataError.Create(Self, FErrors.Text);
+      raise EghSQL.Create(Self, FErrors.Text);
   end;
 
   FConnector.StartTransaction;
@@ -1201,7 +1093,7 @@ begin
     on e: Exception do
     begin
       FConnector.RollbackRetaining;
-      raise EghDataError.Create(Self, e.Message);
+      raise EghSQL.Create(Self, e.Message);
     end;
   end;
 
@@ -1410,217 +1302,18 @@ begin
   inherited Destroy;
 end;
 
-{ TghSQLdbConnector }
-
-function TghSQLdbConnector.StrToStatementType(s: string): TStatementType;
-begin
-  if IsBatch then
-    Result := stExecProcedure
-  else
-    Result := inherited;
-end;
-
-{ TghSQLdbLib }
-
-procedure TghSQLdbLib.CallSQLOpen(Sender: TObject; out ADataSet: TDataSet;
-  AOwner: TComponent);
-var
-  lQ: TghSQLQuery;
-begin
-  FConn.IsBatch := Self.SQL.IsBatch;
-  try
-    ADataSet := nil;
-    lQ := TghSQLQuery.Create(AOwner);
-    try
-      lQ.DataBase := FConn;
-      lQ.Transaction := FTran;
-      lQ.PacketRecords := -1;
-      lQ.UsePrimaryKeyAsKey := True;
-      lQ.SQL.Text := FSQL.Script.Text;
-      if Assigned(FSQL.Params) then
-        lQ.Params.Assign(FSQL.Params);
-      if FSQL.Prepared then
-        lQ.Prepare;
-      lQ.Open;
-      ADataSet := lQ;
-    except
-      lQ.Free;
-    end;
-  finally
-    FConn.IsBatch := False;
-  end;
-end;
-
-function TghSQLdbLib.CallSQLExecute(Sender: TObject): NativeInt;
-begin
-  FConn.IsBatch := Self.SQL.IsBatch;
-  try
-    if not FQuery.SQL.Equals(FSQL.Script) then
-      FQuery.SQL.Assign(FSQL.Script);
-
-    if FSQL.Prepared then
-      FQuery.Prepare
-    else
-      FQuery.UnPrepare;
-
-    if Assigned(FSQL.Params) then
-      FQuery.Params.Assign(FSQL.Params);
-
-    FQuery.ExecSQL;
-    Result := FQuery.RowsAffected;
-  finally
-    FConn.IsBatch := False;
-  end;
-end;
-
-constructor TghSQLdbLib.Create;
-begin
-  inherited Create;
-  FConn := TghSQLdbConnector.Create(nil);
-  FTran := TSQLTransaction.Create(nil);
-  FTran.DataBase := FConn;
-  FConn.Transaction := FTran;
-  FQuery := TghSQLQuery.Create(nil);
-  FQuery.DataBase := FConn;
-  FQuery.Transaction := FTran;
-end;
-
-destructor TghSQLdbLib.Destroy;
-begin
-  FQuery.Free;
-  FTran.Free;
-  FConn.Free;
-  inherited Destroy;
-end;
-
-procedure TghSQLdbLib.Connect(const AHost, ADatabase, AUser, APasswd: string);
-begin
-  FConn.HostName := AHost;
-  FConn.DatabaseName := ADatabase;
-  FConn.UserName := AUser;
-  FConn.Password := APasswd;
-  FConn.Open;
-end;
-
-function TghSQLdbLib.Connected: Boolean;
-begin
-  Result := FConn.Connected;
-end;
-
-procedure TghSQLdbLib.Disconnect;
-begin
-  FConn.Close;
-end;
-
-procedure TghSQLdbLib.StartTransaction;
-begin
-  if not FTran.Active then
-    FTran.StartTransaction;
-end;
-
-procedure TghSQLdbLib.Commit;
-begin
-  FTran.Commit;
-end;
-
-procedure TghSQLdbLib.CommitRetaining;
-begin
-  FTran.CommitRetaining;
-end;
-
-procedure TghSQLdbLib.Rollback;
-begin
-  FTran.Rollback;
-end;
-
-procedure TghSQLdbLib.RollbackRetaining;
-begin
-  FTran.CommitRetaining;
-end;
-
-{$IFDEF SQLITE3_LIB}
-
-{ TghSQLite3Lib }
-
-constructor TghSQLite3Lib.Create;
-begin
-  inherited Create;
-  FConn.ConnectorType := TSQLite3ConnectionDef.TypeName;
-end;
-
-{$IFDEF FPC2_6_0}
-
-{ TSQLite3ConnectionDef }
-
-class function TSQLite3ConnectionDef.TypeName: string;
-begin
-  Result := 'SQLite3';
-end;
-
-class function TSQLite3ConnectionDef.ConnectionClass: TSQLConnectionClass;
-begin
-  Result := TSQLite3Connection;
-end;
-
-class function TSQLite3ConnectionDef.Description: string;
-begin
-  Result := 'Connect to a SQLite3 database directly via the client library';
-end;
-
-{$ENDIF}
-{$ENDIF SQLITE3_LIB}
-
-{$IFDEF MSSQL_LIB}
-
-{ TghMSSQLLib }
-
-constructor TghMSSQLLib.Create;
-begin
-  inherited Create;
-  FConn.ConnectorType := TMSSQLConnectionDef.TypeName;
-  FConn.Params.Add('TEXTSIZE=2147483647');
-  FConn.Params.Add('AUTOCOMMIT=True');
-end;
-
-procedure TghMSSQLLib.StartTransaction;
-begin
-  FConn.ExecuteDirect('BEGIN TRAN');
-end;
-
-procedure TghMSSQLLib.Commit;
-begin
-  FConn.ExecuteDirect('COMMIT');
-end;
-
-procedure TghMSSQLLib.CommitRetaining;
-begin
-  Commit;
-end;
-
-procedure TghMSSQLLib.Rollback;
-begin
-  FConn.ExecuteDirect('ROLLBACK');
-end;
-
-procedure TghMSSQLLib.RollbackRetaining;
-begin
-  Rollback;
-end;
-
-{$ENDIF MSSQL_LIB}
-
 { TghSQLConnector }
 
-procedure TghSQLConnector.CheckBroker;
+procedure TghSQLConnector.CheckLib;
 begin
-  if not Assigned(FBroker) then
-    raise EghDataError.Create('Broker not assigned.');
+  if not Assigned(FLib) then
+    raise EghSQL.Create('Lib not assigned.');
 end;
 
 function TghSQLConnector.GetTables(const ATableName: string): TghSQLTable;
 begin
   if ATableName = '' then
-    raise EghDataError.Create(Self, 'TableName not defined.');
+    raise EghSQL.Create(Self, 'TableName not defined.');
 
   Result := FTables.FindByName(ATableName);
   if (Result = nil) or (Result.Active and not Result.Reuse) then
@@ -1633,19 +1326,19 @@ end;
 
 function TghSQLConnector.GetConnected: Boolean;
 begin
-  CheckBroker;
+  CheckLib;
   try
-    Result := FBroker.Connected;
+    Result := FLib.Connected;
   except
     on e: Exception do
-      raise EghDataError.Create(e.Message);
+      raise EghSQL.Create(e.Message);
   end;
 end;
 
 constructor TghSQLConnector.Create;
 begin
   inherited;
-  FBroker := nil;
+  FLib := nil;
   FTables := TghSQLTableList.Create(nil, False);
 end;
 
@@ -1661,49 +1354,49 @@ begin
     lTable.Free;
   end;
   FTables.Free;
-  FBroker.Free;
+  FLib.Free;
   inherited Destroy;
 end;
 
-procedure TghSQLConnector.SetLibClass(ABroker: TghSQLLibClass);
+procedure TghSQLConnector.SetLibClass(ALib: TghSQLLibClass);
 begin
-  if Assigned(FBroker) then
-    FBroker.Free;
-  FBroker := ABroker.Create;
+  if Assigned(FLib) then
+    FLib.Free;
+  FLib := ALib.Create;
 end;
 
 procedure TghSQLConnector.Connect;
 begin
-  CheckBroker;
+  CheckLib;
   try
-    FBroker.Connect(FHost, FDatabase, FUser, FPassword);
+    FLib.Connect(FHost, FDatabase, FUser, FPassword);
   except
     on e: Exception do
-      raise EghDataError.Create(e.Message);
+      raise EghSQL.Create(e.Message);
   end;
 end;
 
 procedure TghSQLConnector.Disconnect;
 begin
-  CheckBroker;
+  CheckLib;
   try
-    FBroker.Disconnect;
+    FLib.Disconnect;
   except
     on e: Exception do
-      raise EghDataError.Create(e.Message);
+      raise EghSQL.Create(e.Message);
   end;
 end;
 
 procedure TghSQLConnector.StartTransaction;
 begin
-  CheckBroker;
+  CheckLib;
   try
     if FTransCount = 0 then
-      FBroker.StartTransaction;
+      FLib.StartTransaction;
     Inc(FTransCount);
   except
     on e: Exception do
-      raise EghDataError.Create(e.Message);
+      raise EghSQL.Create(e.Message);
   end;
 end;
 
@@ -1716,14 +1409,14 @@ procedure TghSQLConnector.Commit;
 begin
   if FTransCount = 0 then
     Exit;
-  CheckBroker;
+  CheckLib;
   try
     if FTransCount = 1 then
-      FBroker.Commit;
+      FLib.Commit;
     Dec(FTransCount);
   except
     on e: Exception do
-      raise EghDataError.Create(e.Message);
+      raise EghSQL.Create(e.Message);
   end;
 end;
 
@@ -1731,14 +1424,14 @@ procedure TghSQLConnector.CommitRetaining;
 begin
   if FTransCount = 0 then
     Exit;
-  CheckBroker;
+  CheckLib;
   try
     if FTransCount = 1 then
-      FBroker.CommitRetaining;
+      FLib.CommitRetaining;
     Dec(FTransCount);
   except
     on e: Exception do
-      raise EghDataError.Create(e.Message);
+      raise EghSQL.Create(e.Message);
   end;
 end;
 
@@ -1746,14 +1439,14 @@ procedure TghSQLConnector.Rollback;
 begin
   if FTransCount = 0 then
     Exit;
-  CheckBroker;
+  CheckLib;
   try
     if FTransCount = 1 then
-      FBroker.Rollback;
+      FLib.Rollback;
     Dec(FTransCount);
   except
     on e: Exception do
-      raise EghDataError.Create(e.Message);
+      raise EghSQL.Create(e.Message);
   end;
 end;
 
@@ -1761,14 +1454,14 @@ procedure TghSQLConnector.RollbackRetaining;
 begin
   if FTransCount = 0 then
     Exit;
-  CheckBroker;
+  CheckLib;
   try
     if FTransCount = 1 then
-      FBroker.RollbackRetaining;
+      FLib.RollbackRetaining;
     Dec(FTransCount);
   except
     on e: Exception do
-      raise EghDataError.Create(e.Message);
+      raise EghSQL.Create(e.Message);
   end;
 end;
 
@@ -1778,7 +1471,7 @@ var
   i: Integer;
 begin
   if (ASource = nil) or (not ASource.Active) then
-    raise EghDataError.Create('Source is nil or isn''t active.');
+    raise EghSQL.Create('Source is nil or isn''t active.');
 
   ADest := TghSQLQuery.Create(AOwner);
   try
