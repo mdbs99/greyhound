@@ -15,6 +15,7 @@ const
 
 var
   co: TghDBConnector;
+  sql: TghDBSQL;
 
 procedure ExecSelect;
 var
@@ -23,9 +24,9 @@ begin
   writeln;
   writeln('Show data:');
 
-  co.SQL.Clear;
-  co.SQL.Script.Text := 'select * from ' + TAB_TMP;
-  co.SQL.Open(ds);
+  sql.Clear;
+  sql.Script.Text := 'select * from ' + TAB_TMP;
+  sql.Open(ds);
   try
     while not ds.EOF do
     begin
@@ -42,7 +43,7 @@ begin
   writeln;
   writeln('Inserting ', ALogin, ' ', AName);
 
-  with co.SQL do
+  with sql do
   begin
     Clear;
     Prepared := True;
@@ -56,6 +57,7 @@ end;
 
 begin
   co := TghDBConnector.Create;
+  sql := TghDBSQL.Create(co);
   try
     // set configurations
     // using MSSQLServer
@@ -71,13 +73,13 @@ begin
     writeln('Connected.');
 
     // creating a temp table
-    co.SQL.Clear;
-    co.SQL.Script.Add('create table '+TAB_TMP+' ( ');
-    co.SQL.Script.Add('  [id] int identity not null primary key ');
-    co.SQL.Script.Add(' ,[login] varchar(20) not null ');
-    co.SQL.Script.Add(' ,[passwd] varchar(30) null ');
-    co.SQL.Script.Add(' ,[name] varchar(50) null )');
-    co.SQL.Execute;
+    sql.Clear;
+    sql.Script.Add('create table '+TAB_TMP+' ( ');
+    sql.Script.Add('  [id] int identity not null primary key ');
+    sql.Script.Add(' ,[login] varchar(20) not null ');
+    sql.Script.Add(' ,[passwd] varchar(30) null ');
+    sql.Script.Add(' ,[name] varchar(50) null )');
+    sql.Execute;
     writeln('Table created.');
 
     // insert
@@ -103,11 +105,12 @@ begin
     ExecSelect;
 
     // drop table
-    co.SQL.Clear;
-    co.SQL.Script.Text := 'drop table '+TAB_TMP;
-    co.SQL.Execute;
+    sql.Clear;
+    sql.Script.Text := 'drop table '+TAB_TMP;
+    sql.Execute;
 
   finally
+    sql.Free;
     co.Free;
   end;
 

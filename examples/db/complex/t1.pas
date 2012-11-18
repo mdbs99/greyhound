@@ -13,6 +13,7 @@ const
 
 var
   co: TghDBConnector;
+  sql: TghDBSQL;
   t: TghDBTable;
 
 procedure ExecSelect;
@@ -24,7 +25,7 @@ begin
 
   ds := nil;
   try
-    with co.SQL do
+    with sql do
     begin
       Clear;
       Script.Text := 'select * from ' + TAB_TMP;
@@ -45,7 +46,7 @@ begin
   writeln;
   writeln('Inserting ', ID, ' ', ALogin, ' ', AName);
 
-  with co.SQL do
+  with sql do
   begin
     Clear;
     Script.Text := 'insert into '+TAB_TMP+' values (:id, :login, :passwd, :name)';
@@ -55,11 +56,12 @@ begin
     Params['name'].AsString := AName;
   end;
 
-  co.SQL.Execute;
+  sql.Execute;
 end;
 
 begin
   co := TghDBConnector.Create;
+  sql := TghDBSQL.Create(co);
   try
     // set configurations
     // using SQLite
@@ -74,12 +76,13 @@ begin
     { using sql }
 	
     // creating a temp table
-    co.SQL.Script.Add('create table '+TAB_TMP+' ( ');
-    co.SQL.Script.Add('  [id] int not null primary key ');
-    co.SQL.Script.Add(' ,[login] varchar(20) not null ');
-    co.SQL.Script.Add(' ,[passwd] varchar(30) null ');
-    co.SQL.Script.Add(' ,[name] varchar(50) null )');
-    co.SQL.Execute;
+    sql.Clear;
+    sql.Script.Add('create table '+TAB_TMP+' ( ');
+    sql.Script.Add('  [id] int not null primary key ');
+    sql.Script.Add(' ,[login] varchar(20) not null ');
+    sql.Script.Add(' ,[passwd] varchar(30) null ');
+    sql.Script.Add(' ,[name] varchar(50) null )');
+    sql.Execute;
     writeln('Table created.');
 
     // insert
@@ -144,12 +147,13 @@ begin
     end;
 
     // drop table
-    co.SQL.Script.Text := 'drop table '+TAB_TMP;
-    co.SQL.Execute;
+    sql.Script.Text := 'drop table '+TAB_TMP;
+    sql.Execute;
     writeln;
     writeln('Done.');
     writeln;
   finally
+    sql.Free;
     co.Free;
   end;
 

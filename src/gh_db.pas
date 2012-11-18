@@ -149,6 +149,9 @@ type
   end;
 
   TghDBConstraintList = class(specialize TFPGObjectList<TghDBConstraint>)
+  private
+    FTable: TghDBTable;
+    procedure SetTable(AValue: TghDBTable);
   public
     // Add a Default constraint
     function AddDefault(const AColumName: string; AValue: Variant): Integer; overload;
@@ -156,6 +159,7 @@ type
     function AddUnique(const AColumNames: array of string): Integer;
     // Add a Check constraint
     function AddCheck(const AColumName: string; AValues: array of Variant): Integer;
+    property Table: TghDBTable read FTable write SetTable;
   end;
 
   TghDBTable = class(TghDBObject)
@@ -729,20 +733,38 @@ end;
 
 { TghDBConstraintList }
 
-function TghDBConstraintList.AddDefault(const AColumName: string; AValue: Variant): Integer;
+procedure TghDBConstraintList.SetTable(AValue: TghDBTable);
 begin
-  Result := Add(TghDBDefaultConstraint.Create(AColumName, AValue));
+  if FTable = AValue then Exit;
+  FTable := AValue;
+end;
+
+function TghDBConstraintList.AddDefault(const AColumName: string; AValue: Variant): Integer;
+var
+  lConst: TghDBConstraint;
+begin
+  lConst := TghDBDefaultConstraint.Create(AColumName, AValue);
+  lConst.Table := FTable;
+  Result := Add(lConst);
 end;
 
 function TghDBConstraintList.AddUnique(const AColumNames: array of string): Integer;
+var
+  lConst: TghDBConstraint;
 begin
-  Result := Add(TghDBUniqueConstraint.Create(AColumNames));
+  lConst := TghDBUniqueConstraint.Create(AColumNames);
+  lConst.Table := FTable;
+  Result := Add(lConst);
 end;
 
 function TghDBConstraintList.AddCheck(const AColumName: string;
   AValues: array of Variant): Integer;
+var
+  lConst: TghDBConstraint;
 begin
-  Result := Add(TghDBCheckConstraint.Create(AColumName, AValues));
+  lConst := TghDBCheckConstraint.Create(AColumName, AValues);
+  lConst.Table := FTable;
+  Result := Add(lConst);
 end;
 
 { TghDBTable }
@@ -786,6 +808,7 @@ begin
   if Result = nil then
   begin
     Result := TghDBConstraintList.Create(True);
+    Result.Table := Self;
     FConstraints.Add(FTableName, Result);
   end;
 end;
@@ -1412,14 +1435,22 @@ var
   i: Integer;
   lTable: TghDBTable;
 begin
-  for i := 0 to FTables.Count -1 do
+  while FTables.Count > 0 do
   begin
-    lTable := FTables.Items[i];
+    lTable := FTables.Items[0];
     FTables.Remove(lTable);
     lTable.Free;
   end;
   FTables.Free;
   FBroker.Free;
+  //for i := 0 to FTables.Count -1 do
+  //begin
+  //  lTable := FTables.Items[i];
+  //  FTables.Remove(lTable);
+  //  lTable.Free;
+  //end;
+  //FTables.Free;
+  //FBroker.Free;
   inherited Destroy;
 end;
 

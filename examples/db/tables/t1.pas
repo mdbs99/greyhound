@@ -13,6 +13,7 @@ const
 
 var
   co: TghDBConnector;
+  sql: TghDBSQL;
   t: TghDBTable;
 
 procedure InsertRecord(id: Integer; const login, passwd: string; const name: string = '');
@@ -55,6 +56,7 @@ end;
 
 begin
   co := TghDBConnector.Create;
+  sql := TghDBSQL.Create(co);
   try
     // set configurations
     // using SQLite
@@ -66,9 +68,9 @@ begin
     writeln('Connected.');
 
     // delete all records
-    co.SQL.Clear;
-    co.SQL.Script.Text := 'delete from ' + TAB_TMP;
-    co.SQL.Execute;
+    sql.Clear;
+    sql.Script.Text := 'delete from ' + TAB_TMP;
+    sql.Execute;
 
     // get the table object
     // you do not need to use t.Free
@@ -133,6 +135,7 @@ begin
 
     ShowAllRecords;
   finally
+    sql.Free;
     co.Free;
   end;
 
