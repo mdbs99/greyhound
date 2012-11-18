@@ -1443,14 +1443,6 @@ begin
   end;
   FTables.Free;
   FBroker.Free;
-  //for i := 0 to FTables.Count -1 do
-  //begin
-  //  lTable := FTables.Items[i];
-  //  FTables.Remove(lTable);
-  //  lTable.Free;
-  //end;
-  //FTables.Free;
-  //FBroker.Free;
   inherited Destroy;
 end;
 
