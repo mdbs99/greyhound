@@ -1347,9 +1347,9 @@ var
   i: Integer;
   lTable: TghSQLTable;
 begin
-  for i := 0 to FTables.Count -1 do
+  while FTables.Count > 0 do
   begin
-    lTable := FTables.Items[i];
+    lTable := FTables.Items[0];
     FTables.Remove(lTable);
     lTable.Free;
   end;
