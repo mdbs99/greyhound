@@ -10,7 +10,7 @@ uses
 
 var
   Co: TghSQLConnector;
-  User: TghSQLTable;
+  User, User2: TghSQLTable;
   SQL: TghSQLObject;
 
 procedure ShowUser;
@@ -64,13 +64,17 @@ begin
     // you do not need  (but possible) to use Free method for these instances
     User := Co.Tables['user'].Open;
 
+//-----------------------------------------------------------------------------
+// CONSTRAINTS, Append, Edit, Commit, etc.
+//-----------------------------------------------------------------------------
     // Adding Default constraints
     User.Constraints.AddDefault('login', 'guest');
     User.Constraints.AddDefault('passwd', '123');
+    User.Constraints.AddDefault('access_id', '2');
 
     User.Append;
     User['name'].AsString := 'Nick Bool';
-    User.Post.Commit;
+    User.Commit;
 
     // see
     writeln('New user: <see default values>');
@@ -87,7 +91,7 @@ begin
     writeln('Editing...');
     User.Edit;
     User.Columns['name'].AsString := 'John Black';
-    User.Post.Commit;
+    User.Commit;
 
     // show only one
     ShowAll;
@@ -103,7 +107,10 @@ begin
     User.Append;
     User['name'].AsString := 'admin';
     if User.Post.HasErrors then
-      WriteLn('ERROR: ' + User.GetErrors.Text)
+    begin
+      WriteLn('ERROR: ' + User.GetErrors.Text);
+      User.Cancel;
+    end
     else
       User.Commit;
 
@@ -114,7 +121,10 @@ begin
     User['login'].AsString := 'g1';
     User['name'].AsString := 'Jenny';
     if User.Post.HasErrors then
-      WriteLn('ERROR: ' + User.GetErrors.Text)
+    begin
+      WriteLn('ERROR: ' + User.GetErrors.Text);
+      User.Cancel;
+    end
     else
       // OK, login "g1" is ok...
       User.Commit;
@@ -128,11 +138,53 @@ begin
     User['name'].AsString := 'Erick';
     // login "test" is Ok?
     if User.Post.HasErrors then
-      WriteLn('ERROR: ' + User.GetErrors.Text)
+    begin
+      WriteLn('ERROR: ' + User.GetErrors.Text);
+      User.Cancel;
+    end
     else
       User.Commit;
 
     // see
+    ShowAll;
+
+//-----------------------------------------------------------------------------
+// LINKS
+//-----------------------------------------------------------------------------
+    // Adding a relationship from User to Access:
+    // All relationships belongs to the class, not the instance so,
+    // you do this only once for all project.
+    // Now all instances of User table have a link to access the Access table.
+    Co.Tables['user'].Relations['access'].Where('id = :access_id');
+
+    // get all records
+    User.Close.Open;
+
+    writeln;
+    writeln('Show all with access:');
+
+    while not User.EOF do
+    begin
+      // print user
+      write(User['id'].AsString, ' ', User['login'].AsString, ' -> ');
+
+      // Print access name using Link table:
+      // The params values to open are obtained from owner table, ie, the user table.
+      // It's auto open, just use it!
+      writeln(User.Links['access'].Columns['name'].AsString);
+      User.Next;
+    end;
+
+    // Using a second instance from User table
+    User2 := Co.Tables['user'].Where('id = 2').Open;
+    writeln;
+    write('Show access to User id=2: ');
+
+    // The Link to Access table already exists!
+    writeln(User2.Links['access']['name'].AsString);
+
+    User2.Close;
+
     ShowAll;
   finally
     SQL.Free;
