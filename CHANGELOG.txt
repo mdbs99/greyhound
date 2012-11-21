@@ -1,6 +1,15 @@
 Release notes
 ==========================================================
 
+(2012-11-21)
+
+- Renamed all DB classes to SQL classes;
+- Some methods was cut (t.LoadFromFile/SaveToFile, etc);
+- The co.Broker property was renamed to co.Lib;
+- Created gh_data unit;
+- Now gh_sql uses gh_data;
+- Many more bug fixes and improvements.
+
 (2012-08-20)
 
 - Renamed t.DataSetToQuery method name to t.Transform;
