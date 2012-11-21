@@ -614,8 +614,11 @@ var
         lIxDef := ServerIndexDefs[i];
         if ixPrimary in lIxDef.Options then
         begin
-          lWhere += ' and (' + lIxDef.Fields + ' <> :' + lIxDef.Fields + ')';
-          lTable.Params[lIxDef.Fields].Value := FOwnerTable[lIxDef.Fields].Value;
+          if not FOwnerTable[lIxDef.Fields].IsNull then
+          begin
+            lWhere += ' and (' + lIxDef.Fields + ' <> :' + lIxDef.Fields + ')';
+            lTable.Params[lIxDef.Fields].Value := FOwnerTable[lIxDef.Fields].Value;
+          end;
         end;
       end;
     end;
@@ -1110,13 +1113,12 @@ end;
 function TghSQLTable.Post: TghSQLTable;
 begin
   CheckTable;
+  FErrors.Clear;
   if CheckValues then
   begin
     FDataSet.Post;
     FErrors.Clear;
-  end
-  else
-    FDataSet.Cancel;
+  end;
   Result := Self;
 end;
 

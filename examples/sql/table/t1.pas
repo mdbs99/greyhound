@@ -89,30 +89,49 @@ begin
     User.Columns['name'].AsString := 'John Black';
     User.Post.Commit;
 
+    // show only one
     ShowAll;
 
     // get all records
     User.Close.Open;
+    ShowAll;
 
     // Adding a Unique constraint
     User.Constraints.AddUnique(['name']);
 
-    // Trying to insert admin, but she already exist!! (see script.sql)
+    // Trying to insert admin, but he already exist!! (see script.sql)
     User.Append;
     User['name'].AsString := 'admin';
-    User.Post.Commit;
-
-    if User.HasErrors then
-      writeln(User.GetErrors.Text);
+    if User.Post.HasErrors then
+      WriteLn('ERROR: ' + User.GetErrors.Text)
+    else
+      User.Commit;
 
     // Adding a Check constraint
-    User.Constraints.AddCheck('login', ['L1', 'L2']);
-{
-    // Trying to insert... error! Because this violated the Check Constraint.
-    InsertRecord(6, 'AAA', '000', 'Login1');
+    User.Constraints.AddCheck('login', ['g1', 'g2']);
 
-    User.Commit;
-}
+    User.Append;
+    User['login'].AsString := 'g1';
+    User['name'].AsString := 'Jenny';
+    if User.Post.HasErrors then
+      WriteLn('ERROR: ' + User.GetErrors.Text)
+    else
+      // OK, login "g1" is ok...
+      User.Commit;
+
+    // see
+    ShowAll;
+
+    // trying again...
+    User.Append;
+    User['login'].AsString := 'test';
+    User['name'].AsString := 'Erick';
+    // login "test" is Ok?
+    if User.Post.HasErrors then
+      WriteLn('ERROR: ' + User.GetErrors.Text)
+    else
+      User.Commit;
+
     // see
     ShowAll;
   finally
