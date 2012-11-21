@@ -25,7 +25,7 @@ uses
   {$IFDEF SQLITE3_LIB} sqlite3conn, {$ENDIF}
 {$ENDIF SQLDB_LIB}
   // gh
-  gh_Global, gh_SQL;
+  gh_SQL;
 
 type
   TghSQLdbConnector = class(TSQLConnector)
@@ -118,7 +118,7 @@ end;
 
 function TghSQLdbLib.NewSQLQuery(AOwner: TComponent): TghSQLQuery;
 begin
-  Result := TghSQLQuery.Create(nil);
+  Result := TghSQLQuery.Create(AOwner);
   Result.DataBase := FConn;
   Result.Transaction := FTran;
 end;
@@ -207,9 +207,9 @@ begin
   FConn.IsBatch := Self.SQL.IsBatch;
   try
     if Self.SQL.IsBatch then
-      InternalScriptExecute(Sender)
+      Result := InternalScriptExecute(Sender)
     else
-      InternalQueryExecute(Sender);
+      Result := InternalQueryExecute(Sender);
   finally
     FConn.IsBatch := False;
   end;
@@ -358,7 +358,7 @@ begin
   FConn.IsBatch := Self.SQL.IsBatch;
   try
     // MSSQL do not need to use TSQLScript
-    InternalQueryExecute(Sender);
+    Result := InternalQueryExecute(Sender);
   finally
     FConn.IsBatch := False;
   end;

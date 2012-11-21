@@ -1414,7 +1414,6 @@ end;
 
 destructor TghSQLConnector.Destroy;
 var
-  i: Integer;
   lTable: TghSQLTable;
 begin
   while FTables.Count > 0 do
