@@ -1,5 +1,5 @@
 This is the file LICENSE.txt, it applies to the Greyhound Project,
-distributed by Marcos Douglas B. dos Santos - md at delfire dot net
+distributed by Marcos Douglas B. dos Santos - mdbs99 at delfire dot net
 
 The source code of the Brook framework is distributed under the GNU
 Lesser General Public License (see the file LGPL.2.1.txt) with the
