@@ -14,13 +14,8 @@ const
   TABLE_NAME = '#user_tmp';
 
 var
-<<<<<<< HEAD
-  co: TghDBConnector;
-  sql: TghDBSQL;
-=======
   co: TghSQLConnector;
   sql: TghSQLObject;
->>>>>>> b20
 
 procedure ExecSelect;
 var
@@ -30,11 +25,7 @@ begin
   writeln('Show data:');
 
   sql.Clear;
-<<<<<<< HEAD
-  sql.Script.Text := 'select * from ' + TAB_TMP;
-=======
   sql.Script.Text := 'select * from ' + TABLE_NAME;
->>>>>>> b20
   sql.Open(ds);
   try
     while not ds.EOF do
@@ -65,13 +56,8 @@ begin
 end;
 
 begin
-<<<<<<< HEAD
-  co := TghDBConnector.Create;
-  sql := TghDBSQL.Create(co);
-=======
   co := TghSQLConnector.Create;
   sql := TghSQLObject.Create(co);
->>>>>>> b20
   try
     // set configurations
     // using MSSQLServer
@@ -88,11 +74,7 @@ begin
 
     // creating a temp table
     sql.Clear;
-<<<<<<< HEAD
-    sql.Script.Add('create table '+TAB_TMP+' ( ');
-=======
     sql.Script.Add('create table ' + TABLE_NAME + ' ( ');
->>>>>>> b20
     sql.Script.Add('  [id] int identity not null primary key ');
     sql.Script.Add(' ,[login] varchar(20) not null ');
     sql.Script.Add(' ,[passwd] varchar(30) null ');
@@ -124,11 +106,7 @@ begin
 
     // drop table
     sql.Clear;
-<<<<<<< HEAD
-    sql.Script.Text := 'drop table '+TAB_TMP;
-=======
     sql.Script.Text := 'drop table '+TABLE_NAME;
->>>>>>> b20
     sql.Execute;
 
   finally
