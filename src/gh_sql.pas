@@ -1,6 +1,6 @@
 {
     Greyhound
-    Copyright (c) 2012
+    Copyright (C) 2012  -  Marcos Douglas B. dos Santos
 
     See the files COPYING.GH, included in this
     distribution, for details about the copyright.
@@ -10,7 +10,7 @@
     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
 }
 
-unit gh_DB;
+unit gh_SQL;
 
 {$i gh_def.inc}
 
@@ -20,59 +20,53 @@ uses
   // fpc
   Classes, SysUtils, DB, contnrs, fgl, BufDataset, sqldb,
   // gh
-  gh_Global;
+  gh_Global, gh_Data;
 
 type
-  EghDBError = class(EghError);
-  TghDBObject = class(TghObject);
-  TghDBColumn = TField;
-  TghDBColumns = TFields;
+  EghSQL = class(EghData);
+  TghSQL = class(TghData);
 
 { forward declarations }
 
-  TghDBConnector = class;
-  TghDBTable = class;
-  TghDBTableList = class;
-  TghDBConstraintList = class;
+  TghSQLConnector = class;
+  TghSQLTable = class;
+  TghSQLTableList = class;
+  TghSQLConstraintList = class;
 
-  TghDBParams = class(TParams)
-  strict private
-    FLocked: Boolean;
+{ classes }
+
+  TghSQLQueryApplyRecUpdateEvent = procedure (Sender: TObject; UpdateKind: TUpdateKind) of object;
+  TghSQLQuery = class(TSQLQuery)
+  private
+    FOnApplyRecUpdate: TghSQLQueryApplyRecUpdateEvent;
+    procedure DoApplyRecUpdate(UpdateKind: TUpdateKind);
+  protected
+    procedure ApplyRecUpdate(UpdateKind: TUpdateKind); override;
   public
-    procedure Lock;
-    procedure UnLock;
-    // Create a param automatically if not exist.
-    function ParamByName(const AName: string): TParam; reintroduce;
-    // An alias less verbose; changed the default property.
-    property Param[const AName: string]: TParam read ParamByName; default;
+    property OnApplyRecUpdate: TghSQLQueryApplyRecUpdateEvent read FOnApplyRecUpdate write FOnApplyRecUpdate;
   end;
 
-  TghDBQuery = class(TSQLQuery)
+  TghSQLStatement = class(TghSQL)
   protected
-    procedure ApplyRecUpdate(UpdateKind : TUpdateKind); override;
-  end;
-
-  TghDBStatement = class(TghDBObject)
-  protected
-    FParams: TghDBParams;
+    FParams: TghDataParams;
     FScript: TStrings;
   public
     constructor Create; override;
     destructor Destroy; override;
-    procedure Assign(ASource: TghDBStatement); virtual;
+    procedure Assign(ASource: TghSQLStatement); virtual;
     procedure Clear; virtual;
-    property Params: TghDBParams read FParams;
+    property Params: TghDataParams read FParams;
     property Script: TStrings read FScript;
   end;
 
-  TghDBSQLHandlerOpenEvent = procedure (Sender: TObject; out ADataSet: TDataSet; AOwner: TComponent) of object;
-  TghDBSQLHandlerExecuteEvent = function (Sender: TObject): NativeInt of object;
-  TghDBSQLHandler = class(TghDBStatement)
+  TghSQLHandlerOpenEvent = procedure (Sender: TObject; out ADataSet: TDataSet; AOwner: TComponent) of object;
+  TghSQLHandlerExecuteEvent = function (Sender: TObject): NativeInt of object;
+  TghSQLHandler = class(TghSQLStatement)
   private
     FPrepared: Boolean;
     FIsBatch: Boolean;
-    FOnOpen: TghDBSQLHandlerOpenEvent;
-    FOnExecute: TghDBSQLHandlerExecuteEvent;
+    FOnOpen: TghSQLHandlerOpenEvent;
+    FOnExecute: TghSQLHandlerExecuteEvent;
     FBeforeOpen: TNotifyEvent;
     FAfterOpen: TDataSetNotifyEvent;
     FBeforeExecute: TNotifyEvent;
@@ -85,73 +79,74 @@ type
     procedure DoBeforeExecute;
     procedure DoAfterExecute;
   public
-    procedure Assign(ASource: TghDBStatement); override;
+    procedure Assign(ASource: TghSQLStatement); override;
     procedure Clear; override;
     property Prepared: Boolean read FPrepared write FPrepared;
     property IsBatch: Boolean read FIsBatch write FIsBatch;
-    property OnOpen: TghDBSQLHandlerOpenEvent read FOnOpen write FOnOpen;
-    property OnExecute: TghDBSQLHandlerExecuteEvent read FOnExecute write FOnExecute;
+    property OnOpen: TghSQLHandlerOpenEvent read FOnOpen write FOnOpen;
+    property OnExecute: TghSQLHandlerExecuteEvent read FOnExecute write FOnExecute;
     property BeforeOpen: TNotifyEvent read FBeforeOpen write FBeforeOpen;
     property AfterOpen: TDataSetNotifyEvent read FAfterOpen write FAfterOpen;
     property BeforeExecute: TNotifyEvent read FBeforeExecute write FBeforeExecute;
     property AfterExecute: TNotifyEvent read FAfterExecute write FAfterExecute;
   end;
 
-  TghDBSQL = class(TghDBSQLHandler)
+  TghSQLObject = class(TghSQLHandler)
   private
-    FConnector: TghDBConnector;
+    FConn: TghSQLConnector;
     procedure InternalOpen(Sender: TObject; out ADataSet: TDataSet; AOwner: TComponent); virtual;
     function InternalExecute(Sender: TObject): NativeInt; virtual;
   public
-    constructor Create(AConn: TghDBConnector); reintroduce;
+    constructor Create(AConn: TghSQLConnector); reintroduce;
     destructor Destroy; override;
     procedure Open(out ADataSet: TDataSet; AOwner: TComponent = nil);
     function Execute: NativeInt;
   end;
 
-  TghDBConstraint = class(TghDBObject)
+  TghSQLConstraint = class(TghSQL)
+  private
+    FOwnerTable: TghSQLTable;
+    procedure SetOwnerTable(AValue: TghSQLTable);
   protected
-    FParams: TghDBParams;
-    FTable: TghDBTable;
-    procedure SetTable(AValue: TghDBTable);
+    FParams: TghDataParams;
     function NamesToBeautifulStr: string;
     function ValuesToBeautifulStr: string;
   public
     constructor Create; override;
     destructor Destroy; override;
     procedure Execute; virtual; abstract;
-    property Table: TghDBTable read FTable write SetTable;
+    property OwnerTable: TghSQLTable read FOwnerTable write SetOwnerTable;
   end;
 
-  TghDBDefaultConstraint = class(TghDBConstraint)
+  TghSQLDefaultConstraint = class(TghSQLConstraint)
   public
     constructor Create(const AColumName: string; AValue: Variant); reintroduce;
     procedure Execute; override;
   end;
 
-  TghDBValidationConstraint = class(TghDBConstraint)
+  TghSQLValidationConstraint = class(TghSQLConstraint)
   public
     function GetError: string; virtual; abstract;
   end;
 
-  TghDBUniqueConstraint = class(TghDBValidationConstraint)
+  TghSQLUniqueConstraint = class(TghSQLValidationConstraint)
   public
     constructor Create(const AColumNames: array of string); reintroduce;
     procedure Execute; override;
     function GetError: string; override;
   end;
 
-  TghDBCheckConstraint = class(TghDBValidationConstraint)
+  TghSQLCheckConstraint = class(TghSQLValidationConstraint)
   public
     constructor Create(const AColumName: string; AValues: array of Variant); reintroduce;
     procedure Execute; override;
     function GetError: string; override;
   end;
 
-  TghDBConstraintList = class(specialize TFPGObjectList<TghDBConstraint>)
+  TghSQLConstraintList = class(specialize TFPGObjectList<TghSQLConstraint>)
   private
-    FTable: TghDBTable;
-    procedure SetTable(AValue: TghDBTable);
+    FOwnerTable: TghSQLTable;
+    procedure SetOwnerTable(AValue: TghSQLTable);
   public
     // Add a Default constraint
     function AddDefault(const AColumName: string; AValue: Variant): Integer; overload;
@@ -159,19 +154,19 @@ type
     function AddUnique(const AColumNames: array of string): Integer;
     // Add a Check constraint
     function AddCheck(const AColumName: string; AValues: array of Variant): Integer;
-    property Table: TghDBTable read FTable write SetTable;
+    property OwnerTable: TghSQLTable read FOwnerTable write SetOwnerTable;
   end;
 
-  TghDBTable = class(TghDBObject)
+  TghSQLTable = class(TghSQL)
   private
     FTableName: string;
-    FConnector: TghDBConnector;
+    FConnector: TghSQLConnector;
     FConditions: string;
     FErrors: TStrings;
-    FLinks: TghDBTableList;
+    FLinks: TghSQLTableList;
     FOrderBy: string;
-    FOwnerTable: TghDBTable;
-    FParams: TghDBParams;
+    FOwnerTable: TghSQLTable;
+    FParams: TghDataParams;
     FReuse: Boolean;
     FSelectColumns: string;
     FEnforceConstraints: Boolean;
@@ -179,126 +174,127 @@ type
     FAfterCommit: TNotifyEvent;
     class var FRelations: TFPHashObjectList;
     class var FConstraints: TFPHashObjectList;
-    function GetRecordCount: Longint;
     function GetActive: Boolean;
-    function GetColumn(const AName: string): TghDBColumn;
+    function GetColumn(const AName: string): TghDataColumn;
     function GetEOF: Boolean;
-    function GetRelations: TghDBTableList;
-    function GetConstraints: TghDBConstraintList;
+    function GetRelations: TghSQLTableList;
+    function GetConstraints: TghSQLConstraintList;
     procedure SetTableName(const AValue: string);
-    procedure SetConnector(AValue: TghDBConnector);
+    procedure SetConnector(AValue: TghSQLConnector);
     function GetState: TDataSetState;
+    function GetIsEmpty: Boolean;
+    function GetRecordCount: Longint;
   protected
-    FDataSet: TghDBQuery;
+    FDataSet: TghSQLQuery;
     class procedure ClassInitialization;
     class procedure ClassFinalization;
     procedure CheckTable;
-    procedure CreateResultSet; virtual;
+    procedure InternalOpen; virtual;
     function CheckValues: Boolean; virtual;
     procedure SetDefaultValues; virtual;
     // events
     procedure DoBeforeCommit; virtual;
     procedure DoAfterCommit; virtual;
     // callback
-    procedure CallFoundTable(Sender: TObject; ATable: TghDBTable); virtual;
+    procedure CallFoundTable(Sender: TObject; ATable: TghSQLTable); virtual;
     procedure CallResolverError(Sender: TObject; DataSet: TCustomBufDataset;
       E: EUpdateError; UpdateKind: TUpdateKind; var Response: TResolverResponse); virtual;
+    procedure CallApplyRecUpdate(Sender: TObject; UpdateKind: TUpdateKind); virtual;
   public
-    constructor Create(AConn: TghDBConnector); virtual; overload; reintroduce;
-    constructor Create(AConn: TghDBConnector; const ATableName: string); virtual; overload;
-    constructor Create(AConn: TghDBConnector; const ATableName: string; AOwnerTable: TghDBTable); virtual; overload;
+    constructor Create(AConn: TghSQLConnector); virtual; overload; reintroduce;
+    constructor Create(AConn: TghSQLConnector; const ATableName: string); virtual; overload;
+    constructor Create(AConn: TghSQLConnector; const ATableName: string; AOwnerTable: TghSQLTable); virtual; overload;
     destructor Destroy; override;
-    function Close: TghDBTable;
-    function Open: TghDBTable;
-    function Insert: TghDBTable;
-    function Append: TghDBTable;
-    function Edit: TghDBTable;
-    function Post: TghDBTable;
-    function Cancel: TghDBTable;
-    function Delete: TghDBTable;
-    function Commit: TghDBTable;
-    function Rollback: TghDBTable;
-    function Refresh: TghDBTable;
-    function First: TghDBTable;
-    function Prior: TghDBTable;
-    function Next: TghDBTable;
-    function Last: TghDBTable;
-    function Select(const AColumnNames: string): TghDBTable;
-    function Where(const AConditions: string): TghDBTable; overload;
-    function Where(const AConditions: string; AArgs: array of const): TghDBTable; overload;
-    function OrderBy(const AColumnNames: string): TghDBTable;
-    function GetColumns: TghDBColumns;
+    function Close: TghSQLTable;
+    function Open: TghSQLTable;
+    function Insert: TghSQLTable;
+    function Append: TghSQLTable;
+    function Edit: TghSQLTable;
+    function Post: TghSQLTable;
+    function Cancel: TghSQLTable;
+    function Delete: TghSQLTable;
+    function Commit: TghSQLTable;
+    function Rollback: TghSQLTable;
+    function Refresh: TghSQLTable;
+    function First: TghSQLTable;
+    function Prior: TghSQLTable;
+    function Next: TghSQLTable;
+    function Last: TghSQLTable;
+    function Select(const AColumnNames: string): TghSQLTable;
+    function Where(const AConditions: string): TghSQLTable; overload;
+    function Where(const AConditions: string; AArgs: array of const): TghSQLTable; overload;
+    function OrderBy(const AColumnNames: string): TghSQLTable;
+    function GetColumns: TghDataColumns;
     function HasErrors: Boolean;
     function GetErrors: TStrings;
-    procedure LoadFromFile(const AFileName: string; AFormat: TDataPacketFormat = dfAny); virtual;
-    procedure SaveToFile(const AFileName: string; AFormat: TDataPacketFormat = dfBinary); virtual;
-    procedure LoadFromStream(AStream: TStream; AFormat: TDataPacketFormat = dfAny); virtual;
-    procedure SaveToStream(AStream: TStream; AFormat: TDataPacketFormat = dfBinary); virtual;
     property Active: Boolean read GetActive;
-    property Columns[const AName: string]: TghDBColumn read GetColumn; default;
-    property Connector: TghDBConnector read FConnector write SetConnector;
+    property Columns[const AName: string]: TghDataColumn read GetColumn; default;
+    property Connector: TghSQLConnector read FConnector write SetConnector;
     property State: TDataSetState read GetState;
     property EOF: Boolean read GetEOF;
-    property Links: TghDBTableList read FLinks;
-    property OwnerTable: TghDBTable read FOwnerTable write FOwnerTable;
-    property Params: TghDBParams read FParams;
+    property IsEmpty: Boolean read GetIsEmpty;
+    property Links: TghSQLTableList read FLinks;
+    property OwnerTable: TghSQLTable read FOwnerTable write FOwnerTable;
+    property Params: TghDataParams read FParams;
     property Reuse: Boolean read FReuse write FReuse;
     property RecordCount: Longint read GetRecordCount;
     property TableName: string read FTableName write SetTableName;
-    property Relations: TghDBTableList read GetRelations;
-    property Constraints: TghDBConstraintList read GetConstraints;
+    property Relations: TghSQLTableList read GetRelations;
+    property Constraints: TghSQLConstraintList read GetConstraints;
     property EnforceConstraints: Boolean read FEnforceConstraints;
     property BeforeCommit: TNotifyEvent read FBeforeCommit write FBeforeCommit;
     property AfterCommit: TNotifyEvent read FAfterCommit write FAfterCommit;
   end;
 
-  TghDBTableNotifyEvent = procedure (Sender: TObject; ATable: TghDBTable) of object;
-  TghDBTableList = class(specialize TFPGObjectList<TghDBTable>)
+  TghSQLTableNotifyEvent = procedure (Sender: TObject; ATable: TghSQLTable) of object;
+  TghSQLTableList = class(specialize TFPGObjectList<TghSQLTable>)
   private
-    FOwnerTable: TghDBTable;
-    FOnNewTable: TghDBTableNotifyEvent;
-    FOnFoundTable: TghDBTableNotifyEvent;
-    function GetTables(const ATableName: string): TghDBTable;
-    procedure DoNewTable(ATable: TghDBTable);
-    procedure DoFoundTable(ATable: TghDBTable);
+    FOwnerTable: TghSQLTable;
+    FOnNewTable: TghSQLTableNotifyEvent;
+    FOnFoundTable: TghSQLTableNotifyEvent;
+    function GetTables(const ATableName: string): TghSQLTable;
+    // events
+    procedure DoNewTable(ATable: TghSQLTable);
+    procedure DoFoundTable(ATable: TghSQLTable);
   public
-    constructor Create(AOwnerTable: TghDBTable; AFreeObjects: Boolean = True); reintroduce;
+    constructor Create(AOwnerTable: TghSQLTable; AFreeObjects: Boolean = True); reintroduce;
     destructor Destroy; override;
-    function FindByName(const AName: string): TghDBTable;
-    property Tables[const ATableName: string]: TghDBTable read GetTables; default;
-    property OnNewTable: TghDBTableNotifyEvent read FOnNewTable write FOnNewTable;
-    property OnFoundTable: TghDBTableNotifyEvent read FOnFoundTable write FOnFoundTable;
+    function FindByName(const AName: string): TghSQLTable;
+    property Tables[const ATableName: string]: TghSQLTable read GetTables; default;
+    property OnNewTable: TghSQLTableNotifyEvent read FOnNewTable write FOnNewTable;
+    property OnFoundTable: TghSQLTableNotifyEvent read FOnFoundTable write FOnFoundTable;
   end;
 
-  IghDBTableAdapter = interface(IghInterface)
+  IghSQLTableAdapter = interface(IghInterface)
     procedure Adapt;
     procedure Update;
   end;
 
-  TghDBTableAdapter = class(TghDBObject, IghDBTableAdapter)
+  TghSQLTableAdapter = class(TghSQL, IghSQLTableAdapter)
   private
-    procedure SetTable(AValue: TghDBTable);
+    procedure SetTable(AValue: TghSQLTable);
   protected
-    FTable: TghDBTable;
+    FTable: TghSQLTable;
     procedure Adapt; virtual; abstract;
   public
-    constructor Create(ATable: TghDBTable); virtual; reintroduce;
+    constructor Create(ATable: TghSQLTable); virtual; reintroduce;
     procedure Update; virtual; abstract;
     procedure Syncronize; virtual;
-    property Table: TghDBTable read FTable write SetTable;
+    property Table: TghSQLTable read FTable write SetTable;
   end;
 
-  TghDBDataSetTableAdapter = class(TghDBTableAdapter)
+  TghSQLDataSetTableAdapter = class(TghSQLTableAdapter)
   protected
     procedure Adapt; override;
   public
     procedure Update; override;
   end;
 
-  TghDBConnectorBrokerClass = class of TghDBConnectorBroker;
-  TghDBConnectorBroker = class abstract(TghDBObject)
+  EghSQLLib = class(EghSQL);
+  TghSQLLibClass = class of TghSQLLib;
+  TghSQLLib = class abstract(TghSQL)
   protected
-    FSQL: TghDBSQLHandler;
+    FSQL: TghSQLHandler;
     procedure CallSQLOpen(Sender: TObject; out ADataSet: TDataSet; AOwner: TComponent); virtual; abstract;
     function CallSQLExecute(Sender: TObject): NativeInt; virtual; abstract;
   public
@@ -312,26 +308,27 @@ type
     procedure CommitRetaining; virtual; abstract;
     procedure Rollback; virtual; abstract;
     procedure RollbackRetaining; virtual; abstract;
-    property SQL: TghDBSQLHandler read FSQL;
+    function GetLastAutoIncValue: NativeInt; virtual;
+    property SQL: TghSQLHandler read FSQL;
   end;
 
-  TghDBConnector = class(TghDBObject)
+  TghSQLConnector = class(TghSQL)
   strict private
     FTransCount: SmallInt;
     FDatabase: string;
     FHost: string;
     FPassword: string;
     FUser: string;
-    FTables: TghDBTableList;
+    FTables: TghSQLTableList;
   protected
-    FBroker: TghDBConnectorBroker;
-    procedure CheckBroker;
-    function GetTables(const ATableName: string): TghDBTable; virtual;
+    FLib: TghSQLLib;
+    procedure CheckLib;
+    function GetTables(const ATableName: string): TghSQLTable; virtual;
     function GetConnected: Boolean;
   public
     constructor Create; override;
     destructor Destroy; override;
-    procedure SetBrokerClass(ABroker: TghDBConnectorBrokerClass);
+    procedure SetLibClass(ALib: TghSQLLibClass);
     procedure Connect; virtual;
     procedure Disconnect; virtual;
     procedure StartTransaction;
@@ -340,84 +337,64 @@ type
     procedure CommitRetaining;
     procedure Rollback;
     procedure RollbackRetaining;
-    procedure Transform(ASource: TDataSet; out ADest: TghDBQuery; AOwner: TComponent = nil);
-    procedure Notify(ATable: TghDBTable; AOperation: TOperation);
-    property Broker: TghDBConnectorBroker read FBroker;
+    procedure Transform(ASource: TDataSet; out ADest: TghSQLQuery; AOwner: TComponent = nil);
+    procedure Notify(ATable: TghSQLTable; AOperation: TOperation);
+    property Lib: TghSQLLib read FLib;
     property Database: string read FDatabase write FDatabase;
     property Connected: Boolean read GetConnected;
     property Host: string read FHost write FHost;
     property User: string read FUser write FUser;
     property Password: string read FPassword write FPassword;
-    property Tables[const ATableName: string]: TghDBTable read GetTables;
+    property Tables[const ATableName: string]: TghSQLTable read GetTables;
   end;
 
 implementation
 
-{ TghDBParams }
+{ TghSQLQuery }
 
-procedure TghDBParams.Lock;
+procedure TghSQLQuery.DoApplyRecUpdate(UpdateKind: TUpdateKind);
 begin
-  FLocked := True;
+  if Assigned(FOnApplyRecUpdate) then
+    FOnApplyRecUpdate(Self, UpdateKind);
 end;
 
-procedure TghDBParams.UnLock;
-begin
-  FLocked := False;
-end;
-
-function TghDBParams.ParamByName(const AName: string): TParam;
-var
-  lParam: TParam;
-begin
-  lParam := FindParam(AName);
-  if not Assigned(lParam) then
-  begin
-    if FLocked then
-      raise EghDBError.Create(Self, 'Params were locked.');
-    lParam := TParam.Create(Self);
-    lParam.Name := AName;
-  end;
-  Result := lParam as TParam;
-end;
-
-{ TghDBQuery }
-
-procedure TghDBQuery.ApplyRecUpdate(UpdateKind: TUpdateKind);
+procedure TghSQLQuery.ApplyRecUpdate(UpdateKind: TUpdateKind);
 begin
   inherited ApplyRecUpdate(UpdateKind);
+  DoApplyRecUpdate(UpdateKind);
 end;
 
-{ TghDBStatement }
+{ TghSQLStatement }
 
-constructor TghDBStatement.Create;
+constructor TghSQLStatement.Create;
 begin
   inherited;
-  FParams := TghDBParams.Create;
+  FParams := TghDataParams.Create;
   FScript := TStringList.Create;
 end;
 
-destructor TghDBStatement.Destroy;
+destructor TghSQLStatement.Destroy;
 begin
   FParams.Free;
   FScript.Free;
   inherited Destroy;
 end;
 
-procedure TghDBStatement.Assign(ASource: TghDBStatement);
+procedure TghSQLStatement.Assign(ASource: TghSQLStatement);
 begin
   FScript.Assign(ASource.Script);
   FParams.Assign(ASource.Params);
 end;
 
-procedure TghDBStatement.Clear;
+procedure TghSQLStatement.Clear;
 begin
   FScript.Clear;
   FParams.Clear;
 end;
 
-{ TghDBSQLHandler }
+{ TghSQLHandler }
 
-procedure TghDBSQLHandler.DoOpen(out ADataSet: TDataSet; AOwner: TComponent);
+procedure TghSQLHandler.DoOpen(out ADataSet: TDataSet; AOwner: TComponent);
 begin
   if Assigned(OnOpen) then
   begin
@@ -427,7 +404,7 @@ begin
   end;
 end;
 
-function TghDBSQLHandler.DoExecute: NativeInt;
+function TghSQLHandler.DoExecute: NativeInt;
 begin
   if Assigned(OnExecute) then
   begin
@@ -437,61 +414,61 @@ begin
   end;
 end;
 
-procedure TghDBSQLHandler.DoBeforeOpen;
+procedure TghSQLHandler.DoBeforeOpen;
 begin
   if Assigned(FBeforeOpen) then
     FBeforeOpen(Self);
 end;
 
-procedure TghDBSQLHandler.DoAfterOpen(ADataSet: TDataSet);
+procedure TghSQLHandler.DoAfterOpen(ADataSet: TDataSet);
 begin
   if Assigned(FAfterOpen) then
     FAfterOpen(ADataSet);
 end;
 
-procedure TghDBSQLHandler.DoBeforeExecute;
+procedure TghSQLHandler.DoBeforeExecute;
 begin
   if Assigned(FBeforeExecute) then
     FBeforeExecute(Self);
 end;
 
-procedure TghDBSQLHandler.DoAfterExecute;
+procedure TghSQLHandler.DoAfterExecute;
 begin
   if Assigned(FAfterExecute) then
     FAfterExecute(Self);
 end;
 
-procedure TghDBSQLHandler.Assign(ASource: TghDBStatement);
+procedure TghSQLHandler.Assign(ASource: TghSQLStatement);
 var
-  lHandler: TghDBSQLHandler;
+  lHandler: TghSQLHandler;
 begin
   inherited;
-  if ASource is TghDBSQLHandler then
+  if ASource is TghSQLHandler then
   begin
-    lHandler := TghDBSQLHandler(ASource);
+    lHandler := TghSQLHandler(ASource);
     Self.Prepared := lHandler.Prepared;
     Self.IsBatch := lHandler.IsBatch;
   end;
 end;
 
-procedure TghDBSQLHandler.Clear;
+procedure TghSQLHandler.Clear;
 begin
   inherited Clear;
   FPrepared := False;
   FIsBatch := False;
 end;
 
-{ TghDBSQL }
+{ TghSQLObject }
 
-procedure TghDBSQL.InternalOpen(Sender: TObject; out ADataSet: TDataSet;
+procedure TghSQLObject.InternalOpen(Sender: TObject; out ADataSet: TDataSet;
   AOwner: TComponent);
 begin
   ADataSet := nil;
-  with FConnector do
+  with FConn do
   try
     StartTransaction;
-    Broker.SQL.Assign(Self);
-    Broker.SQL.DoOpen(ADataSet, AOwner);
+    Lib.SQL.Assign(Self);
+    Lib.SQL.DoOpen(ADataSet, AOwner);
     CommitRetaining;
   except
     ADataSet.Free;
@@ -500,13 +477,13 @@ begin
   end;
 end;
 
-function TghDBSQL.InternalExecute(Sender: TObject): NativeInt;
+function TghSQLObject.InternalExecute(Sender: TObject): NativeInt;
 begin
-  with FConnector do
+  with FConn do
   try
     StartTransaction;
-    Broker.SQL.Assign(Self);
-    Result := Broker.SQL.DoExecute;
+    Lib.SQL.Assign(Self);
+    Result := Lib.SQL.DoExecute;
     CommitRetaining;
   except
     RollbackRetaining;
@@ -514,38 +491,38 @@ begin
   end;
 end;
 
-constructor TghDBSQL.Create(AConn: TghDBConnector);
+constructor TghSQLObject.Create(AConn: TghSQLConnector);
 begin
   inherited Create;
-  FConnector := AConn;
+  FConn := AConn;
   OnOpen := @InternalOpen;
   OnExecute := @InternalExecute;
 end;
 
-destructor TghDBSQL.Destroy;
+destructor TghSQLObject.Destroy;
 begin
   inherited Destroy;
 end;
 
-procedure TghDBSQL.Open(out ADataSet: TDataSet; AOwner: TComponent);
+procedure TghSQLObject.Open(out ADataSet: TDataSet; AOwner: TComponent);
 begin
   InternalOpen(Self, ADataSet, AOwner);
 end;
 
-function TghDBSQL.Execute: NativeInt;
+function TghSQLObject.Execute: NativeInt;
 begin
   Result := InternalExecute(Self);
 end;
 
-{ TghDBConstraint }
+{ TghSQLConstraint }
 
-procedure TghDBConstraint.SetTable(AValue: TghDBTable);
+procedure TghSQLConstraint.SetOwnerTable(AValue: TghSQLTable);
 begin
-  if FTable = AValue then Exit;
-  FTable := AValue;
+  if FOwnerTable = AValue then Exit;
+  FOwnerTable := AValue;
 end;
 
-function TghDBConstraint.NamesToBeautifulStr: string;
+function TghSQLConstraint.NamesToBeautifulStr: string;
 var
   i: Integer;
 begin
@@ -560,7 +537,7 @@ begin
   end;
 end;
 
-function TghDBConstraint.ValuesToBeautifulStr: string;
+function TghSQLConstraint.ValuesToBeautifulStr: string;
 var
   i: Integer;
 begin
@@ -575,43 +552,43 @@ begin
   end;
 end;
 
-constructor TghDBConstraint.Create;
+constructor TghSQLConstraint.Create;
 begin
   inherited Create;
-  FParams := TghDBParams.Create;
+  FParams := TghDataParams.Create;
 end;
 
-destructor TghDBConstraint.Destroy;
+destructor TghSQLConstraint.Destroy;
 begin
   FParams.Free;
   inherited Destroy;
 end;
 
-{ TghDBDefaultConstraint }
+{ TghSQLDefaultConstraint }
 
-constructor TghDBDefaultConstraint.Create(const AColumName: string;
+constructor TghSQLDefaultConstraint.Create(const AColumName: string;
   AValue: Variant);
 begin
   inherited Create;
   FParams[AColumName].Value := AValue;
 end;
 
-procedure TghDBDefaultConstraint.Execute;
+procedure TghSQLDefaultConstraint.Execute;
 var
   i: Integer;
-  lColum: TghDBColumn;
+  lColum: TghDataColumn;
 begin
   for i := 0 to FParams.Count -1 do
   begin
-    lColum := FTable.GetColumns.FindField(FParams.Items[i].Name);
+    lColum := FOwnerTable.GetColumns.FindField(FParams.Items[i].Name);
     if Assigned(lColum) then
       lColum.Value := FParams.Items[i].Value;
   end;
 end;
 
-{ TghDBUniqueConstraint }
+{ TghSQLUniqueConstraint }
 
-constructor TghDBUniqueConstraint.Create(const AColumNames: array of string);
+constructor TghSQLUniqueConstraint.Create(const AColumNames: array of string);
 var
   i: Integer;
 begin
@@ -620,9 +597,9 @@ begin
     FParams[AColumNames[i]];
 end;
 
-procedure TghDBUniqueConstraint.Execute;
+procedure TghSQLUniqueConstraint.Execute;
 var
-  lTable: TghDBTable;
+  lTable: TghSQLTable;
   lWhere: string;
 
   procedure SetPK;
@@ -630,15 +607,18 @@ var
     i: Integer;
     lIxDef: TIndexDef;
   begin
-    with FTable.FDataSet do
+    with FOwnerTable.FDataSet do
     begin
       for i := 0 to ServerIndexDefs.Count -1 do
       begin
         lIxDef := ServerIndexDefs[i];
         if ixPrimary in lIxDef.Options then
         begin
-          lWhere += ' and (' + lIxDef.Fields + ' <> :' + lIxDef.Fields + ')';
-          lTable.Params[lIxDef.Fields].Value := FTable[lIxDef.Fields].Value;
+          if not FOwnerTable[lIxDef.Fields].IsNull then
+          begin
+            lWhere += ' and (' + lIxDef.Fields + ' <> :' + lIxDef.Fields + ')';
+            lTable.Params[lIxDef.Fields].Value := FOwnerTable[lIxDef.Fields].Value;
+          end;
         end;
       end;
     end;
@@ -648,14 +628,14 @@ var
   var
     i: Integer;
     lParam: TParam;
-    lColumn: TghDBColumn;
+    lColumn: TghDataColumn;
   begin
     for i := 0 to FParams.Count -1 do
     begin
       lParam := FParams.Items[i];
-      lColumn := FTable.GetColumns.FindField(lParam.Name);
+      lColumn := FOwnerTable.GetColumns.FindField(lParam.Name);
       if lColumn = nil then
-        raise EghDBError.CreateFmt(Self, 'Column "%s" not found.', [lParam.Name]);
+        raise EghSQL.CreateFmt(Self, 'Column "%s" not found.', [lParam.Name]);
       lWhere += ' and (' + lParam.Name + ' = :' + lParam.Name + ')';
       lTable.Params[lParam.Name].Value := lColumn.Value;
     end;
@@ -663,25 +643,25 @@ var
 
 begin
   lWhere := '1=1 ';
-  lTable := TghDBTable.Create(FTable.Connector, FTable.TableName);
+  lTable := TghSQLTable.Create(FOwnerTable.Connector, FOwnerTable.TableName);
   try
     SetPK;
     SetValues;
     if lTable.Where(lWhere).Open.RecordCount > 0 then
-      FTable.GetErrors.Add(GetError);
+      FOwnerTable.GetErrors.Add(GetError);
   finally
     lTable.Free;
   end;
 end;
 
-function TghDBUniqueConstraint.GetError: string;
+function TghSQLUniqueConstraint.GetError: string;
 begin
   Result := Format('Violated unique constraint for column(s) %s.', [NamesToBeautifulStr]);
 end;
 
-{ TghDBCheckConstraint }
+{ TghSQLCheckConstraint }
 
-constructor TghDBCheckConstraint.Create(const AColumName: string;
+constructor TghSQLCheckConstraint.Create(const AColumName: string;
   AValues: array of Variant);
 var
   i: Integer;
@@ -697,18 +677,18 @@ begin
   end;
 end;
 
-procedure TghDBCheckConstraint.Execute;
+procedure TghSQLCheckConstraint.Execute;
 var
   i: Integer;
   lParam: TParam;
-  lColumn: TghDBColumn;
+  lColumn: TghDataColumn;
   lAccept: Boolean;
 begin
   lParam := FParams.Items[0];
-  lColumn := FTable.GetColumns.FindField(lParam.Name);
+  lColumn := FOwnerTable.GetColumns.FindField(lParam.Name);
 
   if lColumn = nil then
-    raise EghDBError.CreateFmt(Self, 'Column "%s" not found.', [lParam.Name]);
+    raise EghSQL.CreateFmt(Self, 'Column "%s" not found.', [lParam.Name]);
 
   lAccept := False;
   for i := 0 to FParams.Count -1 do
@@ -721,153 +701,159 @@ begin
   end;
 
   if not lAccept then
-    FTable.GetErrors.Add(GetError);
+    FOwnerTable.GetErrors.Add(GetError);
 end;
 
-function TghDBCheckConstraint.GetError: string;
+function TghSQLCheckConstraint.GetError: string;
 const
   MSG_1 = 'Violated the check constraint for column %s. The permitted values are %s';
 begin
   Result := Format(MSG_1, [FParams.Items[0].Name, ValuesToBeautifulStr]);
 end;
 
-{ TghDBConstraintList }
+{ TghSQLConstraintList }
 
-procedure TghDBConstraintList.SetTable(AValue: TghDBTable);
+procedure TghSQLConstraintList.SetOwnerTable(AValue: TghSQLTable);
 begin
-  if FTable = AValue then Exit;
-  FTable := AValue;
+  if FOwnerTable = AValue then Exit;
+  FOwnerTable := AValue;
 end;
 
-function TghDBConstraintList.AddDefault(const AColumName: string; AValue: Variant): Integer;
+function TghSQLConstraintList.AddDefault(const AColumName: string; AValue: Variant): Integer;
 var
-  lConst: TghDBConstraint;
+  lConst: TghSQLConstraint;
 begin
-  lConst := TghDBDefaultConstraint.Create(AColumName, AValue);
-  lConst.Table := FTable;
+  lConst := TghSQLDefaultConstraint.Create(AColumName, AValue);
+  lConst.OwnerTable := FOwnerTable;
   Result := Add(lConst);
 end;
 
-function TghDBConstraintList.AddUnique(const AColumNames: array of string): Integer;
+function TghSQLConstraintList.AddUnique(const AColumNames: array of string): Integer;
 var
-  lConst: TghDBConstraint;
+  lConst: TghSQLConstraint;
 begin
-  lConst := TghDBUniqueConstraint.Create(AColumNames);
-  lConst.Table := FTable;
+  lConst := TghSQLUniqueConstraint.Create(AColumNames);
+  lConst.OwnerTable := FOwnerTable;
   Result := Add(lConst);
 end;
 
-function TghDBConstraintList.AddCheck(const AColumName: string;
+function TghSQLConstraintList.AddCheck(const AColumName: string;
   AValues: array of Variant): Integer;
 var
-  lConst: TghDBConstraint;
+  lConst: TghSQLConstraint;
 begin
-  lConst := TghDBCheckConstraint.Create(AColumName, AValues);
-  lConst.Table := FTable;
+  lConst := TghSQLCheckConstraint.Create(AColumName, AValues);
+  lConst.OwnerTable := FOwnerTable;
   Result := Add(lConst);
 end;
 
-{ TghDBTable }
+{ TghSQLTable }
 
-function TghDBTable.GetRecordCount: Longint;
-begin
-  CheckTable;
-  Result := FDataSet.RecordCount;
-end;
-
-function TghDBTable.GetActive: Boolean;
+function TghSQLTable.GetActive: Boolean;
 begin
   Result := Assigned(FDataSet) and FDataSet.Active;
 end;
 
-function TghDBTable.GetColumn(const AName: string): TghDBColumn;
+function TghSQLTable.GetColumn(const AName: string): TghDataColumn;
 begin
   CheckTable;
-  Result := TghDBColumn(FDataSet.FieldByName(AName));
+  Result := TghDataColumn(FDataSet.FieldByName(AName));
 end;
 
-function TghDBTable.GetEOF: Boolean;
+function TghSQLTable.GetEOF: Boolean;
 begin
   CheckTable;
   Result := FDataSet.EOF;
 end;
 
-function TghDBTable.GetRelations: TghDBTableList;
+function TghSQLTable.GetRelations: TghSQLTableList;
 begin
-  Result := TghDBTableList(FRelations.Find(FTableName));
+  Result := TghSQLTableList(FRelations.Find(FTableName));
   if Result = nil then
   begin
-    Result := TghDBTableList.Create(Self, True);
+    Result := TghSQLTableList.Create(Self, True);
     FRelations.Add(FTableName, Result);
   end;
 end;
 
-function TghDBTable.GetConstraints: TghDBConstraintList;
+function TghSQLTable.GetConstraints: TghSQLConstraintList;
 begin
-  Result := TghDBConstraintList(FConstraints.Find(FTableName));
+  Result := TghSQLConstraintList(FConstraints.Find(FTableName));
   if Result = nil then
   begin
-    Result := TghDBConstraintList.Create(True);
-    Result.Table := Self;
+    Result := TghSQLConstraintList.Create(True);
+    Result.OwnerTable := Self;
     FConstraints.Add(FTableName, Result);
   end;
 end;
 
-procedure TghDBTable.SetTableName(const AValue: string);
+procedure TghSQLTable.SetTableName(const AValue: string);
 begin
   if FTableName = AValue then
     Exit;
 
   if Self.Active then
-    raise EghDBError.Create(Self, 'Table is active.');
+    raise EghSQL.Create(Self, 'Table is active.');
 
   FTableName := AValue;
 end;
 
-procedure TghDBTable.SetConnector(AValue: TghDBConnector);
+procedure TghSQLTable.SetConnector(AValue: TghSQLConnector);
 begin
   if FConnector = AValue then
     Exit;
 
   if Self.Active then
-    raise EghDBError.Create(Self, 'Table is active.');
+    raise EghSQL.Create(Self, 'Table is active.');
 
   FConnector := AValue;
 end;
 
-function TghDBTable.GetState: TDataSetState;
+function TghSQLTable.GetState: TDataSetState;
 begin
   CheckTable;
   Result := FDataSet.State;
 end;
 
-class procedure TghDBTable.ClassInitialization;
+function TghSQLTable.GetIsEmpty: Boolean;
+begin
+  CheckTable;
+  Result := FDataSet.IsEmpty;
+end;
+
+function TghSQLTable.GetRecordCount: Longint;
+begin
+  CheckTable;
+  Result := FDataSet.RecordCount;
+end;
+
+class procedure TghSQLTable.ClassInitialization;
 begin
   FRelations := TFPHashObjectList.Create(True);
   FConstraints := TFPHashObjectList.Create(True);
 end;
 
-class procedure TghDBTable.ClassFinalization;
+class procedure TghSQLTable.ClassFinalization;
 begin
   FRelations.Free;
   FConstraints.Free;
 end;
 
-procedure TghDBTable.CheckTable;
+procedure TghSQLTable.CheckTable;
 begin
   if not Active then
-    raise EghDBError.Create(Self, 'Table not active');
+    raise EghSQL.Create(Self, 'Table not active');
 end;
 
-procedure TghDBTable.CreateResultSet;
+procedure TghSQLTable.InternalOpen;
 var
   lDataSet: TDataSet;
   lSelectColumns: string;
-  lSQL: TghDBSQL;
+  lSQL: TghSQLObject;
 begin
   lSelectColumns := Iif(FSelectColumns = '', '*', FSelectColumns);
   lDataSet := nil;
-  lSQL := TghDBSQL.Create(FConnector);
+  lSQL := TghSQLObject.Create(FConnector);
   try
     try
       lSQL.Script.Add('select ' + lSelectColumns + ' from ' + FTableName);
@@ -895,22 +881,23 @@ begin
 
   FreeAndNil(FDataSet);
 
-  if lDataSet is TghDBQuery then
+  if lDataSet is TghSQLQuery then
   begin
-    FDataSet := lDataSet as TghDBQuery;
+    FDataSet := lDataSet as TghSQLQuery;
     FDataSet.OnUpdateError := @CallResolverError;
+    FDataSet.OnApplyRecUpdate := @CallApplyRecUpdate;
     Exit;
   end;
 
   try
-    // from [*dataset] to [tsqlquery]
+    // from [*dataset] to [TghSQLQuery]
     FConnector.Transform(lDataSet, FDataSet);
   finally
     lDataSet.Free;
   end;
 end;
 
-function TghDBTable.CheckValues: Boolean;
+function TghSQLTable.CheckValues: Boolean;
 var
   i: Integer;
 begin
@@ -921,8 +908,8 @@ begin
 
   for i := 0 to GetConstraints.Count -1 do
   begin
-    if GetConstraints[i] is TghDBValidationConstraint then
-      with TghDBValidationConstraint(GetConstraints[i]) do
+    if GetConstraints[i] is TghSQLValidationConstraint then
+      with TghSQLValidationConstraint(GetConstraints[i]) do
       begin
         OwnerTable := Self;
         Execute;
@@ -931,37 +918,37 @@ begin
   Result := FErrors.Count = 0;
 end;
 
-procedure TghDBTable.SetDefaultValues;
+procedure TghSQLTable.SetDefaultValues;
 var
   i: Integer;
-  lConstraint: TghDBConstraint;
+  lConstraint: TghSQLConstraint;
 begin
   for i := 0 to GetConstraints.Count -1 do
   begin
     lConstraint := GetConstraints[i];
-    if lConstraint is TghDBDefaultConstraint then
+    if lConstraint is TghSQLDefaultConstraint then
     begin
-      lConstraint.Table := Self;
-      TghDBDefaultConstraint(lConstraint).Execute;
+      lConstraint.OwnerTable := Self;
+      TghSQLDefaultConstraint(lConstraint).Execute;
     end;
   end;
 end;
 
-procedure TghDBTable.DoBeforeCommit;
+procedure TghSQLTable.DoBeforeCommit;
 begin
   if Assigned(FBeforeCommit) then
     FBeforeCommit(Self);
 end;
 
-procedure TghDBTable.DoAfterCommit;
+procedure TghSQLTable.DoAfterCommit;
 begin
   if Assigned(FAfterCommit) then
     FAfterCommit(Self);
 end;
 
-procedure TghDBTable.CallFoundTable(Sender: TObject; ATable: TghDBTable);
+procedure TghSQLTable.CallFoundTable(Sender: TObject; ATable: TghSQLTable);
 var
-  lModel, lLink: TghDBTable;
+  lModel, lLink: TghSQLTable;
 
   procedure FillAutoParams;
   var
@@ -984,7 +971,7 @@ begin
   CheckTable;
   lModel := GetRelations.FindByName(ATable.TableName);
   if not Assigned(lModel) then
-    raise EghDBError.Create(Self, 'Model not found.');
+    raise EghSQL.Create(Self, 'Model not found.');
 
   lLink := ATable;
   lLink.Connector := FConnector;
@@ -1006,42 +993,72 @@ begin
 end;
 
 {$HINTS OFF}
-procedure TghDBTable.CallResolverError(Sender: TObject;
+procedure TghSQLTable.CallResolverError(Sender: TObject;
   DataSet: TCustomBufDataset; E: EUpdateError; UpdateKind: TUpdateKind;
   var Response: TResolverResponse);
 begin
   Response := rrAbort;
-  raise EghDBError.Create(Self, E.Message);
+  raise EghSQL.Create(Self, E.Message);
 end;
+
+procedure TghSQLTable.CallApplyRecUpdate(Sender: TObject;
+  UpdateKind: TUpdateKind);
+var
+  i: Integer;
+  lLastId: NativeInt;
+  lField: TField;
+begin
+  if UpdateKind <> ukInsert then
+    Exit;
+
+  for i := 0 to GetColumns.Count -1 do
+  begin
+    lField := GetColumns.Fields[i];
+    if (lField.DataType = ftAutoInc) or
+       ((LowerCase(lField.FieldName) = 'id') and
+        (lField is TNumericField) and (lField.IsNull)) then
+    begin
+      lLastId := FConnector.Lib.GetLastAutoIncValue;
+      if lLastId <= 0 then
+        Exit;
+
+      Edit;
+      GetColumns.Fields[i].SetData(@lLastId);
+      Post;
+      Exit;
+    end;
+  end;
+end;
+
 {$HINTS ON}
 
-constructor TghDBTable.Create(AConn: TghDBConnector);
+constructor TghSQLTable.Create(AConn: TghSQLConnector);
 begin
   inherited Create;
   FConnector := AConn;
   FEnforceConstraints := True;
   FDataSet := nil;
   FErrors := TStringList.Create;
-  FParams := TghDBParams.Create;
-  FLinks := TghDBTableList.Create(Self, True);
+  FParams := TghDataParams.Create;
+  FLinks := TghSQLTableList.Create(Self, True);
   FLinks.OnNewTable := @CallFoundTable;
   FLinks.OnFoundTable := @CallFoundTable;
 end;
 
-constructor TghDBTable.Create(AConn: TghDBConnector; const ATableName: string);
+constructor TghSQLTable.Create(AConn: TghSQLConnector; const ATableName: string);
 begin
   Create(AConn);
   FTableName := ATableName;
 end;
 
-constructor TghDBTable.Create(AConn: TghDBConnector; const ATableName: string;
-  AOwnerTable: TghDBTable);
+constructor TghSQLTable.Create(AConn: TghSQLConnector; const ATableName: string;
+  AOwnerTable: TghSQLTable);
 begin
   Create(AConn, ATableName);
   FOwnerTable := AOwnerTable
 end;
 
-destructor TghDBTable.Destroy;
+destructor TghSQLTable.Destroy;
 begin
   FErrors.Free;
   FParams.Free;
@@ -1052,7 +1069,7 @@ begin
   inherited Destroy;
 end;
 
-function TghDBTable.Close: TghDBTable;
+function TghSQLTable.Close: TghSQLTable;
 begin
   Result := Self;
   FSelectColumns := '';
@@ -1063,13 +1080,13 @@ begin
     FDataSet.Close;
 end;
 
-function TghDBTable.Open: TghDBTable;
+function TghSQLTable.Open: TghSQLTable;
 begin
-  CreateResultSet;
+  InternalOpen;
   Result := Self;
 end;
 
-function TghDBTable.Insert: TghDBTable;
+function TghSQLTable.Insert: TghSQLTable;
 begin
   if not Active then
     Self.Where('1=2').Open;
@@ -1078,7 +1095,7 @@ begin
   Result := Self;
 end;
 
-function TghDBTable.Append: TghDBTable;
+function TghSQLTable.Append: TghSQLTable;
 begin
   CheckTable;
   FDataSet.Append;
@@ -1086,27 +1103,26 @@ begin
   Result := Self;
 end;
 
-function TghDBTable.Edit: TghDBTable;
+function TghSQLTable.Edit: TghSQLTable;
 begin
   CheckTable;
   FDataSet.Edit;
   Result := Self;
 end;
 
-function TghDBTable.Post: TghDBTable;
+function TghSQLTable.Post: TghSQLTable;
 begin
   CheckTable;
+  FErrors.Clear;
   if CheckValues then
   begin
     FDataSet.Post;
     FErrors.Clear;
-  end
-  else
-    FDataSet.Cancel;
+  end;
   Result := Self;
 end;
 
-function TghDBTable.Cancel: TghDBTable;
+function TghSQLTable.Cancel: TghSQLTable;
 begin
   CheckTable;
   FDataSet.Cancel;
@@ -1114,21 +1130,21 @@ begin
   Result := Self;
 end;
 
-function TghDBTable.Delete: TghDBTable;
+function TghSQLTable.Delete: TghSQLTable;
 begin
   CheckTable;
   FDataSet.Delete;
   Result := Self;
 end;
 
-function TghDBTable.Commit: TghDBTable;
+function TghSQLTable.Commit: TghSQLTable;
 begin
   CheckTable;
 
   if FDataSet.State in [dsInsert, dsEdit] then
   begin
     if Post.HasErrors then
-      raise EghDBError.Create(Self, FErrors.Text);
+      raise EghSQL.Create(Self, FErrors.Text);
   end;
 
   FConnector.StartTransaction;
@@ -1142,14 +1158,14 @@ begin
     on e: Exception do
     begin
       FConnector.RollbackRetaining;
-      raise EghDBError.Create(Self, e.Message);
+      raise EghSQL.Create(Self, e.Message);
     end;
   end;
 
   Result := Self;
 end;
 
-function TghDBTable.Rollback: TghDBTable;
+function TghSQLTable.Rollback: TghSQLTable;
 begin
   CheckTable;
   FDataSet.CancelUpdates;
@@ -1157,7 +1173,7 @@ begin
   Result := Self;
 end;
 
-function TghDBTable.Refresh: TghDBTable;
+function TghSQLTable.Refresh: TghSQLTable;
 begin
   CheckTable;
   // TODO: call Close and Open methods but without clean the parameters
@@ -1165,144 +1181,105 @@ begin
   Result := Self;
 end;
 
-function TghDBTable.First: TghDBTable;
+function TghSQLTable.First: TghSQLTable;
 begin
   CheckTable;
   FDataSet.First;
   Result := Self;
 end;
 
-function TghDBTable.Prior: TghDBTable;
+function TghSQLTable.Prior: TghSQLTable;
 begin
   CheckTable;
   FDataSet.Prior;
   Result := Self;
 end;
 
-function TghDBTable.Next: TghDBTable;
+function TghSQLTable.Next: TghSQLTable;
 begin
   CheckTable;
   FDataSet.Next;
   Result := Self;
 end;
 
-function TghDBTable.Last: TghDBTable;
+function TghSQLTable.Last: TghSQLTable;
 begin
   CheckTable;
   FDataSet.Last;
   Result := Self;
 end;
 
-function TghDBTable.Select(const AColumnNames: string): TghDBTable;
+function TghSQLTable.Select(const AColumnNames: string): TghSQLTable;
 begin
   FSelectColumns := AColumnNames;
   Result := Self;
 end;
 
-function TghDBTable.Where(const AConditions: string): TghDBTable;
+function TghSQLTable.Where(const AConditions: string): TghSQLTable;
 begin
   FConditions := AConditions;
   Result := Self;
 end;
 
-function TghDBTable.Where(const AConditions: string; AArgs: array of const): TghDBTable;
+function TghSQLTable.Where(const AConditions: string; AArgs: array of const): TghSQLTable;
 begin
   Result := Self.Where(Format(AConditions, AArgs));
 end;
 
-function TghDBTable.OrderBy(const AColumnNames: string): TghDBTable;
+function TghSQLTable.OrderBy(const AColumnNames: string): TghSQLTable;
 begin
   FOrderBy := AColumnNames;
   Result := Self;
 end;
 
-function TghDBTable.GetColumns: TghDBColumns;
+function TghSQLTable.GetColumns: TghDataColumns;
 begin
   CheckTable;
   Result := FDataSet.Fields;
 end;
 
-function TghDBTable.HasErrors: Boolean;
+function TghSQLTable.HasErrors: Boolean;
 begin
   Result := FErrors.Count > 0;
 end;
 
-function TghDBTable.GetErrors: TStrings;
+function TghSQLTable.GetErrors: TStrings;
 begin
   Result := FErrors;
 end;
 
-procedure TghDBTable.LoadFromFile(const AFileName: string; AFormat: TDataPacketFormat);
-var
-  lBuf: TFileStream;
-begin
-  lBuf := TFileStream.Create(AFileName, fmOpenRead or fmShareDenyWrite);
-  try
-    LoadFromStream(lBuf, AFormat);
-  finally
-    lBuf.Free;
-  end;
-end;
+{ TghSQLTableList }
 
-procedure TghDBTable.SaveToFile(const AFileName: string; AFormat: TDataPacketFormat);
-var
-  lBuf: TFileStream;
-begin
-  lBuf := TFileStream.Create(AFileName, fmCreate);
-  try
-    SaveToStream(lBuf, AFormat);
-  finally
-    lBuf.Free;
-  end;
-end;
-
-procedure TghDBTable.LoadFromStream(AStream: TStream; AFormat: TDataPacketFormat);
-begin
-  if Active then
-    raise EghDBError.Create(Self, 'Table is active.');
-  FDataSet.Free;
-  FDataSet := TghDBQuery.Create(nil);
-  FDataSet.LoadFromStream(AStream, AFormat);
-end;
-
-procedure TghDBTable.SaveToStream(AStream: TStream; AFormat: TDataPacketFormat);
-begin
-  CheckTable;
-  FDataSet.SaveToStream(AStream, AFormat);
-end;
-
-{ TghDBTableList }
-
-function TghDBTableList.GetTables(const ATableName: string): TghDBTable;
+function TghSQLTableList.GetTables(const ATableName: string): TghSQLTable;
 begin
   Result := FindByName(ATableName);
   if Result = nil then
   begin
-    Result := TghDBTable.Create(nil, ATableName);
+    Result := TghSQLTable.Create(nil, ATableName);
     Add(Result);
     DoNewTable(Result);
   end;
 end;
 
-procedure TghDBTableList.DoNewTable(ATable: TghDBTable);
+procedure TghSQLTableList.DoNewTable(ATable: TghSQLTable);
 begin
   if Assigned(FOnNewTable) then
     FOnNewTable(Self, ATable);
 end;
 
-procedure TghDBTableList.DoFoundTable(ATable: TghDBTable);
+procedure TghSQLTableList.DoFoundTable(ATable: TghSQLTable);
 begin
   if Assigned(FOnFoundTable) then
     FOnFoundTable(Self, ATable);
 end;
 
-constructor TghDBTableList.Create(AOwnerTable: TghDBTable; AFreeObjects: Boolean);
+constructor TghSQLTableList.Create(AOwnerTable: TghSQLTable; AFreeObjects: Boolean);
 begin
   inherited Create(AFreeObjects);
   FOwnerTable := AOwnerTable;
 end;
 
-destructor TghDBTableList.Destroy;
+destructor TghSQLTableList.Destroy;
 var
   i: Integer;
 begin
@@ -1323,10 +1300,10 @@ begin
   inherited Destroy;
 end;
 
-function TghDBTableList.FindByName(const AName: string): TghDBTable;
+function TghSQLTableList.FindByName(const AName: string): TghSQLTable;
 var
   i: Integer;
-  lTable: TghDBTable;
+  lTable: TghSQLTable;
 begin
   Result := nil;
   for i := 0 to Count-1 do
@@ -1343,97 +1320,101 @@ begin
   end;
 end;
 
-{ TghDBTableAdapter }
+{ TghSQLTableAdapter }
 
-procedure TghDBTableAdapter.SetTable(AValue: TghDBTable);
+procedure TghSQLTableAdapter.SetTable(AValue: TghSQLTable);
 begin
   if FTable = AValue then Exit;
   FTable := AValue;
   Adapt;
 end;
 
-constructor TghDBTableAdapter.Create(ATable: TghDBTable);
+constructor TghSQLTableAdapter.Create(ATable: TghSQLTable);
 begin
   Self.Table := ATable;
 end;
 
-procedure TghDBTableAdapter.Syncronize;
+procedure TghSQLTableAdapter.Syncronize;
 begin
   Update;
 end;
 
-{ TghDBDataSetTableAdapter }
+{ TghSQLDataSetTableAdapter }
 
-procedure TghDBDataSetTableAdapter.Adapt;
+procedure TghSQLDataSetTableAdapter.Adapt;
 begin
 // wait...
 end;
 
-procedure TghDBDataSetTableAdapter.Update;
+procedure TghSQLDataSetTableAdapter.Update;
 begin
   // wait...
 end;
 
-{ TghDBConnectorBroker }
+{ TghSQLLib }
 
-constructor TghDBConnectorBroker.Create;
+constructor TghSQLLib.Create;
 begin
   inherited Create;
-  FSQL := TghDBSQLHandler.Create;
+  FSQL := TghSQLHandler.Create;
   FSQL.OnOpen := @CallSQLOpen;
   FSQL.OnExecute := @CallSQLExecute;
 end;
 
-destructor TghDBConnectorBroker.Destroy;
+destructor TghSQLLib.Destroy;
 begin
   FSQL.Free;
   inherited Destroy;
 end;
 
-{ TghDBConnector }
-
-procedure TghDBConnector.CheckBroker;
+function TghSQLLib.GetLastAutoIncValue: NativeInt;
 begin
-  if not Assigned(FBroker) then
-    raise EghDBError.Create('Broker not assigned.');
+  Result := -1;
 end;
 
-function TghDBConnector.GetTables(const ATableName: string): TghDBTable;
+{ TghSQLConnector }
+
+procedure TghSQLConnector.CheckLib;
+begin
+  if not Assigned(FLib) then
+    raise EghSQL.Create('Lib not assigned.');
+end;
+
+function TghSQLConnector.GetTables(const ATableName: string): TghSQLTable;
 begin
   if ATableName = '' then
-    raise EghDBError.Create(Self, 'TableName not defined.');
+    raise EghSQL.Create(Self, 'TableName not defined.');
 
   Result := FTables.FindByName(ATableName);
   if (Result = nil) or (Result.Active and not Result.Reuse) then
   begin
-    Result := TghDBTable.Create(Self, ATableName);
+    Result := TghSQLTable.Create(Self, ATableName);
     Result.Reuse := False;
     FTables.Add(Result);
   end;
 end;
 
-function TghDBConnector.GetConnected: Boolean;
+function TghSQLConnector.GetConnected: Boolean;
 begin
-  CheckBroker;
+  CheckLib;
   try
-    Result := FBroker.Connected;
+    Result := FLib.Connected;
   except
     on e: Exception do
-      raise EghDBError.Create(e.Message);
+      raise EghSQL.Create(e.Message);
   end;
 end;
 
-constructor TghDBConnector.Create;
+constructor TghSQLConnector.Create;
 begin
   inherited;
-  FBroker := nil;
-  FTables := TghDBTableList.Create(nil, False);
+  FLib := nil;
+  FTables := TghSQLTableList.Create(nil, False);
 end;
 
-destructor TghDBConnector.Destroy;
+destructor TghSQLConnector.Destroy;
 var
-  i: Integer;
-  lTable: TghDBTable;
+  lTable: TghSQLTable;
 begin
   while FTables.Count > 0 do
   begin
@@ -1442,126 +1423,126 @@ begin
     lTable.Free;
   end;
   FTables.Free;
-  FBroker.Free;
+  FLib.Free;
   inherited Destroy;
 end;
 
-procedure TghDBConnector.SetBrokerClass(ABroker: TghDBConnectorBrokerClass);
+procedure TghSQLConnector.SetLibClass(ALib: TghSQLLibClass);
 begin
-  if Assigned(FBroker) then
-    FBroker.Free;
-  FBroker := ABroker.Create;
+  if Assigned(FLib) then
+    FLib.Free;
+  FLib := ALib.Create;
 end;
 
-procedure TghDBConnector.Connect;
+procedure TghSQLConnector.Connect;
 begin
-  CheckBroker;
+  CheckLib;
   try
-    FBroker.Connect(FHost, FDatabase, FUser, FPassword);
+    FLib.Connect(FHost, FDatabase, FUser, FPassword);
   except
     on e: Exception do
-      raise EghDBError.Create(e.Message);
+      raise EghSQL.Create(e.Message);
   end;
 end;
 
-procedure TghDBConnector.Disconnect;
+procedure TghSQLConnector.Disconnect;
 begin
-  CheckBroker;
+  CheckLib;
   try
-    FBroker.Disconnect;
+    FLib.Disconnect;
   except
     on e: Exception do
-      raise EghDBError.Create(e.Message);
+      raise EghSQL.Create(e.Message);
   end;
 end;
 
-procedure TghDBConnector.StartTransaction;
+procedure TghSQLConnector.StartTransaction;
 begin
-  CheckBroker;
+  CheckLib;
   try
     if FTransCount = 0 then
-      FBroker.StartTransaction;
+      FLib.StartTransaction;
     Inc(FTransCount);
   except
     on e: Exception do
-      raise EghDBError.Create(e.Message);
+      raise EghSQL.Create(e.Message);
   end;
 end;
 
-function TghDBConnector.InTransaction: Boolean;
+function TghSQLConnector.InTransaction: Boolean;
 begin
   Result := (FTransCount > 0);
 end;
 
-procedure TghDBConnector.Commit;
+procedure TghSQLConnector.Commit;
 begin
   if FTransCount = 0 then
     Exit;
-  CheckBroker;
+  CheckLib;
   try
     if FTransCount = 1 then
-      FBroker.Commit;
+      FLib.Commit;
     Dec(FTransCount);
   except
     on e: Exception do
-      raise EghDBError.Create(e.Message);
+      raise EghSQL.Create(e.Message);
   end;
 end;
 
-procedure TghDBConnector.CommitRetaining;
+procedure TghSQLConnector.CommitRetaining;
 begin
   if FTransCount = 0 then
     Exit;
-  CheckBroker;
+  CheckLib;
   try
     if FTransCount = 1 then
-      FBroker.CommitRetaining;
+      FLib.CommitRetaining;
     Dec(FTransCount);
   except
     on e: Exception do
-      raise EghDBError.Create(e.Message);
+      raise EghSQL.Create(e.Message);
   end;
 end;
 
-procedure TghDBConnector.Rollback;
+procedure TghSQLConnector.Rollback;
 begin
   if FTransCount = 0 then
     Exit;
-  CheckBroker;
+  CheckLib;
   try
     if FTransCount = 1 then
-      FBroker.Rollback;
+      FLib.Rollback;
     Dec(FTransCount);
   except
     on e: Exception do
-      raise EghDBError.Create(e.Message);
+      raise EghSQL.Create(e.Message);
   end;
 end;
 
-procedure TghDBConnector.RollbackRetaining;
+procedure TghSQLConnector.RollbackRetaining;
 begin
   if FTransCount = 0 then
     Exit;
-  CheckBroker;
+  CheckLib;
   try
     if FTransCount = 1 then
-      FBroker.RollbackRetaining;
+      FLib.RollbackRetaining;
     Dec(FTransCount);
   except
     on e: Exception do
-      raise EghDBError.Create(e.Message);
+      raise EghSQL.Create(e.Message);
   end;
 end;
 
-procedure TghDBConnector.Transform(ASource: TDataSet;
-  out ADest: TghDBQuery; AOwner: TComponent);
+procedure TghSQLConnector.Transform(ASource: TDataSet;
+  out ADest: TghSQLQuery; AOwner: TComponent);
 var
   i: Integer;
 begin
   if (ASource = nil) or (not ASource.Active) then
-    raise EghDBError.Create('Source is nil or isn''t active.');
+    raise EghSQL.Create('Source is nil or isn''t active.');
 
-  ADest := TghDBQuery.Create(AOwner);
+  ADest := TghSQLQuery.Create(AOwner);
   try
     ADest.FieldDefs.Assign(ASource.FieldDefs);
     ADest.CreateDataset;
@@ -1582,7 +1563,7 @@ begin
   end;
 end;
 
-procedure TghDBConnector.Notify(ATable: TghDBTable; AOperation: TOperation);
+procedure TghSQLConnector.Notify(ATable: TghSQLTable; AOperation: TOperation);
 begin
   if AOperation = opRemove then
   begin
@@ -1591,9 +1572,9 @@ begin
 end;
 
 initialization
-   TghDBTable.ClassInitialization;
+   TghSQLTable.ClassInitialization;
 
 finalization
-   TghDBTable.ClassFinalization;
+   TghSQLTable.ClassFinalization;
 
 end.
