@@ -9,6 +9,7 @@ Release notes
 - The co.Broker property was renamed to co.Lib;
 - Created gh_data unit;
 - Now gh_sql uses gh_data;
+- Get AutoInc values automatically (sqlite and mssql);
 - Many more bug fixes and improvements.
 
 (2012-08-20)
