@@ -31,19 +31,20 @@ type
   TghSQLdbConnector = class(TSQLConnector)
   private
     FIsBatch: Boolean;
-  protected
-    function StrToStatementType(s : string): TStatementType; override;
   public
     property IsBatch: Boolean read FIsBatch write FIsBatch;
   end;
-
-  TghSQLdbQuery = class(TghSQLQuery);
 
   TghSQLdbLib = class(TghSQLLib)
   protected
     FConn: TghSQLdbConnector;
     FTran: TSQLTransaction;
-    function NewSQLQuery(AOwner: TComponent = nil): TghSQLdbQuery;
+    function NewSQLConnector: TghSQLdbConnector; virtual;
+    function NewSQLQuery(AOwner: TComponent = nil): TghSQLQuery; virtual;
+    function NewSQLScript: TSQLScript; virtual;
+    procedure InternalQueryOpen(Sender: TObject; out ADataSet: TDataSet; AOwner: TComponent);
+    function InternalQueryExecute(Sender: TObject): NativeInt;
+    function InternalScriptExecute(Sender: TObject): NativeInt;
     // events
     procedure CallSQLOpen(Sender: TObject; out ADataSet: TDataSet; AOwner: TComponent); override;
     function CallSQLExecute(Sender: TObject): NativeInt; override;
@@ -65,6 +66,7 @@ type
   TghSQLite3Lib = class(TghSQLdbLib)
   public
     constructor Create; override;
+    function GetLastAutoIncValue: NativeInt; override;
   end;
   {$ENDIF}
 
@@ -76,16 +78,24 @@ type
   end;
   {$ENDIF}
 
-  // Especialization for MSSQLServer and Sybase
+{ Especialization for MSSQLServer and Sybase }
+
   {$IFDEF MSSQL_LIB}
-  TghMSSQLQuery = class(TghSQLdbQuery)
+  TghMSSQLConnector = class(TghSQLdbConnector)
+  protected
+    function StrToStatementType(s : string): TStatementType; override;
+  end;
+
+  TghMSSQLQuery = class(TghSQLQuery)
   protected
     procedure ApplyRecUpdate(UpdateKind : TUpdateKind); override;
   end;
 
   TghMSSQLLib = class(TghSQLdbLib)
   protected
-    function GetScopeId: NativeInt;
+    function NewSQLConnector: TghSQLdbConnector; override;
+    // events
+    function CallSQLExecute(Sender: TObject): NativeInt; override;
   public
     constructor Create; override;
     procedure StartTransaction; override;
@@ -93,74 +103,59 @@ type
     procedure CommitRetaining; override;
     procedure Rollback; override;
     procedure RollbackRetaining; override;
+    function GetLastAutoIncValue: NativeInt; override;
   end;
   {$ENDIF}
 
 implementation
 
-{ TghMSSQLQuery }
-
-procedure TghMSSQLQuery.ApplyRecUpdate(UpdateKind: TUpdateKind);
-begin
-  inherited ApplyRecUpdate(UpdateKind);
-
-  if UpdateKind = ukInsert then
-  begin
-    //
-  end;
-end;
-
-{ TghSQLdbConnector }
-
-function TghSQLdbConnector.StrToStatementType(s: string): TStatementType;
-begin
-  if IsBatch then
-    Result := stExecProcedure
-  else
-    Result := inherited;
-end;
-
 { TghSQLdbLib }
 
-function TghSQLdbLib.NewSQLQuery(AOwner: TComponent): TghSQLdbQuery;
+function TghSQLdbLib.NewSQLConnector: TghSQLdbConnector;
 begin
-  Result := TghSQLdbQuery.Create(nil);
+  Result := TghSQLdbConnector.Create(nil);
+end;
+
+function TghSQLdbLib.NewSQLQuery(AOwner: TComponent): TghSQLQuery;
+begin
+  Result := TghSQLQuery.Create(nil);
   Result.DataBase := FConn;
   Result.Transaction := FTran;
 end;
 
-procedure TghSQLdbLib.CallSQLOpen(Sender: TObject; out ADataSet: TDataSet;
+function TghSQLdbLib.NewSQLScript: TSQLScript;
+begin
+  Result := TSQLScript.Create(nil);
+  Result.DataBase := FConn;
+  Result.Transaction := FTran;
+end;
+
+procedure TghSQLdbLib.InternalQueryOpen(Sender: TObject; out ADataSet: TDataSet;
   AOwner: TComponent);
 var
-  lQ: TghSQLdbQuery;
+  lQ: TghSQLQuery;
 begin
-  FConn.IsBatch := Self.SQL.IsBatch;
+  ADataSet := nil;
+  lQ := NewSQLQuery(AOwner);
   try
-    ADataSet := nil;
-    lQ := NewSQLQuery(AOwner);
-    try
-      lQ.PacketRecords := -1;
-      lQ.UsePrimaryKeyAsKey := True;
-      lQ.SQL.Text := FSQL.Script.Text;
-      if Assigned(FSQL.Params) then
-        lQ.Params.Assign(FSQL.Params);
-      if FSQL.Prepared then
-        lQ.Prepare;
-      lQ.Open;
-      ADataSet := lQ;
-    except
-      lQ.Free;
-    end;
-  finally
-    FConn.IsBatch := False;
+    lQ.PacketRecords := -1;
+    lQ.UsePrimaryKeyAsKey := True;
+    lQ.SQL.Text := FSQL.Script.Text;
+    if Assigned(FSQL.Params) then
+      lQ.Params.Assign(FSQL.Params);
+    if FSQL.Prepared then
+      lQ.Prepare;
+    lQ.Open;
+    ADataSet := lQ;
+  except
+    lQ.Free;
   end;
 end;
 
-function TghSQLdbLib.CallSQLExecute(Sender: TObject): NativeInt;
+function TghSQLdbLib.InternalQueryExecute(Sender: TObject): NativeInt;
 var
-  lQ: TghSQLdbQuery;
+  lQ: TghSQLQuery;
 begin
-  FConn.IsBatch := Self.SQL.IsBatch;
   lQ := NewSQLQuery;
   try
     if not lQ.SQL.Equals(FSQL.Script) then
@@ -178,6 +173,44 @@ begin
     Result := lQ.RowsAffected;
   finally
     lQ.Free;
+  end;
+end;
+
+function TghSQLdbLib.InternalScriptExecute(Sender: TObject): NativeInt;
+var
+  lS: TSQLScript;
+begin
+  lS := NewSQLScript;
+  try
+    if not lS.Script.Equals(FSQL.Script) then
+      lS.Script.Assign(FSQL.Script);
+    lS.Execute;
+    Result := -1;
+  finally
+    lS.Free;
+  end;
+end;
+
+procedure TghSQLdbLib.CallSQLOpen(Sender: TObject; out ADataSet: TDataSet;
+  AOwner: TComponent);
+begin
+  FConn.IsBatch := Self.SQL.IsBatch;
+  try
+    InternalQueryOpen(Sender, ADataSet, AOwner);
+  finally
+    FConn.IsBatch := False;
+  end;
+end;
+
+function TghSQLdbLib.CallSQLExecute(Sender: TObject): NativeInt;
+begin
+  FConn.IsBatch := Self.SQL.IsBatch;
+  try
+    if Self.SQL.IsBatch then
+      InternalScriptExecute(Sender)
+    else
+      InternalQueryExecute(Sender);
+  finally
     FConn.IsBatch := False;
   end;
 end;
@@ -185,7 +218,7 @@ end;
 constructor TghSQLdbLib.Create;
 begin
   inherited Create;
-  FConn := TghSQLdbConnector.Create(nil);
+  FConn := NewSQLConnector;
   FTran := TSQLTransaction.Create(nil);
   FTran.DataBase := FConn;
   FConn.Transaction := FTran;
@@ -253,6 +286,20 @@ begin
   FConn.ConnectorType := TSQLite3ConnectionDef.TypeName;
 end;
 
+function TghSQLite3Lib.GetLastAutoIncValue: NativeInt;
+var
+  lQ: TghSQLQuery;
+begin
+  lQ := NewSQLQuery;
+  try
+    lQ.SQL.Text := 'select last_insert_rowid() as id';
+    lQ.Open;
+    Result := lQ.FieldByName('id').AsInteger;
+  finally
+    lQ.Free;
+  end;
+end;
+
 {$IFDEF FPC2_6_0}
 
 { TSQLite3ConnectionDef }
@@ -277,17 +324,43 @@ end;
 
 {$IFDEF MSSQL_LIB}
 
+{ TghMSSQLConnector }
+
+function TghMSSQLConnector.StrToStatementType(s: string): TStatementType;
+begin
+  if IsBatch then
+    Result := stExecProcedure
+  else
+    Result := inherited;
+end;
+
+{ TghMSSQLQuery }
+
+procedure TghMSSQLQuery.ApplyRecUpdate(UpdateKind: TUpdateKind);
+begin
+  inherited ApplyRecUpdate(UpdateKind);
+
+  if UpdateKind = ukInsert then
+  begin
+    //
+  end;
+end;
+
 { TghMSSQLLib }
 
-function TghMSSQLLib.GetScopeId: NativeInt;
+function TghMSSQLLib.NewSQLConnector: TghSQLdbConnector;
 begin
-  with NewSQLQuery do
+  Result := TghMSSQLConnector.Create(nil);
+end;
+
+function TghMSSQLLib.CallSQLExecute(Sender: TObject): NativeInt;
+begin
+  FConn.IsBatch := Self.SQL.IsBatch;
   try
-    SQL.Text := 'select scope_identity() as id';
-    Open;
-    Result := FieldByName('id').AsInteger;
+    // MSSQL do not need to use TSQLScript
+    InternalQueryExecute(Sender);
   finally
-    Free;
+    FConn.IsBatch := False;
   end;
 end;
 
@@ -322,6 +395,20 @@ end;
 procedure TghMSSQLLib.RollbackRetaining;
 begin
   Rollback;
+end;
+
+function TghMSSQLLib.GetLastAutoIncValue: NativeInt;
+var
+  lQ: TghSQLQuery;
+begin
+  lQ := NewSQLQuery;
+  try
+    lQ.SQL.Text := 'select scope_identity() as id';
+    lQ.Open;
+    Result := lQ.FieldByName('id').AsInteger;
+  finally
+    lQ.Free;
+  end;
 end;
 
 {$ENDIF MSSQL_LIB}

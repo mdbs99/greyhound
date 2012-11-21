@@ -35,8 +35,16 @@ type
 
 { classes }
 
-  TghSQLQuery = class(TSQLQuery);
-  TghSQLQueryClass = class of TghSQLQuery;
+  TghSQLQueryApplyRecUpdateEvent = procedure (Sender: TObject; UpdateKind: TUpdateKind) of object;
+  TghSQLQuery = class(TSQLQuery)
+  private
+    FOnApplyRecUpdate: TghSQLQueryApplyRecUpdateEvent;
+    procedure DoApplyRecUpdate(UpdateKind: TUpdateKind);
+  protected
+    procedure ApplyRecUpdate(UpdateKind: TUpdateKind); override;
+  public
+    property OnApplyRecUpdate: TghSQLQueryApplyRecUpdateEvent read FOnApplyRecUpdate write FOnApplyRecUpdate;
+  end;
 
   TghSQLStatement = class(TghSQL)
   protected
@@ -166,7 +174,6 @@ type
     FAfterCommit: TNotifyEvent;
     class var FRelations: TFPHashObjectList;
     class var FConstraints: TFPHashObjectList;
-    function GetRecordCount: Longint;
     function GetActive: Boolean;
     function GetColumn(const AName: string): TghDataColumn;
     function GetEOF: Boolean;
@@ -175,6 +182,8 @@ type
     procedure SetTableName(const AValue: string);
     procedure SetConnector(AValue: TghSQLConnector);
     function GetState: TDataSetState;
+    function GetIsEmpty: Boolean;
+    function GetRecordCount: Longint;
   protected
     FDataSet: TghSQLQuery;
     class procedure ClassInitialization;
@@ -190,6 +199,7 @@ type
     procedure CallFoundTable(Sender: TObject; ATable: TghSQLTable); virtual;
     procedure CallResolverError(Sender: TObject; DataSet: TCustomBufDataset;
       E: EUpdateError; UpdateKind: TUpdateKind; var Response: TResolverResponse); virtual;
+    procedure CallApplyRecUpdate(Sender: TObject; UpdateKind: TUpdateKind); virtual;
   public
     constructor Create(AConn: TghSQLConnector); virtual; overload; reintroduce;
     constructor Create(AConn: TghSQLConnector; const ATableName: string); virtual; overload;
@@ -222,6 +232,7 @@ type
     property Connector: TghSQLConnector read FConnector write SetConnector;
     property State: TDataSetState read GetState;
     property EOF: Boolean read GetEOF;
+    property IsEmpty: Boolean read GetIsEmpty;
     property Links: TghSQLTableList read FLinks;
     property OwnerTable: TghSQLTable read FOwnerTable write FOwnerTable;
     property Params: TghDataParams read FParams;
@@ -297,6 +308,7 @@ type
     procedure CommitRetaining; virtual; abstract;
     procedure Rollback; virtual; abstract;
     procedure RollbackRetaining; virtual; abstract;
+    function GetLastAutoIncValue: NativeInt; virtual;
     property SQL: TghSQLHandler read FSQL;
   end;
 
@@ -337,6 +349,20 @@ type
   end;
 
 implementation
+
+{ TghSQLQuery }
+
+procedure TghSQLQuery.DoApplyRecUpdate(UpdateKind: TUpdateKind);
+begin
+  if Assigned(FOnApplyRecUpdate) then
+    FOnApplyRecUpdate(Self, UpdateKind);
+end;
+
+procedure TghSQLQuery.ApplyRecUpdate(UpdateKind: TUpdateKind);
+begin
+  inherited ApplyRecUpdate(UpdateKind);
+  DoApplyRecUpdate(UpdateKind);
+end;
 
 { TghSQLStatement }
 
@@ -720,12 +746,6 @@ end;
 
 { TghSQLTable }
 
-function TghSQLTable.GetRecordCount: Longint;
-begin
-  CheckTable;
-  Result := FDataSet.RecordCount;
-end;
-
 function TghSQLTable.GetActive: Boolean;
 begin
   Result := Assigned(FDataSet) and FDataSet.Active;
@@ -792,6 +812,18 @@ begin
   Result := FDataSet.State;
 end;
 
+function TghSQLTable.GetIsEmpty: Boolean;
+begin
+  CheckTable;
+  Result := FDataSet.IsEmpty;
+end;
+
+function TghSQLTable.GetRecordCount: Longint;
+begin
+  CheckTable;
+  Result := FDataSet.RecordCount;
+end;
+
 class procedure TghSQLTable.ClassInitialization;
 begin
   FRelations := TFPHashObjectList.Create(True);
@@ -850,11 +882,12 @@ begin
   begin
     FDataSet := lDataSet as TghSQLQuery;
     FDataSet.OnUpdateError := @CallResolverError;
+    FDataSet.OnApplyRecUpdate := @CallApplyRecUpdate;
     Exit;
   end;
 
   try
-    // from [*dataset] to [tsqlquery]
+    // from [*dataset] to [TghSQLQuery]
     FConnector.Transform(lDataSet, FDataSet);
   finally
     lDataSet.Free;
@@ -964,6 +997,36 @@ begin
   Response := rrAbort;
   raise EghSQL.Create(Self, E.Message);
 end;
+
+procedure TghSQLTable.CallApplyRecUpdate(Sender: TObject;
+  UpdateKind: TUpdateKind);
+var
+  i: Integer;
+  lLastId: NativeInt;
+  lField: TField;
+begin
+  if UpdateKind <> ukInsert then
+    Exit;
+
+  for i := 0 to GetColumns.Count -1 do
+  begin
+    lField := GetColumns.Fields[i];
+    if (lField.DataType = ftAutoInc) or
+       ((LowerCase(lField.FieldName) = 'id') and
+        (lField is TNumericField) and (lField.IsNull)) then
+    begin
+      lLastId := FConnector.Lib.GetLastAutoIncValue;
+      if lLastId <= 0 then
+        Exit;
+
+      Edit;
+      GetColumns.Fields[i].SetData(@lLastId);
+      Post;
+      Exit;
+    end;
+  end;
+end;
+
 {$HINTS ON}
 
 constructor TghSQLTable.Create(AConn: TghSQLConnector);
@@ -1300,6 +1363,11 @@ destructor TghSQLLib.Destroy;
 begin
   FSQL.Free;
   inherited Destroy;
+end;
+
+function TghSQLLib.GetLastAutoIncValue: NativeInt;
+begin
+  Result := -1;
 end;
 
 { TghSQLConnector }
