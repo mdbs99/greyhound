@@ -62,7 +62,7 @@ begin
 
     // get the User table
     // you do not need  (but possible) to use Free method for these instances
-    User := Co.Tables['User'].Open;
+    User := Co.Tables['user'].Open;
 
     // Adding Default constraints
     User.Constraints.AddDefault('login', 'guest');
@@ -73,56 +73,48 @@ begin
     User.Post.Commit;
 
     // see
-    writeln('New user:');
+    writeln('New user: <see default values>');
     ShowUser;
 
-    // see
-    ShowAll;
-{
-    // select (optional) and conditionals (optional)
-    writeln('Selecting a record:');
     User.Close;
-    User.Select('*').Where('id = %d', [1]).Open;
-    writeln('User found: ' + User.Columns['name'].AsString);
+
+    // select (optional) and conditionals (optional)
+    writeln('Select one record:');
+    User.Select('*').Where('id = %d', [2]).Open;
+    writeln('User found: ' + User['name'].AsString);
 
     // editing...
     writeln('Editing...');
     User.Edit;
     User.Columns['name'].AsString := 'John Black';
-    User.Post;
-    User.Commit;
+    User.Post.Commit;
 
-    InsertRecord(3, 'dani', '453', 'Daniele B.');
-    User.Commit;
+    ShowAll;
 
-    ShowAllRecords;
-
-    // kill table
-    User.Free;
-
-    writeln;
-    writeln('Get a new table.');
-    // get a new table...
-    User := Co.Tables[TAB_TMP].Open;
-    // ...and the Constraints continue to work!
-    InsertRecord(4, 'jj', '788');
+    // get all records
+    User.Close.Open;
 
     // Adding a Unique constraint
     User.Constraints.AddUnique(['name']);
 
-    // Trying to insert Jeni, but she already exist!!
-    InsertRecord(5, 'jeni', '555', 'Jeni');
+    // Trying to insert admin, but she already exist!! (see script.sql)
+    User.Append;
+    User['name'].AsString := 'admin';
+    User.Post.Commit;
 
-    User.Commit;
+    if User.HasErrors then
+      writeln(User.GetErrors.Text);
 
     // Adding a Check constraint
     User.Constraints.AddCheck('login', ['L1', 'L2']);
-
+{
     // Trying to insert... error! Because this violated the Check Constraint.
     InsertRecord(6, 'AAA', '000', 'Login1');
 
     User.Commit;
 }
+    // see
+    ShowAll;
   finally
     SQL.Free;
     Co.Free;
