@@ -49,7 +49,7 @@
     </Target>
     <SearchPaths>
       <IncludeFiles Value="$(ProjOutDir)"/>
-      <OtherUnitFiles Value="..\..\..\src;$(LazarusDir)\components\lazutils\lib\$(TargetCPU)-$(TargetOS)"/>
+      <OtherUnitFiles Value="..\..\src;$(LazarusDir)\components\lazutils\lib\$(TargetCPU)-$(TargetOS)"/>
       <UnitOutputDirectory Value="lib\$(TargetCPU)-$(TargetOS)"/>
     </SearchPaths>
     <CodeGeneration>
