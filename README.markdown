@@ -1,10 +1,9 @@
 Greyhound Project
 =================
 
-
-Greyhound is a tiny ORM-ish for FreePascal
+What is?
 ------------------------------------------
-
+* Greyhound is a tiny ORM-ish for FreePascal
 * It will help you with a thin layer to read data from a DBMS, but don't trying to simulate a pure object model.
 * It use SQL as query language and don't try to manage complex objects or "entities".
 * It does not try to create a complex abstraction for objects vs tables.
@@ -15,10 +14,8 @@ Greyhound is a tiny ORM-ish for FreePascal
 * It has the ability to add support for other databases libraries like SQLdb, ZEOS or whatever you want.
 * It is fast, clean and simple to use.
 
-
 What FPC version it will need?
 ------------------------------
-
 Greyhound compiles with FPC 2.6.0 (better with 2.6.1 or above)
 
 
