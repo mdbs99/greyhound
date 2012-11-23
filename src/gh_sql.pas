@@ -184,6 +184,7 @@ type
     function GetState: TDataSetState;
     function GetIsEmpty: Boolean;
     function GetRecordCount: Longint;
+    procedure FillAutoParams(ASource: TghSQLTable);
   protected
     FData: TghSQLQuery;
     class procedure ClassInitialization;
@@ -205,6 +206,7 @@ type
     constructor Create(AConn: TghSQLConnector; const ATableName: string); virtual; overload;
     constructor Create(AConn: TghSQLConnector; const ATableName: string; AOwnerTable: TghSQLTable); virtual; overload;
     destructor Destroy; override;
+    procedure Assign(ASource: TghSQLTable);
     function Close: TghSQLTable;
     function Open: TghSQLTable;
     function Insert: TghSQLTable;
@@ -827,6 +829,25 @@ begin
   Result := FData.RecordCount;
 end;
 
+procedure TghSQLTable.FillAutoParams(ASource: TghSQLTable);
+var
+  i: Integer;
+  lField: TField;
+  lConditions: string;
+begin
+  lConditions := LowerCase(Self.FConditions);
+  if lConditions = '' then
+    Exit;
+  for i := 0 to ASource.FData.FieldCount-1 do
+  begin
+    lField := ASource.FData.Fields[i];
+    if Pos(':' + LowerCase(lField.FieldName), lConditions) > 0 then
+    begin
+      Self.Params[lField.FieldName].Value := lField.Value;
+    end;
+  end;
+end;
+
 class procedure TghSQLTable.ClassInitialization;
 begin
   FRelations := TFPHashObjectList.Create(True);
@@ -921,17 +942,21 @@ end;
 procedure TghSQLTable.SetDefaultValues;
 var
   i: Integer;
-  lConstraint: TghSQLConstraint;
+  lCnt: TghSQLConstraint;
 begin
   for i := 0 to GetConstraints.Count -1 do
   begin
-    lConstraint := GetConstraints[i];
-    if lConstraint is TghSQLDefaultConstraint then
+    lCnt := GetConstraints[i];
+    if lCnt is TghSQLDefaultConstraint then
     begin
-      lConstraint.OwnerTable := Self;
-      TghSQLDefaultConstraint(lConstraint).Execute;
+      lCnt.OwnerTable := Self;
+      TghSQLDefaultConstraint(lCnt).Execute;
     end;
   end;
+
+  // get default values in OwnerTable
+  if Assigned(OwnerTable) then
+    FillAutoParams(OwnerTable);
 end;
 
 procedure TghSQLTable.DoBeforeCommit;
@@ -948,49 +973,23 @@ end;
 
 procedure TghSQLTable.CallFoundTable(Sender: TObject; ATable: TghSQLTable);
 var
-  lModel, lLink: TghSQLTable;
-
-  procedure FillAutoParams;
-  var
-    i: Integer;
-    lField: TField;
-    lConditions: string;
-  begin
-    lConditions := UpperCase(lLink.FConditions);
-    for i := 0 to FData.FieldCount-1 do
-    begin
-      lField := FData.Fields[i];
-      if Pos(':' + UpperCase(lField.FieldName), lConditions) > 0 then
-      begin
-        lLink.Params[lField.FieldName].Value := lField.Value;
-      end;
-    end;
-  end;
-
+  lModel: TghSQLTable;
 begin
   CheckTable;
   lModel := GetRelations.FindByName(ATable.TableName);
   if not Assigned(lModel) then
-    raise EghSQL.Create(Self, 'Model not found.');
+    raise EghSQL.CreateFmt(Self, 'Model "%s" not found.', [ATable.TableName]);
 
-  lLink := ATable;
-  lLink.Connector := FConnector;
-  lLink.OwnerTable := Self;
-  lLink.Reuse := False;
+  ATable.Connector := FConnector;
+  ATable.OwnerTable := Self;
+  ATable.Reuse := False;  // TODO: important?
+  ATable.Assign(lModel);
+  ATable.FillAutoParams(Self);
 
-  // TODO: Assign method
-  lLink.FSelectColumns := lModel.FSelectColumns;
-  lLink.FConditions := lModel.FConditions;
-  lLink.FOrderBy := lModel.FOrderBy;
-  lLink.FTableName := lModel.FTableName;
+  if Assigned(lModel.Params) then
+    ATable.Params.AssignValues(lModel.Params);
 
-  FillAutoParams;
-
-  if Assigned(lModel.FParams) then
-    lLink.FParams.AssignValues(lModel.FParams);
-
-//  if lModel.fe
-  lLink.Open;
+  ATable.Open;
 end;
 
 {$HINTS OFF}
@@ -1068,6 +1067,14 @@ begin
   if Assigned(FConnector) then
     FConnector.Notify(Self, opRemove);
   inherited Destroy;
+end;
+
+procedure TghSQLTable.Assign(ASource: TghSQLTable);
+begin
+  Self.FSelectColumns := ASource.FSelectColumns;
+  Self.FConditions := ASource.FConditions;
+  Self.FOrderBy := ASource.FOrderBy;
+  Self.FTableName := ASource.FTableName;
 end;
 
 function TghSQLTable.Close: TghSQLTable;
@@ -1311,7 +1318,6 @@ begin
   begin
     lTable := Items[i];
     // TODO: Check if Table.Reuse?
-    //if (lTable.OwnerTable = FOwnerTable) and (lTable.TableName = AName) then
     if (lTable.TableName = AName) then
     begin
       Result := lTable;

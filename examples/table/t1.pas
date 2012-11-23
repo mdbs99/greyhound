@@ -10,14 +10,16 @@ uses
 
 var
   Co: TghSQLConnector;
-  User, User2: TghSQLTable;
+  User: TghSQLTable;
   SQL: TghSQLObject;
 
 procedure ShowUser;
 var
   lStr: string;
 begin
-  lStr := Format('#%d %s(%s)', [User['id'].AsInteger, User['name'].AsString, User['passwd'].AsString]);
+  lStr := Format('#%d %s: %s(%s)',
+                [User['id'].AsInteger, User['login'].AsString,
+                 User['name'].AsString, User['passwd'].AsString]);
   writeln(lStr);
 end;
 
@@ -115,7 +117,7 @@ begin
       User.Commit;
 
     // Adding a Check constraint
-    User.Constraints.AddCheck('login', ['g1', 'g2']);
+    User.Constraints.AddCheck('login', ['g1', 'g2', 'eric']);
 
     User.Append;
     User['login'].AsString := 'g1';
@@ -135,7 +137,7 @@ begin
     // trying again...
     User.Append;
     User['login'].AsString := 'test';
-    User['name'].AsString := 'Erick';
+    User['name'].AsString := 'Martin';
     // login "test" is Ok?
     if User.Post.HasErrors then
     begin
@@ -151,10 +153,11 @@ begin
 //-----------------------------------------------------------------------------
 // LINKS
 //-----------------------------------------------------------------------------
-    // Adding a relationship from User to Access:
+    // Adding a relationship from User to Access (User->Access)
     // All relationships belongs to the class, not the instance so,
     // you do this only once for all project.
     // Now all instances of User table have a link to access the Access table.
+
     Co.Tables['user'].Relations['access'].Where('id = :access_id');
 
     // get all records
@@ -175,15 +178,33 @@ begin
       User.Next;
     end;
 
-    // Using a second instance from User table
-    User2 := Co.Tables['user'].Where('id = 2').Open;
     writeln;
-    write('Show access to User id=2: ');
 
-    // The Link to Access table already exists!
-    writeln(User2.Links['access']['name'].AsString);
+    with Co.Tables['access'] do
+    begin
+      // Now adding a relationship from Access to User  (Access->User)
+      Relations['user'].Where('access_id = :id');
 
-    User2.Close;
+      // filter using params
+      Where('name = :name');
+      Params['name'].AsString := 'admin';
+      Open;
+
+      with Links['user'] do
+      begin
+        Append;
+        Columns['login'].AsString := 'eric';
+        Columns['name'].AsString := 'Eric Cartman';
+        Commit;
+      end;
+
+      // the access_id column has filled automatically using access.id column
+      writeln('New user:');
+      ShowUser;
+    end;
+
+    // get all records
+    User.Close.Open;
 
     ShowAll;
   finally
