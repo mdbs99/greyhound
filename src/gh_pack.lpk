@@ -8,7 +8,9 @@
       <Version Value="11"/>
       <PathDelim Value="\"/>
       <SearchPaths>
-        <UnitOutputDirectory Value="lib\$(TargetCPU)-$(TargetOS)\"/>
+        <IncludeFiles Value="."/>
+        <OtherUnitFiles Value="."/>
+        <UnitOutputDirectory Value="lib\$(TargetCPU)-$(TargetOS)"/>
       </SearchPaths>
       <Other>
         <CompilerMessages>
@@ -17,7 +19,7 @@
         <CompilerPath Value="$(CompPath)"/>
       </Other>
     </CompilerOptions>
-    <Description Value="Greyhound runtime."/>
+    <Description Value="Greyhound runtime package."/>
     <License Value="See the file LICENSE, included in this distribution, for details about the copyright."/>
     <Files Count="6">
       <Item1>
@@ -45,13 +47,11 @@
         <UnitName Value="gh_SQLdbLib"/>
       </Item6>
     </Files>
-    <RequiredPkgs Count="2">
+    <Type Value="RunTimeOnly"/>
+    <RequiredPkgs Count="1">
       <Item1>
         <PackageName Value="LCLBase"/>
       </Item1>
-      <Item2>
-        <PackageName Value="LazUtils"/>
-      </Item2>
     </RequiredPkgs>
     <UsageOptions>
       <UnitPath Value="$(PkgOutDir)"/>
