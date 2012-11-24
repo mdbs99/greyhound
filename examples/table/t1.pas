@@ -64,9 +64,6 @@ begin
     // you do not need  (but possible) to use Free method for these instances
     User := Co.Tables['user'].Open;
 
-//-----------------------------------------------------------------------------
-// CONSTRAINTS, Append, Edit, Commit, etc.
-//-----------------------------------------------------------------------------
     // Adding Default constraints
     User.Constraints.AddDefault('login', 'guest');
     User.Constraints.AddDefault('passwd', '123');

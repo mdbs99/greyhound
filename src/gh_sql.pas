@@ -324,7 +324,6 @@ type
     FTables: TghSQLTableList;
   protected
     FLib: TghSQLLib;
-    procedure CheckLib;
     function GetTables(const ATableName: string): TghSQLTable; virtual;
     function GetConnected: Boolean;
   public
@@ -1381,12 +1380,6 @@ end;
 
 { TghSQLConnector }
 
-procedure TghSQLConnector.CheckLib;
-begin
-  if not Assigned(FLib) then
-    raise EghSQL.Create('Lib not assigned.');
-end;
-
 function TghSQLConnector.GetTables(const ATableName: string): TghSQLTable;
 begin
   if ATableName = '' then
@@ -1403,7 +1396,6 @@ end;
 
 function TghSQLConnector.GetConnected: Boolean;
 begin
-  CheckLib;
   try
     Result := FLib.Connected;
   except
@@ -1436,6 +1428,9 @@ end;
 
 procedure TghSQLConnector.SetLibClass(ALib: TghSQLLibClass);
 begin
+  if not Assigned(ALib) then
+    raise EghSQL.Create('Lib not assigned.');
+
   if Assigned(FLib) then
     FLib.Free;
   FLib := ALib.Create;
@@ -1443,7 +1438,6 @@ end;
 
 procedure TghSQLConnector.Connect;
 begin
-  CheckLib;
   try
     FLib.Connect(FHost, FDatabase, FUser, FPassword);
   except
@@ -1454,7 +1448,6 @@ end;
 
 procedure TghSQLConnector.Disconnect;
 begin
-  CheckLib;
   try
     FLib.Disconnect;
   except
@@ -1465,7 +1458,6 @@ end;
 
 procedure TghSQLConnector.StartTransaction;
 begin
-  CheckLib;
   try
     if FTransCount = 0 then
       FLib.StartTransaction;
@@ -1485,7 +1477,6 @@ procedure TghSQLConnector.Commit;
 begin
   if FTransCount = 0 then
     Exit;
-  CheckLib;
   try
     if FTransCount = 1 then
       FLib.Commit;
@@ -1500,7 +1491,6 @@ procedure TghSQLConnector.CommitRetaining;
 begin
   if FTransCount = 0 then
     Exit;
-  CheckLib;
   try
     if FTransCount = 1 then
       FLib.CommitRetaining;
@@ -1515,7 +1505,6 @@ procedure TghSQLConnector.Rollback;
 begin
   if FTransCount = 0 then
     Exit;
-  CheckLib;
   try
     if FTransCount = 1 then
       FLib.Rollback;
@@ -1530,7 +1519,6 @@ procedure TghSQLConnector.RollbackRetaining;
 begin
   if FTransCount = 0 then
     Exit;
-  CheckLib;
   try
     if FTransCount = 1 then
       FLib.RollbackRetaining;
