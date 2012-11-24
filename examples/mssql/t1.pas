@@ -44,13 +44,9 @@ begin
 end;
 
 begin
-  Co := TghSQLConnector.Create;
+  Co := TghSQLConnector.Create(TghMSSQLLib);
   SQL := TghSQLObject.Create(Co);
   try
-    // set configurations
-    // using MSSQLServer
-    Co.SetLibClass(TghMSSQLLib);
-
     // set params
     Co.Host := 'HOST';
     Co.Database := 'DATABASE';

@@ -328,7 +328,7 @@ type
     function GetTables(const ATableName: string): TghSQLTable; virtual;
     function GetConnected: Boolean;
   public
-    constructor Create(ALib: TghSQLLibClass = nil); overload;
+    constructor Create(ALib: TghSQLLibClass); reintroduce;
     destructor Destroy; override;
     procedure SetLibClass(ALib: TghSQLLibClass);
     procedure Connect; virtual;
@@ -1415,10 +1415,8 @@ end;
 constructor TghSQLConnector.Create(ALib: TghSQLLibClass);
 begin
   inherited Create;
-  FLib := nil;
   FTables := TghSQLTableList.Create(nil, False);
-  if Assigned(ALib) then
-    SetLibClass(ALib);
+  SetLibClass(ALib);
 end;
 
 destructor TghSQLConnector.Destroy;
