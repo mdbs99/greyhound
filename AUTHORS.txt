@@ -11,6 +11,6 @@ Marcos Douglas B. dos Santos <mdbs99 at delfire.net>
 
 Contributors
 -----------------------------
-Luciano Souza
-Silvio Clecio
+Luciano Souza (luchyanus)
+Silvio Clecio (silvioprog)
 Mario Ray Mahardhika (leledumbo)

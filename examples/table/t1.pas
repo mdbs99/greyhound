@@ -43,13 +43,11 @@ begin
 end;
 
 begin
-  Co := TghSQLConnector.Create;
+  // create the connector an set configurations using SQLite
+  Co := TghSQLConnector.Create(TghSQLite3Lib);
+
   SQL := TghSQLObject.Create(Co);
   try
-    // set configurations
-    // using SQLite
-    Co.SetLibClass(TghSQLite3Lib);
-
     // set params
     Co.Database := 'DB.sqlite';
     Co.Connect;
