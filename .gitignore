@@ -5,4 +5,5 @@
 *.bak*
 *.exe
 *.dll
+*.so
 *.bat

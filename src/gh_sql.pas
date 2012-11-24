@@ -327,7 +327,7 @@ type
     function GetTables(const ATableName: string): TghSQLTable; virtual;
     function GetConnected: Boolean;
   public
-    constructor Create(ALib: TghSQLLibClass); reintroduce;
+    constructor Create(ALib: TghSQLLibClass); virtual; reintroduce;
     destructor Destroy; override;
     procedure SetLibClass(ALib: TghSQLLibClass);
     procedure Connect; virtual;
