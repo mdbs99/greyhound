@@ -147,64 +147,6 @@ begin
 
     // see
     ShowAll;
-
-//-----------------------------------------------------------------------------
-// LINKS
-//-----------------------------------------------------------------------------
-    // Adding a relationship from User to Access (User->Access)
-    // All relationships belongs to the class, not the instance so,
-    // you do this only once for all project.
-    // Now all instances of User table have a link to access the Access table.
-
-    Co.Tables['user'].Relations['access'].Where('id = :access_id');
-
-    // get all records
-    User.Close.Open;
-
-    writeln;
-    writeln('Show all with access:');
-
-    while not User.EOF do
-    begin
-      // print user
-      write(User['id'].AsString, ' ', User['login'].AsString, ' -> ');
-
-      // Print access name using Link table:
-      // The params values to open are obtained from owner table, ie, the user table.
-      // It's auto open, just use it!
-      writeln(User.Links['access'].Columns['name'].AsString);
-      User.Next;
-    end;
-
-    writeln;
-
-    with Co.Tables['access'] do
-    begin
-      // Now adding a relationship from Access to User  (Access->User)
-      Relations['user'].Where('access_id = :id');
-
-      // filter using params
-      Where('name = :name');
-      Params['name'].AsString := 'admin';
-      Open;
-
-      with Links['user'] do
-      begin
-        Append;
-        Columns['login'].AsString := 'eric';
-        Columns['name'].AsString := 'Eric Cartman';
-        Commit;
-      end;
-
-      // the access_id column has filled automatically using access.id column
-      writeln('New user:');
-      ShowUser;
-    end;
-
-    // get all records
-    User.Close.Open;
-
-    ShowAll;
   finally
     SQL.Free;
     Co.Free;
