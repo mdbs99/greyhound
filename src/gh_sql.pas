@@ -397,22 +397,18 @@ end;
 
 procedure TghSQLHandler.DoOpen(out ADataSet: TDataSet; AOwner: TComponent);
 begin
+  DoBeforeOpen;
   if Assigned(OnOpen) then
-  begin
-    DoBeforeOpen;
     OnOpen(Self, ADataSet, AOwner);
-    DoAfterOpen(ADataSet);
-  end;
+  DoAfterOpen(ADataSet);
 end;
 
 function TghSQLHandler.DoExecute: NativeInt;
 begin
+  DoBeforeExecute;
   if Assigned(OnExecute) then
-  begin
-    DoBeforeExecute;
     Result := OnExecute(Self);
-    DoAfterExecute;
-  end;
+  DoAfterExecute;
 end;
 
 procedure TghSQLHandler.DoBeforeOpen;
