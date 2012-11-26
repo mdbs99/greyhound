@@ -53,9 +53,6 @@ begin
     Co.User := 'USER';
     Co.Password := 'PASSWORD';
 
-    Co.Connect;
-    writeln('Connected.');
-
     // creating a temp table
     SQL.Clear;
     SQL.IsBatch := True;
