@@ -463,6 +463,8 @@ begin
   ADataSet := nil;
   with FConn do
   try
+    if not FConn.Connected then
+      FConn.Connect;
     StartTransaction;
     Lib.SQL.Assign(Self);
     Lib.SQL.DoOpen(ADataSet, AOwner);
@@ -478,6 +480,8 @@ function TghSQLObject.InternalExecute(Sender: TObject): NativeInt;
 begin
   with FConn do
   try
+    if not FConn.Connected then
+      FConn.Connect;
     StartTransaction;
     Lib.SQL.Assign(Self);
     Result := Lib.SQL.DoExecute;

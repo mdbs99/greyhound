@@ -50,9 +50,6 @@ begin
   try
     // set params
     Co.Database := 'DB.sqlite';
-    Co.Connect;
-    writeln('Connected.');
-    writeln;
 
     // execute the external script
     SQL.Clear;
