@@ -125,22 +125,22 @@ type
   end;
 
   TghSQLValidationConstraint = class(TghSQLConstraint)
+  protected
+    FError: string;
   public
-    function GetError: string; virtual; abstract;
+    function GetError: string; virtual;
   end;
 
   TghSQLUniqueConstraint = class(TghSQLValidationConstraint)
   public
-    constructor Create(const AColumNames: array of string); reintroduce;
+    constructor Create(const AColumNames: array of string; const AError: string = ''); reintroduce;
     procedure Execute; override;
-    function GetError: string; override;
   end;
 
   TghSQLCheckConstraint = class(TghSQLValidationConstraint)
   public
-    constructor Create(const AColumName: string; AValues: array of Variant); reintroduce;
+    constructor Create(const AColumName: string; AValues: array of Variant; const AError: string = ''); reintroduce;
     procedure Execute; override;
-    function GetError: string; override;
   end;
 
   TghSQLConstraintList = class(specialize TFPGObjectList<TghSQLConstraint>)
@@ -151,9 +151,9 @@ type
     // Add a Default constraint
     function AddDefault(const AColumName: string; AValue: Variant): Integer; overload;
     // Add a Unique constraint
-    function AddUnique(const AColumNames: array of string): Integer;
+    function AddUnique(const AColumNames: array of string; const AError: string = ''): Integer;
     // Add a Check constraint
-    function AddCheck(const AColumName: string; AValues: array of Variant): Integer;
+    function AddCheck(const AColumName: string; AValues: array of Variant; const AError: string = ''): Integer;
     property OwnerTable: TghSQLTable read FOwnerTable write SetOwnerTable;
   end;
 
@@ -259,7 +259,7 @@ type
     procedure DoNewTable(ATable: TghSQLTable);
     procedure DoFoundTable(ATable: TghSQLTable);
   public
-    constructor Create(AOwnerTable: TghSQLTable; AFreeObjects: Boolean = True); reintroduce;
+    constructor Create(AOwnerTable: TghSQLTable; AFreeObjects: Boolean = True); virtual; reintroduce;
     destructor Destroy; override;
     function FindByName(const AName: string): TghSQLTable;
     property Tables[const ATableName: string]: TghSQLTable read GetTables; default;
@@ -273,23 +273,12 @@ type
   end;
 
   TghSQLTableAdapter = class(TghSQL, IghSQLTableAdapter)
-  private
-    procedure SetTable(AValue: TghSQLTable);
   protected
     FTable: TghSQLTable;
     procedure Adapt; virtual; abstract;
   public
     constructor Create(ATable: TghSQLTable); virtual; reintroduce;
     procedure Update; virtual; abstract;
-    procedure Syncronize; virtual;
-    property Table: TghSQLTable read FTable write SetTable;
-  end;
-
-  TghSQLDataSetTableAdapter = class(TghSQLTableAdapter)
-  protected
-    procedure Adapt; override;
-  public
-    procedure Update; override;
   end;
 
   EghSQLLib = class(EghSQL);
@@ -583,15 +572,28 @@ begin
   end;
 end;
 
+{ TghSQLValidationConstraint }
+
+function TghSQLValidationConstraint.GetError: string;
+begin
+  Result := FError;
+end;
+
 { TghSQLUniqueConstraint }
 
-constructor TghSQLUniqueConstraint.Create(const AColumNames: array of string);
+constructor TghSQLUniqueConstraint.Create(const AColumNames: array of string;
+  const AError: string);
 var
   i: Integer;
 begin
   inherited Create;
+
   for i := Low(AColumNames) to High(AColumNames) do
     FParams[AColumNames[i]];
+
+  FError := AError;
+  if FError = '' then
+    FError := Format('Violated unique constraint for column(s) %s.', [NamesToBeautifulStr]);
 end;
 
 procedure TghSQLUniqueConstraint.Execute;
@@ -651,15 +653,10 @@ begin
   end;
 end;
 
-function TghSQLUniqueConstraint.GetError: string;
-begin
-  Result := Format('Violated unique constraint for column(s) %s.', [NamesToBeautifulStr]);
-end;
-
 { TghSQLCheckConstraint }
 
 constructor TghSQLCheckConstraint.Create(const AColumName: string;
-  AValues: array of Variant);
+  AValues: array of Variant; const AError: string);
 var
   i: Integer;
 begin
@@ -672,6 +669,11 @@ begin
       Value := AValues[i];
     end;
   end;
+
+  FError := AError;
+  if FError = '' then
+    FError := Format('Violated the check constraint for column %s. The permitted values are %s',
+                     [FParams.Items[0].Name, ValuesToBeautifulStr]);
 end;
 
 procedure TghSQLCheckConstraint.Execute;
@@ -701,13 +703,6 @@ begin
     FOwnerTable.GetErrors.Add(GetError);
 end;
 
-function TghSQLCheckConstraint.GetError: string;
-const
-  MSG_1 = 'Violated the check constraint for column %s. The permitted values are %s';
-begin
-  Result := Format(MSG_1, [FParams.Items[0].Name, ValuesToBeautifulStr]);
-end;
-
 { TghSQLConstraintList }
 
 procedure TghSQLConstraintList.SetOwnerTable(AValue: TghSQLTable);
@@ -725,21 +720,22 @@ begin
   Result := Add(lCnt);
 end;
 
-function TghSQLConstraintList.AddUnique(const AColumNames: array of string): Integer;
+function TghSQLConstraintList.AddUnique(const AColumNames: array of string;
+  const AError: string = ''): Integer;
 var
   lCnt: TghSQLConstraint;
 begin
-  lCnt := TghSQLUniqueConstraint.Create(AColumNames);
+  lCnt := TghSQLUniqueConstraint.Create(AColumNames, AError);
   lCnt.OwnerTable := FOwnerTable;
   Result := Add(lCnt);
 end;
 
 function TghSQLConstraintList.AddCheck(const AColumName: string;
-  AValues: array of Variant): Integer;
+  AValues: array of Variant; const AError: string): Integer;
 var
   lCnt: TghSQLConstraint;
 begin
-  lCnt := TghSQLCheckConstraint.Create(AColumName, AValues);
+  lCnt := TghSQLCheckConstraint.Create(AColumName, AValues, AError);
   lCnt.OwnerTable := FOwnerTable;
   Result := Add(lCnt);
 end;
@@ -1179,8 +1175,8 @@ end;
 function TghSQLTable.Refresh: TghSQLTable;
 begin
   CheckTable;
-  // TODO: call Close and Open methods but without clean the parameters
-  Open;
+  FData.Close;
+  FData.Open;
   Result := Self;
 end;
 
@@ -1324,33 +1320,9 @@ end;
 
 { TghSQLTableAdapter }
 
-procedure TghSQLTableAdapter.SetTable(AValue: TghSQLTable);
-begin
-  if FTable = AValue then Exit;
-  FTable := AValue;
-  Adapt;
-end;
-
 constructor TghSQLTableAdapter.Create(ATable: TghSQLTable);
 begin
-  Self.Table := ATable;
-end;
-
-procedure TghSQLTableAdapter.Syncronize;
-begin
-  Update;
-end;
-
-{ TghSQLDataSetTableAdapter }
-
-procedure TghSQLDataSetTableAdapter.Adapt;
-begin
-// wait...
-end;
-
-procedure TghSQLDataSetTableAdapter.Update;
-begin
-  // wait...
+  FTable := ATable;
 end;
 
 { TghSQLLib }
