@@ -27,7 +27,7 @@ uses
   gh_SQL;
 
 type
-  TghDBZeosBroker = class(TghDBConnectorBroker)
+  TghZeosLib = class(TghSQLLib)
   protected
     FConn: TZConnection;
   public
@@ -56,21 +56,21 @@ type
 
 implementation
 
-{ TghDBZeosBroker }
+{ TghZeosLib }
 
-constructor TghDBZeosBroker.Create;
+constructor TghZeosLib.Create;
 begin
   inherited Create;
   FConn := TZConnection.Create(nil);
 end;
 
-destructor TghDBZeosBroker.Destroy;
+destructor TghZeosLib.Destroy;
 begin
   FConn.Free;
   inherited Destroy;
 end;
 
-procedure TghDBZeosBroker.Connect(const AHost, ADatabase, AUser, APasswd: string);
+procedure TghZeosLib.Connect(const AHost, ADatabase, AUser, APasswd: string);
 begin
   FConn.HostName := AHost;
   FConn.Database := ADatabase;
@@ -79,42 +79,42 @@ begin
   FConn.Connect;
 end;
 
-function TghDBZeosBroker.Connected: Boolean;
+function TghZeosLib.Connected: Boolean;
 begin
   Result := FConn.Connected;
 end;
 
-procedure TghDBZeosBroker.Disconnect;
+procedure TghZeosLib.Disconnect;
 begin
   FConn.Disconnect;
 end;
 
-procedure TghDBZeosBroker.StartTransaction;
+procedure TghZeosLib.StartTransaction;
 begin
   FConn.StartTransaction;
 end;
 
-procedure TghDBZeosBroker.Commit;
+procedure TghZeosLib.Commit;
 begin
   FConn.Commit;
 end;
 
-procedure TghDBZeosBroker.CommitRetaining;
+procedure TghZeosLib.CommitRetaining;
 begin
   Commit;
 end;
 
-procedure TghDBZeosBroker.Rollback;
+procedure TghZeosLib.Rollback;
 begin
   FConn.Rollback;
 end;
 
-procedure TghDBZeosBroker.RollbackRetaining;
+procedure TghZeosLib.RollbackRetaining;
 begin
   Rollback;
 end;
 
-function TghDBZeosBroker.Execute: NativeInt;
+function TghZeosLib.Execute: NativeInt;
 var
   q: TZQuery;
 begin
@@ -131,7 +131,7 @@ begin
   end;
 end;
 
-procedure TghDBZeosBroker.Open(AOwner: TComponent; out ADataSet: TDataSet);
+procedure TghZeosLib.Open(AOwner: TComponent; out ADataSet: TDataSet);
 var
   q: TZQuery;
 begin
