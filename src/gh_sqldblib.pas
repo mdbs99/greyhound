@@ -143,7 +143,7 @@ begin
     lQ.SQL.Text := FSQL.Script.Text;
     if Assigned(FSQL.Params) then
       lQ.Params.Assign(FSQL.Params);
-    if FSQL.Prepared then
+    if not FSQL.Prepared then
       lQ.Prepare;
     lQ.Open;
     ADataSet := lQ;
@@ -161,10 +161,8 @@ begin
     if not lQ.SQL.Equals(FSQL.Script) then
       lQ.SQL.Assign(FSQL.Script);
 
-    if FSQL.Prepared then
-      lQ.Prepare
-    else
-      lQ.UnPrepare;
+    if not FSQL.Prepared then
+      lQ.Prepare;
 
     if Assigned(FSQL.Params) then
       lQ.Params.Assign(FSQL.Params);
