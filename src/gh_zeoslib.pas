@@ -27,9 +27,21 @@ uses
   gh_SQL;
 
 type
+  TghZeosUTF8FieldHelper = class(TghsqlObject)
+  protected
+    procedure DoGetText(Sender: TField; var AText: string; DisplayText: Boolean);
+    procedure DoSetText(Sender: TField; const AText: string);
+  public
+    procedure SetEvents(DS: TDataSet);
+  end;
+
   TghZeosLib = class(TghSQLLib)
   protected
     FConn: TZConnection;
+    function NewQuery(AOwner: TComponent = nil): TZQuery; virtual;
+    // events
+    procedure CallSQLOpen(Sender: TObject; out ADataSet: TDataSet; AOwner: TComponent); override;
+    function CallSQLExecute(Sender: TObject): NativeInt; override;
   public
     constructor Create; override;
     destructor Destroy; override;
@@ -41,22 +53,95 @@ type
     procedure CommitRetaining; override;
     procedure Rollback; override;
     procedure RollbackRetaining; override;
-    function Execute: NativeInt; override;
-    procedure Open(AOwner: TComponent; out ADataSet: TDataSet); override;
     property Connection: TZConnection read FConn;
   end;
 
-  TghDBUTF8FieldHelper = class(TghDBObject)
-  protected
-    procedure DoGetText(Sender: TField; var AText: string; DisplayText: Boolean);
-    procedure DoSetText(Sender: TField; const AText: string);
+  TghSQLite3Lib = class(TghZeosLib)
   public
-    procedure SetEvents(DS: TDataSet);
+    constructor Create; override;
+    function GetLastAutoIncValue: NativeInt; override;
   end;
+
 
 implementation
 
+{ TghZeosUTF8FieldHelper }
+
+procedure TghZeosUTF8FieldHelper.DoGetText(Sender: TField; var AText: string;
+  DisplayText: Boolean);
+begin
+  case Sender.DataType of
+    ftString, ftWord,
+    ftMemo, ftFmtMemo,
+    ftFixedChar, ftWideString,
+    ftFixedWideChar, ftWideMemo:
+    begin
+      AText := SysToUTF8(Sender.AsString);
+      DisplayText := True;
+    end;
+  end;
+end;
+
+procedure TghZeosUTF8FieldHelper.DoSetText(Sender: TField; const AText: string);
+begin
+  Sender.AsString := UTF8ToSys(AText);
+end;
+
+procedure TghZeosUTF8FieldHelper.SetEvents(DS: TDataSet);
+var
+  I: integer;
+begin
+  for I := 0 to DS.FieldCount - 1 do
+  begin
+    with DS.Fields[I] do
+    begin
+      OnGetText := @DoGetText;
+      OnSetText := @DoSetText;
+    end;
+  end;
+end;
+
 { TghZeosLib }
+
+function TghZeosLib.NewQuery(AOwner: TComponent): TZQuery;
+begin
+  Result := TZQuery.Create(AOwner);
+  Result.Connection := FConn;
+end;
+
+procedure TghZeosLib.CallSQLOpen(Sender: TObject; out ADataSet: TDataSet;
+  AOwner: TComponent);
+var
+  lQ: TZQuery;
+begin
+  ADataSet := nil;
+  lQ := NewQuery(AOwner);
+  try
+    lQ.SQL.Text := FSQL.Script.Text;
+    if Assigned(FSQL.Params) then
+      lQ.Params.Assign(FSQL.Params);
+    lQ.Open;
+    ADataSet := lQ;
+  except
+    lQ.Free;
+  end;
+end;
+
+function TghZeosLib.CallSQLExecute(Sender: TObject): NativeInt;
+var
+  lQ: TZQuery;
+begin
+  lQ := NewQuery;
+  try
+    lQ.SQL.Text := FSQL.Script.Text;
+    if Assigned(FSQL.Params) then
+      lQ.Params.Assign(FSQL.Params);
+    lQ.ExecSQL;
+    Result := lQ.RowsAffected;
+  finally
+    lQ.Free;
+  end;
+end;
 
 constructor TghZeosLib.Create;
 begin
@@ -114,42 +199,6 @@ begin
   Rollback;
 end;
 
-function TghZeosLib.Execute: NativeInt;
-var
-  q: TZQuery;
-begin
-  q := TZQuery.Create(nil);
-  try
-    q.Connection := FConn;
-    q.SQL.Text := FScript.Text;
-    if Assigned(FParams) then
-      q.Params.Assign(FParams);
-    q.ExecSQL;
-    Result := q.RowsAffected;
-  finally
-    q.Free;
-  end;
-end;
-
-procedure TghZeosLib.Open(AOwner: TComponent; out ADataSet: TDataSet);
-var
-  q: TZQuery;
-begin
-  ADataSet := nil;
-  q := TZQuery.Create(AOwner);
-  try
-    q.Connection := FConn;
-    q.ParamCheck := False;
-    q.SQL.Text := FScript.Text;
-    if Assigned(FParams) then
-      q.Params.Assign(FParams);
-    q.Open;
-    ADataSet := q;
-  except
-    q.Free;
-  end;
-end;
-
 {
 var
   p: TZStoredProc;
@@ -177,39 +226,23 @@ begin
   end;
 end;
 }
-{ TghDBUTF8FieldHelper }
 
-procedure TghDBUTF8FieldHelper.DoGetText(Sender: TField; var AText: string;
-  DisplayText: Boolean);
+{ TghSQLite3Lib }
+
+constructor TghSQLite3Lib.Create;
 begin
-  case Sender.DataType of
-    ftString, ftWord,
-    ftMemo, ftFmtMemo,
-    ftFixedChar, ftWideString,
-    ftFixedWideChar, ftWideMemo:
-    begin
-      AText := SysToUTF8(Sender.AsString);
-      DisplayText := True;
-    end;
-  end;
+  inherited Create;
 end;
 
-procedure TghDBUTF8FieldHelper.DoSetText(Sender: TField; const AText: string);
+function TghSQLite3Lib.GetLastAutoIncValue: NativeInt;
 begin
-  Sender.AsString := UTF8ToSys(AText);
-end;
-
-procedure TghDBUTF8FieldHelper.SetEvents(DS: TDataSet);
-var
-  I: integer;
-begin
-  for I := 0 to DS.FieldCount - 1 do
-  begin
-    with DS.Fields[I] do
-    begin
-      OnGetText := @DoGetText;
-      OnSetText := @DoSetText;
-    end;
+  with NewQuery do
+  try
+    SQL.Text := 'select last_insert_rowid() as id';
+    Open;
+    Result := FieldByName('id').AsInteger;
+  finally
+    Free;
   end;
 end;
 

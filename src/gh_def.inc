@@ -14,12 +14,7 @@
   {$MODE objfpc}{$H+}
   {$INTERFACES CORBA}
   {$IF ((FPC_VERSION >= 2) and (FPC_RELEASE >= 6) and (FPC_PATCH >= 1))}
-    {$DEFINE SQLDB_LIB}
-    {$IFDEF SQLDB_LIB}
-      {$DEFINE SQLDB_LIB}
-      {$DEFINE SQLITE3_LIB}
-      {$DEFINE MSSQL_LIB}
-    {$ENDIF}
+    {$DEFINE MSSQL_LIB}
   {$ELSE}
     {$DEFINE FPC2_6_0}
   {$ENDIF}

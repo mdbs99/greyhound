@@ -20,10 +20,8 @@ uses
   // fpc
   Classes, SysUtils, DB, sqldb,
   // SQLdb
-{$IFDEF SQLDB_LIB}
+  sqlite3conn,
   {$IFDEF MSSQL_LIB} mssqlconn, {$ENDIF}
-  {$IFDEF SQLITE3_LIB} sqlite3conn, {$ENDIF}
-{$ENDIF SQLDB_LIB}
   // gh
   gh_SQL;
 
@@ -62,13 +60,11 @@ type
     property Connection: TghSQLdbConnector read FConn;
   end;
 
-  {$IFDEF SQLITE3_LIB}
   TghSQLite3Lib = class(TghSQLdbLib)
   public
     constructor Create; override;
     function GetLastAutoIncValue: NativeInt; override;
   end;
-  {$ENDIF}
 
   {$IFDEF FPC2_6_0}
   TSQLite3ConnectionDef = class(TConnectionDef)
@@ -274,8 +270,6 @@ begin
   FTran.CommitRetaining;
 end;
 
-{$IFDEF SQLITE3_LIB}
-
 { TghSQLite3Lib }
 
 constructor TghSQLite3Lib.Create;
@@ -318,7 +312,6 @@ begin
 end;
 
 {$ENDIF FPC2_6_0}
-{$ENDIF SQLITE3_LIB}
 
 {$IFDEF MSSQL_LIB}
 
