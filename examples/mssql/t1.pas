@@ -14,7 +14,7 @@ const
 var
   Co: TghSQLConnector;
   User: TghSQLTable;
-  SQL: TghSQLObject;
+  SQL: TghSQLClient;
 
 procedure ShowUser;
 var
@@ -45,7 +45,7 @@ end;
 
 begin
   Co := TghSQLConnector.Create(TghMSSQLLib);
-  SQL := TghSQLObject.Create(Co);
+  SQL := TghSQLClient.Create(Co);
   try
     // set params
     Co.Host := 'HOST';

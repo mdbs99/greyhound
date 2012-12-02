@@ -11,7 +11,7 @@ uses
 var
   Co: TghSQLConnector;
   User: TghSQLTable;
-  SQL: TghSQLObject;
+  SQL: TghSQLClient;
 
 procedure ShowUser;
 var
@@ -46,7 +46,7 @@ begin
   // create the connector an set configurations using SQLite
   Co := TghSQLConnector.Create(TghSQLite3Lib);
 
-  SQL := TghSQLObject.Create(Co);
+  SQL := TghSQLClient.Create(Co);
   try
     // set params
     Co.Database := 'DB.sqlite';
