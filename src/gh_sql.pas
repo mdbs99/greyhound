@@ -20,11 +20,11 @@ uses
   // fpc
   Classes, SysUtils, DB, contnrs, fgl, BufDataset, sqldb,
   // gh
-  gh_Global, gh_Data;
+  gh_Data;
 
 type
-  EghSQL = class(EghData);
-  TghSQL = class(TghData);
+  EghSQLError = class(EghDataError);
+  TghSQL = class(TghDataObject);
 
 { forward declarations }
 
@@ -35,15 +35,15 @@ type
 
 { classes }
 
-  TghSQLQueryApplyRecUpdateEvent = procedure (Sender: TObject; UpdateKind: TUpdateKind) of object;
+  TghSQLQueryApplyRecEvent = procedure (Sender: TObject; UpdateKind: TUpdateKind) of object;
   TghSQLQuery = class(TSQLQuery)
   private
-    FOnApplyRecUpdate: TghSQLQueryApplyRecUpdateEvent;
+    FOnApplyRec: TghSQLQueryApplyRecEvent;
     procedure DoApplyRecUpdate(UpdateKind: TUpdateKind);
   protected
     procedure ApplyRecUpdate(UpdateKind: TUpdateKind); override;
   public
-    property OnApplyRecUpdate: TghSQLQueryApplyRecUpdateEvent read FOnApplyRecUpdate write FOnApplyRecUpdate;
+    property OnApplyRec: TghSQLQueryApplyRecEvent read FOnApplyRec write FOnApplyRec;
   end;
 
   TghSQLStatement = class(TghSQL)
@@ -91,7 +91,7 @@ type
     property AfterExecute: TNotifyEvent read FAfterExecute write FAfterExecute;
   end;
 
-  TghSQLObject = class(TghSQLHandler)
+  TghSQLClient = class(TghSQLHandler)
   private
     FConn: TghSQLConnector;
     procedure InternalOpen(Sender: TObject; out ADataSet: TDataSet; AOwner: TComponent); virtual;
@@ -102,6 +102,8 @@ type
     procedure Open(out ADataSet: TDataSet; AOwner: TComponent = nil);
     function Execute: NativeInt;
   end;
+
+  TghSQLObject = TghSQLClient; // deprecated!
 
   TghSQLConstraint = class(TghSQL)
   private
@@ -229,6 +231,7 @@ type
     function GetColumns: TghDataColumns;
     function HasErrors: Boolean;
     function GetErrors: TStrings;
+    procedure SetDataRow(ADataRow: TghDataRow);
     property Active: Boolean read GetActive;
     property Columns[const AName: string]: TghDataColumn read GetColumn; default;
     property Connector: TghSQLConnector read FConnector write SetConnector;
@@ -267,21 +270,7 @@ type
     property OnFoundTable: TghSQLTableNotifyEvent read FOnFoundTable write FOnFoundTable;
   end;
 
-  IghSQLTableAdapter = interface(IghInterface)
-    procedure Adapt;
-    procedure Update;
-  end;
-
-  TghSQLTableAdapter = class(TghSQL, IghSQLTableAdapter)
-  protected
-    FTable: TghSQLTable;
-    procedure Adapt; virtual; abstract;
-  public
-    constructor Create(ATable: TghSQLTable); virtual; reintroduce;
-    procedure Update; virtual; abstract;
-  end;
-
-  EghSQLLib = class(EghSQL);
+  EghSQLLib = class(EghSQLError);
   TghSQLLibClass = class of TghSQLLib;
   TghSQLLib = class abstract(TghSQL)
   protected
@@ -344,8 +333,8 @@ implementation
 
 procedure TghSQLQuery.DoApplyRecUpdate(UpdateKind: TUpdateKind);
 begin
-  if Assigned(FOnApplyRecUpdate) then
-    FOnApplyRecUpdate(Self, UpdateKind);
+  if Assigned(FOnApplyRec) then
+    FOnApplyRec(Self, UpdateKind);
 end;
 
 procedure TghSQLQuery.ApplyRecUpdate(UpdateKind: TUpdateKind);
@@ -444,9 +433,9 @@ begin
   FIsBatch := False;
 end;
 
-{ TghSQLObject }
+{ TghSQLClient }
 
-procedure TghSQLObject.InternalOpen(Sender: TObject; out ADataSet: TDataSet;
+procedure TghSQLClient.InternalOpen(Sender: TObject; out ADataSet: TDataSet;
   AOwner: TComponent);
 begin
   ADataSet := nil;
@@ -465,7 +454,7 @@ begin
   end;
 end;
 
-function TghSQLObject.InternalExecute(Sender: TObject): NativeInt;
+function TghSQLClient.InternalExecute(Sender: TObject): NativeInt;
 begin
   with FConn do
   try
@@ -481,7 +470,7 @@ begin
   end;
 end;
 
-constructor TghSQLObject.Create(AConn: TghSQLConnector);
+constructor TghSQLClient.Create(AConn: TghSQLConnector);
 begin
   inherited Create;
   FConn := AConn;
@@ -489,17 +478,17 @@ begin
   OnExecute := @InternalExecute;
 end;
 
-destructor TghSQLObject.Destroy;
+destructor TghSQLClient.Destroy;
 begin
   inherited Destroy;
 end;
 
-procedure TghSQLObject.Open(out ADataSet: TDataSet; AOwner: TComponent);
+procedure TghSQLClient.Open(out ADataSet: TDataSet; AOwner: TComponent);
 begin
   InternalOpen(Self, ADataSet, AOwner);
 end;
 
-function TghSQLObject.Execute: NativeInt;
+function TghSQLClient.Execute: NativeInt;
 begin
   Result := InternalExecute(Self);
 end;
@@ -638,7 +627,7 @@ var
       lParam := FParams.Items[i];
       lColumn := FOwnerTable.GetColumns.FindField(lParam.Name);
       if lColumn = nil then
-        raise EghSQL.CreateFmt(Self, 'Column "%s" not found.', [lParam.Name]);
+        raise EghSQLError.CreateFmt(Self, 'Column "%s" not found.', [lParam.Name]);
       lWhere += ' and (' + lParam.Name + ' = :' + lParam.Name + ')';
       lTable.Params[lParam.Name].Value := lColumn.Value;
     end;
@@ -691,7 +680,7 @@ begin
   lColumn := FOwnerTable.GetColumns.FindField(lParam.Name);
 
   if lColumn = nil then
-    raise EghSQL.CreateFmt(Self, 'Column "%s" not found.', [lParam.Name]);
+    raise EghSQLError.CreateFmt(Self, 'Column "%s" not found.', [lParam.Name]);
 
   lAccept := False;
   for i := 0 to FParams.Count -1 do
@@ -790,7 +779,7 @@ begin
     Exit;
 
   if Self.Active then
-    raise EghSQL.Create(Self, 'Table is active.');
+    raise EghSQLError.Create(Self, 'Table is active.');
 
   FTableName := AValue;
 end;
@@ -801,7 +790,7 @@ begin
     Exit;
 
   if Self.Active then
-    raise EghSQL.Create(Self, 'Table is active.');
+    raise EghSQLError.Create(Self, 'Table is active.');
 
   FConnector := AValue;
 end;
@@ -858,18 +847,18 @@ end;
 procedure TghSQLTable.CheckTable;
 begin
   if not Active then
-    raise EghSQL.Create(Self, 'Table not active');
+    raise EghSQLError.Create(Self, 'Table not active');
 end;
 
 procedure TghSQLTable.InternalOpen;
 var
   lDataSet: TDataSet;
   lSelectColumns: string;
-  lSQL: TghSQLObject;
+  lSQL: TghSQLClient;
 begin
   lSelectColumns := Iif(FSelectColumns = '', '*', FSelectColumns);
   lDataSet := nil;
-  lSQL := TghSQLObject.Create(FConnector);
+  lSQL := TghSQLClient.Create(FConnector);
   try
     try
       lSQL.Script.Add('select ' + lSelectColumns + ' from ' + FTableName);
@@ -901,7 +890,7 @@ begin
   begin
     FData := lDataSet as TghSQLQuery;
     FData.OnUpdateError := @CallResolverError;
-    FData.OnApplyRecUpdate := @CallApplyRecUpdate;
+    FData.OnApplyRec := @CallApplyRecUpdate;
     Exit;
   end;
 
@@ -973,7 +962,7 @@ begin
   CheckTable;
   lModel := GetRelations.FindByName(ATable.TableName);
   if not Assigned(lModel) then
-    raise EghSQL.CreateFmt(Self, 'Model "%s" not found.', [ATable.TableName]);
+    raise EghSQLError.CreateFmt(Self, 'Model "%s" not found.', [ATable.TableName]);
 
   ATable.Connector := FConnector;
   ATable.OwnerTable := Self;
@@ -993,7 +982,7 @@ procedure TghSQLTable.CallResolverError(Sender: TObject;
   var Response: TResolverResponse);
 begin
   Response := rrAbort;
-  raise EghSQL.Create(Self, E.Message);
+  raise EghSQLError.Create(Self, E.Message);
 end;
 
 procedure TghSQLTable.CallApplyRecUpdate(Sender: TObject;
@@ -1147,7 +1136,7 @@ begin
   if FData.State in [dsInsert, dsEdit] then
   begin
     if Post.HasErrors then
-      raise EghSQL.Create(Self, FErrors.Text);
+      raise EghSQLError.Create(Self, FErrors.Text);
   end;
 
   FConnector.StartTransaction;
@@ -1161,7 +1150,7 @@ begin
     on e: Exception do
     begin
       FConnector.RollbackRetaining;
-      raise EghSQL.Create(Self, e.Message);
+      raise EghSQLError.Create(Self, e.Message);
     end;
   end;
 
@@ -1251,6 +1240,22 @@ begin
   Result := FErrors;
 end;
 
+procedure TghSQLTable.SetDataRow(ADataRow: TghDataRow);
+var
+  i: Integer;
+  lName: string;
+  lColumn: TghDataColumn;
+begin
+  for i := 0 to ADataRow.Count-1 do
+  begin
+    lName := ADataRow.Items[i].Name;
+    lColumn := GetColumns.FindField(lName);
+    if not Assigned(lColumn) then
+      Continue;
+    lColumn.Value := ADataRow[lName].Value;
+  end;
+end;
+
 { TghSQLTableList }
 
 function TghSQLTableList.GetTables(const ATableName: string): TghSQLTable;
@@ -1322,13 +1327,6 @@ begin
   end;
 end;
 
-{ TghSQLTableAdapter }
-
-constructor TghSQLTableAdapter.Create(ATable: TghSQLTable);
-begin
-  FTable := ATable;
-end;
-
 { TghSQLLib }
 
 constructor TghSQLLib.Create;
@@ -1355,7 +1353,7 @@ end;
 function TghSQLConnector.GetTables(const ATableName: string): TghSQLTable;
 begin
   if ATableName = '' then
-    raise EghSQL.Create(Self, 'TableName not defined.');
+    raise EghSQLError.Create(Self, 'TableName not defined.');
 
   Result := FTables.FindByName(ATableName);
   if (Result = nil) or (Result.Active and not Result.Reuse) then
@@ -1372,7 +1370,7 @@ begin
     Result := FLib.Connected;
   except
     on e: Exception do
-      raise EghSQL.Create(e.Message);
+      raise EghSQLError.Create(e.Message);
   end;
 end;
 
@@ -1401,7 +1399,7 @@ end;
 procedure TghSQLConnector.SetLibClass(ALib: TghSQLLibClass);
 begin
   if not Assigned(ALib) then
-    raise EghSQL.Create('Lib not assigned.');
+    raise EghSQLError.Create('Lib not assigned.');
 
   if Assigned(FLib) then
     FLib.Free;
@@ -1414,7 +1412,7 @@ begin
     FLib.Connect(FHost, FDatabase, FUser, FPassword);
   except
     on e: Exception do
-      raise EghSQL.Create(e.Message);
+      raise EghSQLError.Create(e.Message);
   end;
 end;
 
@@ -1424,7 +1422,7 @@ begin
     FLib.Disconnect;
   except
     on e: Exception do
-      raise EghSQL.Create(e.Message);
+      raise EghSQLError.Create(e.Message);
   end;
 end;
 
@@ -1436,7 +1434,7 @@ begin
     Inc(FTransCount);
   except
     on e: Exception do
-      raise EghSQL.Create(e.Message);
+      raise EghSQLError.Create(e.Message);
   end;
 end;
 
@@ -1455,7 +1453,7 @@ begin
     Dec(FTransCount);
   except
     on e: Exception do
-      raise EghSQL.Create(e.Message);
+      raise EghSQLError.Create(e.Message);
   end;
 end;
 
@@ -1469,7 +1467,7 @@ begin
     Dec(FTransCount);
   except
     on e: Exception do
-      raise EghSQL.Create(e.Message);
+      raise EghSQLError.Create(e.Message);
   end;
 end;
 
@@ -1483,7 +1481,7 @@ begin
     Dec(FTransCount);
   except
     on e: Exception do
-      raise EghSQL.Create(e.Message);
+      raise EghSQLError.Create(e.Message);
   end;
 end;
 
@@ -1497,7 +1495,7 @@ begin
     Dec(FTransCount);
   except
     on e: Exception do
-      raise EghSQL.Create(e.Message);
+      raise EghSQLError.Create(e.Message);
   end;
 end;
 
@@ -1507,7 +1505,7 @@ var
   i: Integer;
 begin
   if (ASource = nil) or (not ASource.Active) then
-    raise EghSQL.Create('Source is nil or isn''t active.');
+    raise EghSQLError.Create('Source is nil or isn''t active.');
 
   ADest := TghSQLQuery.Create(AOwner);
   try

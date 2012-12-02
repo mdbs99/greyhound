@@ -18,14 +18,16 @@ interface
 
 uses
   // fpc
-  Classes, SysUtils, DB,
+  Classes, SysUtils, DB, fpjson,
   // gh
   gh_Global;
 
 type
-  EghData = class(EghError);
+  EghDataError = class(EghError);
+  TghDataObject = class(TghObject);
 
-  TghData = class(TghObject);
+{ classes }
+
   TghDataColumn = TField;
   TghDataColumns = TFields;
 
@@ -39,6 +41,24 @@ type
     function ParamByName(const AName: string): TParam; reintroduce;
     // An alias less verbose; changed the default property.
     property Param[const AName: string]: TParam read ParamByName; default;
+  end;
+
+  TghDataRow = class(TghDataParams)
+  end;
+
+  TghDataAdapter = class(TghDataObject)
+  private
+    FDataRow: TghDataRow;
+  public
+    constructor Create; override;
+    destructor Destroy; override;
+    procedure Adapt(ASource: TObject); virtual; abstract;
+    property DataRow: TghDataRow read FDataRow;
+  end;
+
+  TghJSONDataAdapter = class(TghDataAdapter)
+  public
+    procedure Adapt(ASource: TObject); override;
   end;
 
 implementation
@@ -63,12 +83,39 @@ begin
   if not Assigned(lParam) then
   begin
     if FLocked then
-      raise EghData.Create(Self, 'Params were locked.');
+      raise EghDataError.Create(Self, 'Params were locked.');
     lParam := TParam.Create(Self);
     lParam.Name := AName;
   end;
   Result := lParam as TParam;
 end;
 
-end.
+{ TghDataAdapter }
 
+constructor TghDataAdapter.Create;
+begin
+  inherited;
+  FDataRow := TghDataRow.Create;
+end;
+
+destructor TghDataAdapter.Destroy;
+begin
+  FDataRow.Free;
+  inherited Destroy;
+end;
+
+{ TghJSONDataAdapter }
+
+procedure TghJSONDataAdapter.Adapt(ASource: TObject);
+var
+  i: Integer;
+  lJson: TJSONObject absolute ASource;
+begin
+  DataRow.Clear;
+  for i := 0 to lJson.Count-1 do
+  begin
+    DataRow[lJson.Names[i]].Value := lJson.Items[i].Value;
+  end;
+end;
+
+end.

@@ -12,7 +12,7 @@
 
 {$IFDEF FPC}
   {$MODE objfpc}{$H+}
-  {$INTERFACES corba}
+  {$INTERFACES CORBA}
   {$IF ((FPC_VERSION >= 2) and (FPC_RELEASE >= 6) and (FPC_PATCH >= 1))}
     {$DEFINE SQLDB_LIB}
     {$IFDEF SQLDB_LIB}
