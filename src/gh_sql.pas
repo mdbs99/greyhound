@@ -1244,16 +1244,19 @@ end;
 procedure TghSQLTable.SetDataRow(ADataRow: TghDataRow);
 var
   i: Integer;
-  lName: string;
   lColumn: TghDataColumn;
+  lParam: TParam;
 begin
   for i := 0 to ADataRow.Count-1 do
   begin
-    lName := ADataRow.Items[i].Name;
-    lColumn := GetColumns.FindField(lName);
+    lParam := ADataRow.Items[i];
+    lColumn := GetColumns.FindField(lParam.Name);
     if not Assigned(lColumn) then
       Continue;
-    lColumn.Value := ADataRow[lName].Value;
+    if lParam.IsNull then
+      lColumn.Clear
+    else
+      lColumn.Value := lParam.Value;
   end;
 end;
 
