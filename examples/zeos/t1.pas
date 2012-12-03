@@ -61,6 +61,7 @@ begin
     // you do not need  (but possible) to use Free method for these instances
     User := Co.Tables['user'].Open;
 
+    // this example is not complete yet, sorry.
 
     // see
     ShowAll;

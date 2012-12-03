@@ -27,7 +27,7 @@ uses
   gh_SQL;
 
 type
-  TghZeosUTF8FieldHelper = class(TghsqlObject)
+  TghZeosUTF8FieldHelper = class(TghSQL)
   protected
     procedure DoGetText(Sender: TField; var AText: string; DisplayText: Boolean);
     procedure DoSetText(Sender: TField; const AText: string);
@@ -232,6 +232,7 @@ end;
 constructor TghSQLite3Lib.Create;
 begin
   inherited Create;
+  FConn.Protocol := 'sqlite-3';
 end;
 
 function TghSQLite3Lib.GetLastAutoIncValue: NativeInt;

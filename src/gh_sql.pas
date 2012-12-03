@@ -103,7 +103,8 @@ type
     function Execute: NativeInt;
   end;
 
-  TghSQLObject = TghSQLClient; // deprecated!
+  {$MESSAGE 'TghSQLObject is deprecated. Use TghSQLClient instead.'}
+  TghSQLObject = TghSQLClient;
 
   TghSQLConstraint = class(TghSQL)
   private
@@ -304,6 +305,7 @@ type
     FLib: TghSQLLib;
     function GetTables(const ATableName: string): TghSQLTable; virtual;
     function GetConnected: Boolean;
+    procedure CloneDataSet(ASource: TDataSet; out ADest: TghSQLQuery; AOwner: TComponent = nil);
   public
     constructor Create(ALib: TghSQLLibClass); virtual; reintroduce;
     destructor Destroy; override;
@@ -316,7 +318,6 @@ type
     procedure CommitRetaining;
     procedure Rollback;
     procedure RollbackRetaining;
-    procedure Transform(ASource: TDataSet; out ADest: TghSQLQuery; AOwner: TComponent = nil);
     procedure Notify(ATable: TghSQLTable; AOperation: TOperation);
     property Lib: TghSQLLib read FLib;
     property Database: string read FDatabase write FDatabase;
@@ -896,7 +897,7 @@ begin
 
   try
     // from [*dataset] to [TghSQLQuery]
-    FConnector.Transform(lDataSet, FData);
+    FConnector.CloneDataSet(lDataSet, FData);
   finally
     lDataSet.Free;
   end;
@@ -1374,6 +1375,36 @@ begin
   end;
 end;
 
+procedure TghSQLConnector.CloneDataSet(ASource: TDataSet;
+  out ADest: TghSQLQuery; AOwner: TComponent);
+var
+  i: Integer;
+begin
+  if (ASource = nil) or (not ASource.Active) then
+    raise EghSQLError.Create('Source is nil or isn''t active.');
+
+  ADest := TghSQLQuery.Create(AOwner);
+  try
+    ADest.FieldDefs.Assign(ASource.FieldDefs);
+    ADest.CreateDataset;
+    ADest.Open;
+
+    ASource.First;
+    while not ASource.EOF do
+    begin
+      ADest.Append;
+      for i := 0 to ASource.Fields.Count - 1 do
+        ADest.Fields[i].Assign(ASource.Fields[i]);
+      ADest.Post;
+      ASource.Next;
+    end;
+    ADest.First;
+  except
+    FreeAndNil(ADest);
+    raise;
+  end;
+end;
+
 constructor TghSQLConnector.Create(ALib: TghSQLLibClass);
 begin
   inherited Create;
@@ -1496,35 +1527,6 @@ begin
   except
     on e: Exception do
       raise EghSQLError.Create(e.Message);
-  end;
-end;
-
-procedure TghSQLConnector.Transform(ASource: TDataSet;
-  out ADest: TghSQLQuery; AOwner: TComponent);
-var
-  i: Integer;
-begin
-  if (ASource = nil) or (not ASource.Active) then
-    raise EghSQLError.Create('Source is nil or isn''t active.');
-
-  ADest := TghSQLQuery.Create(AOwner);
-  try
-    ADest.FieldDefs.Assign(ASource.FieldDefs);
-    ADest.CreateDataset;
-    ADest.Open;
-    ASource.First;
-    while not ASource.EOF do
-    begin
-      ADest.Append;
-      for i := 0 to ASource.Fields.Count - 1 do
-        ADest.Fields[i].Assign(ASource.Fields[i]);
-      ADest.Post;
-      ASource.Next;
-    end;
-    ADest.First;
-  except
-    FreeAndNil(ADest);
-    raise;
   end;
 end;
 
