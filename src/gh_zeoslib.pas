@@ -107,6 +107,7 @@ function TghZeosLib.NewQuery(AOwner: TComponent): TZQuery;
 begin
   Result := TZQuery.Create(AOwner);
   Result.Connection := FConn;
+  Result.CachedUpdates := True;
 end;
 
 procedure TghZeosLib.CallSQLOpen(Sender: TObject; out ADataSet: TDataSet;
@@ -147,6 +148,7 @@ constructor TghZeosLib.Create;
 begin
   inherited Create;
   FConn := TZConnection.Create(nil);
+  FConn.AutoCommit := False;
 end;
 
 destructor TghZeosLib.Destroy;
