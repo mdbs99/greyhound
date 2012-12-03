@@ -110,11 +110,34 @@ procedure TghJSONDataAdapter.Adapt(ASource: TObject);
 var
   i: Integer;
   lJson: TJSONObject absolute ASource;
+  lName: string;
+  lData: TJSONData;
+  lParam: TParam;
 begin
   DataRow.Clear;
   for i := 0 to lJson.Count-1 do
   begin
-    DataRow[lJson.Names[i]].Value := lJson.Items[i].Value;
+    lName := lJson.Names[i];
+    lData := lJson.Items[i];
+    lParam := DataRow[lName];
+    case lData.JSONType of
+      jtNumber:
+        begin
+          if lData is TJSONFloatNumber then
+            lParam.AsFloat := lData.AsFloat
+          else
+          if lData is TJSONIntegerNumber then
+            lParam.AsInteger := lData.AsInteger
+        end;
+      jtString:
+        lParam.AsString := lData.AsString;
+      jtBoolean:
+        lParam.AsBoolean := lData.AsBoolean;
+      jtNull:
+        lParam.Value := Null;
+    else
+      raise EghDataError.Create(Self, 'JSONType not supported.');
+    end;
   end;
 end;
 
