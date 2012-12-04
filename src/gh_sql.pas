@@ -24,7 +24,7 @@ uses
 
 type
   EghSQLError = class(EghDataError);
-  TghSQL = class(TghDataObject);
+  TghSQLObject = class(TghDataObject);
 
 { forward declarations }
 
@@ -46,7 +46,7 @@ type
     property OnApplyRec: TghSQLQueryApplyRecEvent read FOnApplyRec write FOnApplyRec;
   end;
 
-  TghSQLStatement = class(TghSQL)
+  TghSQLStatement = class(TghSQLObject)
   protected
     FParams: TghDataParams;
     FScript: TStrings;
@@ -103,10 +103,7 @@ type
     function Execute: NativeInt;
   end;
 
-  {$MESSAGE 'TghSQLObject is deprecated. Use TghSQLClient instead.'}
-  TghSQLObject = TghSQLClient;
-
-  TghSQLConstraint = class(TghSQL)
+  TghSQLConstraint = class(TghSQLObject)
   private
     FOwnerTable: TghSQLTable;
     procedure SetOwnerTable(AValue: TghSQLTable);
@@ -160,7 +157,7 @@ type
     property OwnerTable: TghSQLTable read FOwnerTable write SetOwnerTable;
   end;
 
-  TghSQLTable = class(TghSQL)
+  TghSQLTable = class(TghSQLObject)
   private
     FTableName: string;
     FConnector: TghSQLConnector;
@@ -273,7 +270,7 @@ type
 
   EghSQLLib = class(EghSQLError);
   TghSQLLibClass = class of TghSQLLib;
-  TghSQLLib = class abstract(TghSQL)
+  TghSQLLib = class abstract(TghSQLObject)
   protected
     FSQL: TghSQLHandler;
     procedure CallSQLOpen(Sender: TObject; out ADataSet: TDataSet; AOwner: TComponent); virtual; abstract;
@@ -293,7 +290,7 @@ type
     property SQL: TghSQLHandler read FSQL;
   end;
 
-  TghSQLConnector = class(TghSQL)
+  TghSQLConnector = class(TghSQLObject)
   strict private
     FTransCount: SmallInt;
     FDatabase: string;
