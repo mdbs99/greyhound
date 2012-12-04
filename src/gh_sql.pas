@@ -227,7 +227,7 @@ type
     function Last: TghSQLTable;
     function Select(const AColumnNames: string): TghSQLTable;
     function Where(const AConditions: string): TghSQLTable; overload;
-    function Where(const AConditions: string; AArgs: array of const): TghSQLTable; overload;
+    function Where(const AConditionsFmt: string; AArgs: array of const): TghSQLTable; overload;
     function OrderBy(const AColumnNames: string): TghSQLTable;
     function GetColumns: TghDataColumns;
     function HasErrors: Boolean;
@@ -1214,9 +1214,9 @@ begin
   Result := Self;
 end;
 
-function TghSQLTable.Where(const AConditions: string; AArgs: array of const): TghSQLTable;
+function TghSQLTable.Where(const AConditionsFmt: string; AArgs: array of const): TghSQLTable;
 begin
-  Result := Self.Where(Format(AConditions, AArgs));
+  Result := Self.Where(Format(AConditionsFmt, AArgs));
 end;
 
 function TghSQLTable.OrderBy(const AColumnNames: string): TghSQLTable;
