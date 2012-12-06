@@ -26,7 +26,37 @@ type
   EghDataError = class(EghError);
   TghDataObject = class(TghObject);
 
-{ classes }
+{ Interfaces }
+
+  IghDataSet = interface(IghInterface)
+    function GetEOF: Boolean;
+    function GetFields: TFields;
+    function GetState: TDataSetState;
+    // dataset
+    function GetActive: Boolean;
+    function GetRecordCount: Longint;
+    procedure Close;
+    procedure Open;
+    procedure Insert;
+    procedure Append;
+    procedure Edit;
+    procedure Delete;
+    procedure Cancel;
+    procedure Post;
+    procedure First;
+    procedure Prior;
+    procedure Next;
+    procedure Last;
+    function IsEmpty: Boolean;
+    function FieldByName(const AFieldName: string): TField;
+    property Active: Boolean read GetActive;
+    property EOF: Boolean read GetEOF;
+    property Fields: TFields read GetFields;
+    property RecordCount: Longint read GetRecordCount;
+    property State: TDataSetState read GetState;
+  end;
+
+{ Classes }
 
   TghDataColumn = TField;
   TghDataColumns = TFields;

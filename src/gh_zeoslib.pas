@@ -35,10 +35,20 @@ type
     procedure SetEvents(DS: TDataSet);
   end;
 
+  TghZeosQuery = class(TZQuery, IghDataSetResolver)
+  protected
+    function GetEOF: Boolean;
+    function GetFields: TFields;
+    function GetState: TDataSetState;
+    function GetServerIndexDefs: TIndexDefs;
+    procedure Commit;
+    procedure Rollback;
+  end;
+
   TghZeosLib = class(TghSQLLib)
   protected
     FConn: TZConnection;
-    function NewQuery(AOwner: TComponent = nil): TZQuery; virtual;
+    function NewQuery(AOwner: TComponent = nil): TghZeosQuery; virtual;
     // events
     procedure CallSQLOpen(Sender: TObject; out ADataSet: TDataSet; AOwner: TComponent); override;
     function CallSQLExecute(Sender: TObject): NativeInt; override;
@@ -53,7 +63,6 @@ type
     procedure CommitRetaining; override;
     procedure Rollback; override;
     procedure RollbackRetaining; override;
-    function NewResolver: IghSQLDataSetResolver; override;
     property Connection: TZConnection read FConn;
   end;
 
@@ -65,6 +74,38 @@ type
 
 
 implementation
+
+{ TghZeosQuery }
+
+function TghZeosQuery.GetEOF: Boolean;
+begin
+  Result := Self.EOF;
+end;
+
+function TghZeosQuery.GetFields: TFields;
+begin
+  Result := Self.Fields;
+end;
+
+function TghZeosQuery.GetState: TDataSetState;
+begin
+  Result := Self.State;
+end;
+
+function TghZeosQuery.GetServerIndexDefs: TIndexDefs;
+begin
+  Result := nil;
+end;
+
+procedure TghZeosQuery.Commit;
+begin
+  Self.ApplyUpdates;
+end;
+
+procedure TghZeosQuery.Rollback;
+begin
+  Self.CancelUpdates;
+end;
 
 { TghZeosUTF8FieldHelper }
 
@@ -105,16 +146,17 @@ end;
 
 { TghZeosLib }
 
-function TghZeosLib.NewQuery(AOwner: TComponent): TZQuery;
+function TghZeosLib.NewQuery(AOwner: TComponent): TghZeosQuery;
 begin
-  Result := TZQuery.Create(AOwner);
+  Result := TghZeosQuery.Create(AOwner);
   Result.Connection := FConn;
+  Result.CachedUpdates := True;
 end;
 
 procedure TghZeosLib.CallSQLOpen(Sender: TObject; out ADataSet: TDataSet;
   AOwner: TComponent);
 var
-  lQ: TZQuery;
+  lQ: TghZeosQuery;
 begin
   ADataSet := nil;
   lQ := NewQuery(AOwner);
@@ -126,12 +168,13 @@ begin
     ADataSet := lQ;
   except
     lQ.Free;
+    raise;
   end;
 end;
 
 function TghZeosLib.CallSQLExecute(Sender: TObject): NativeInt;
 var
-  lQ: TZQuery;
+  lQ: TghZeosQuery;
 begin
   lQ := NewQuery;
   try
@@ -200,11 +243,6 @@ end;
 procedure TghZeosLib.RollbackRetaining;
 begin
   Rollback;
-end;
-
-function TghZeosLib.NewResolver: IghSQLDataSetResolver;
-begin
-
 end;
 
 {

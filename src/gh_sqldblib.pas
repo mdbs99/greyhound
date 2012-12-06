@@ -26,6 +26,8 @@ uses
   gh_SQL;
 
 type
+  TghSQLdbLib = class;
+
   TghSQLdbConnector = class(TSQLConnector)
   private
     FIsBatch: Boolean;
@@ -33,12 +35,25 @@ type
     property IsBatch: Boolean read FIsBatch write FIsBatch;
   end;
 
+  TghSQLdbQuery = class(TSQLQuery, IghDataSetResolver)
+  protected
+    FLib: TghSQLdbLib;
+    procedure ApplyRecUpdate(UpdateKind: TUpdateKind); override;
+    { IghDataSetResolver }
+    function GetEOF: Boolean;
+    function GetFields: TFields;
+    function GetState: TDataSetState;
+    function GetServerIndexDefs: TIndexDefs;
+    procedure Commit;
+    procedure Rollback;
+  end;
+
   TghSQLdbLib = class(TghSQLLib)
   protected
     FConn: TghSQLdbConnector;
     FTran: TSQLTransaction;
     function NewSQLConnector: TghSQLdbConnector; virtual;
-    function NewSQLQuery(AOwner: TComponent = nil): TghSQLQuery; virtual;
+    function NewSQLQuery(AOwner: TComponent = nil): TghSQLdbQuery; virtual;
     function NewSQLScript: TSQLScript; virtual;
     procedure InternalQueryOpen(Sender: TObject; out ADataSet: TDataSet; AOwner: TComponent);
     function InternalQueryExecute(Sender: TObject): NativeInt;
@@ -82,7 +97,7 @@ type
     function StrToStatementType(s : string): TStatementType; override;
   end;
 
-  TghMSSQLQuery = class(TghSQLQuery)
+  TghMSSQLQuery = class(TghSQLdbQuery)
   protected
     procedure ApplyRecUpdate(UpdateKind : TUpdateKind); override;
   end;
@@ -105,6 +120,68 @@ type
 
 implementation
 
+{ TghSQLdbQuery }
+
+procedure TghSQLdbQuery.ApplyRecUpdate(UpdateKind: TUpdateKind);
+var
+  i: Integer;
+  lLastId: NativeInt;
+  lField: TField;
+begin
+  inherited;
+
+  if UpdateKind <> ukInsert then
+    Exit;
+
+  for i := 0 to Fields.Count -1 do
+  begin
+    lField := Fields.Fields[i];
+    if (lField.DataType = ftAutoInc) or
+       ((LowerCase(lField.FieldName) = 'id') and
+        (lField is TNumericField) and (lField.IsNull)) then
+    begin
+      lLastId := FLib.GetLastAutoIncValue;
+      if lLastId <= 0 then
+        Exit;
+
+      Edit;
+      Fields[i].SetData(@lLastId);
+      Post;
+      Exit;
+    end;
+  end;
+end;
+
+function TghSQLdbQuery.GetEOF: Boolean;
+begin
+  Result := Self.EOF;
+end;
+
+function TghSQLdbQuery.GetFields: TFields;
+begin
+  Result := Self.Fields;
+end;
+
+function TghSQLdbQuery.GetState: TDataSetState;
+begin
+  Result := Self.State;
+end;
+
+function TghSQLdbQuery.GetServerIndexDefs: TIndexDefs;
+begin
+  Result := Self.ServerIndexDefs;
+end;
+
+procedure TghSQLdbQuery.Commit;
+begin
+  Self.ApplyUpdates(0);
+end;
+
+procedure TghSQLdbQuery.Rollback;
+begin
+  Self.CancelUpdates;
+end;
+
 { TghSQLdbLib }
 
 function TghSQLdbLib.NewSQLConnector: TghSQLdbConnector;
@@ -112,11 +189,12 @@ begin
   Result := TghSQLdbConnector.Create(nil);
 end;
 
-function TghSQLdbLib.NewSQLQuery(AOwner: TComponent): TghSQLQuery;
+function TghSQLdbLib.NewSQLQuery(AOwner: TComponent): TghSQLdbQuery;
 begin
-  Result := TghSQLQuery.Create(AOwner);
+  Result := TghSQLdbQuery.Create(AOwner);
   Result.DataBase := FConn;
   Result.Transaction := FTran;
+  Result.FLib := Self;
 end;
 
 function TghSQLdbLib.NewSQLScript: TSQLScript;
@@ -129,7 +207,7 @@ end;
 procedure TghSQLdbLib.InternalQueryOpen(Sender: TObject; out ADataSet: TDataSet;
   AOwner: TComponent);
 var
-  lQ: TghSQLQuery;
+  lQ: TghSQLdbQuery;
 begin
   ADataSet := nil;
   lQ := NewSQLQuery(AOwner);
@@ -150,7 +228,7 @@ end;
 
 function TghSQLdbLib.InternalQueryExecute(Sender: TObject): NativeInt;
 var
-  lQ: TghSQLQuery;
+  lQ: TghSQLdbQuery;
 begin
   lQ := NewSQLQuery;
   try
@@ -280,7 +358,7 @@ end;
 
 function TghSQLite3Lib.GetLastAutoIncValue: NativeInt;
 var
-  lQ: TghSQLQuery;
+  lQ: TghSQLdbQuery;
 begin
   lQ := NewSQLQuery;
   try
@@ -390,7 +468,7 @@ end;
 
 function TghMSSQLLib.GetLastAutoIncValue: NativeInt;
 var
-  lQ: TghSQLQuery;
+  lQ: TghSQLdbQuery;
 begin
   lQ := NewSQLQuery;
   try

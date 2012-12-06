@@ -42,6 +42,8 @@ begin
   writeln;
 end;
 
+var
+  i: Integer;
 begin
   // create the connector an set configurations using SQLite
   Co := TghSQLConnector.Create(TghSQLite3Lib);
@@ -60,9 +62,24 @@ begin
     // get the User table
     // you do not need  (but possible) to use Free method for these instances
     User := Co.Tables['user'].Open;
+    ShowAll;
 
-    // this example is not complete yet, sorry.
+    with User.DataResolver do
+    begin
+      for i := 0 to Fields.Count-1 do
+        writeln(Fields[i].FieldName, ' -  ',
+                Fields[i].DataType, ' - ',
+                Fields[i].ReadOnly);
+    end;
 
+    {
+    User.Append;
+    User['login'].AsString := 'user1';
+    User['passwd'].AsString := '123';
+    User['name'].AsString := 'User 1';
+    User['access_id'].AsInteger := 1;
+    User.Commit;
+    }
     // see
     ShowAll;
   finally

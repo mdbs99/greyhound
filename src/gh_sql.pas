@@ -26,7 +26,7 @@ type
   EghSQLError = class(EghDataError);
   TghSQLObject = class(TghDataObject);
 
-{ forward declarations }
+{ Forward declarations }
 
   TghSQLStatement = class;
   TghSQLConnector = class;
@@ -34,51 +34,15 @@ type
   TghSQLTableList = class;
   TghSQLConstraintList = class;
 
-{ interfaces }
+{ Interfaces }
 
-  IghSQLDataSetResolver = interface(IghInterface)
+  IghDataSetResolver = interface(IghDataSet)
     function GetServerIndexDefs: TIndexDefs;
     procedure Commit;
     procedure Rollback;
-    // dataset
-    function GetActive: Boolean;
-    function GetEOF: Boolean;
-    function GetFields: TFields;
-    function GetRecordCount: Longint;
-    function GetState: TDataSetState;
-    procedure Close;
-    procedure Open;
-    procedure Insert;
-    procedure Append;
-    procedure Edit;
-    procedure Delete;
-    procedure Cancel;
-    procedure Post;
-    procedure First;
-    procedure Prior;
-    procedure Next;
-    procedure Last;
-    function IsEmpty: Boolean;
-    function FieldByName(const AFieldName: string): TField;
-    property Active: Boolean read GetActive;
-    property EOF: Boolean read GetEOF;
-    property Fields: TFields read GetFields;
-    property RecordCount: Longint read GetRecordCount;
-    property State: TDataSetState read GetState;
   end;
 
-{ classes }
-
-  TghSQLQueryApplyRecEvent = procedure (Sender: TObject; UpdateKind: TUpdateKind) of object;
-  TghSQLQuery = class(TSQLQuery)
-  private
-    FOnApplyRec: TghSQLQueryApplyRecEvent;
-    procedure DoApplyRecUpdate(UpdateKind: TUpdateKind);
-  protected
-    procedure ApplyRecUpdate(UpdateKind: TUpdateKind); override;
-  public
-    property OnApplyRec: TghSQLQueryApplyRecEvent read FOnApplyRec write FOnApplyRec;
-  end;
+{ Classes }
 
   TghSQLStatement = class(TghSQLObject)
   protected
@@ -190,7 +154,7 @@ type
     property OwnerTable: TghSQLTable read FOwnerTable write SetOwnerTable;
   end;
 
-  TghSQLTable = class(TghSQLObject)
+  TghSQLTable = class(TghSQLObject, IghDataSetResolver)
   private
     FTableName: string;
     FConnector: TghSQLConnector;
@@ -219,10 +183,10 @@ type
     function GetRecordCount: Longint;
     procedure FillAutoParams(ASource: TghSQLTable);
   protected
-    FResolver: IghSQLDataSetResolver;
+    FData: IghDataSetResolver;
     class procedure ClassInitialization;
     class procedure ClassFinalization;
-    procedure CheckTable;
+    procedure CheckData;
     procedure InternalOpen; virtual;
     function CheckValues: Boolean; virtual;
     procedure SetDefaultValues; virtual;
@@ -280,6 +244,7 @@ type
     property EnforceConstraints: Boolean read FEnforceConstraints;
     property BeforeCommit: TNotifyEvent read FBeforeCommit write FBeforeCommit;
     property AfterCommit: TNotifyEvent read FAfterCommit write FAfterCommit;
+    property DataResolver: IghDataSetResolver read FData implements IghDataSetResolver;
   end;
 
   TghSQLTableNotifyEvent = procedure (Sender: TObject; ATable: TghSQLTable) of object;
@@ -320,7 +285,6 @@ type
     procedure Rollback; virtual; abstract;
     procedure RollbackRetaining; virtual; abstract;
     function GetLastAutoIncValue: NativeInt; virtual;
-    function NewResolver: IghSQLDataSetResolver; virtual; abstract;
     property SQL: TghSQLHandler read FSQL;
   end;
 
@@ -359,20 +323,6 @@ type
   end;
 
 implementation
-
-{ TghSQLQuery }
-
-procedure TghSQLQuery.DoApplyRecUpdate(UpdateKind: TUpdateKind);
-begin
-  if Assigned(FOnApplyRec) then
-    FOnApplyRec(Self, UpdateKind);
-end;
-
-procedure TghSQLQuery.ApplyRecUpdate(UpdateKind: TUpdateKind);
-begin
-  inherited ApplyRecUpdate(UpdateKind);
-  DoApplyRecUpdate(UpdateKind);
-end;
 
 { TghSQLStatement }
 
@@ -625,7 +575,7 @@ var
     i: Integer;
     lIxDef: TIndexDef;
   begin
-    with FOwnerTable.FResolver do
+    with FOwnerTable.FData do
     begin
       for i := 0 to GetServerIndexDefs.Count -1 do
       begin
@@ -763,19 +713,19 @@ end;
 
 function TghSQLTable.GetActive: Boolean;
 begin
-  Result := Assigned(FResolver) and FResolver.Active;
+  Result := Assigned(FData) and FData.Active;
 end;
 
 function TghSQLTable.GetColumn(const AName: string): TghDataColumn;
 begin
-  CheckTable;
-  Result := TghDataColumn(FResolver.FieldByName(AName));
+  CheckData;
+  Result := TghDataColumn(FData.FieldByName(AName));
 end;
 
 function TghSQLTable.GetEOF: Boolean;
 begin
-  CheckTable;
-  Result := FResolver.EOF;
+  CheckData;
+  Result := FData.EOF;
 end;
 
 function TghSQLTable.GetRelations: TghSQLTableList;
@@ -823,20 +773,20 @@ end;
 
 function TghSQLTable.GetState: TDataSetState;
 begin
-  CheckTable;
-  Result := FResolver.State;
+  CheckData;
+  Result := FData.State;
 end;
 
 function TghSQLTable.GetIsEmpty: Boolean;
 begin
-  CheckTable;
-  Result := FResolver.IsEmpty;
+  CheckData;
+  Result := FData.IsEmpty;
 end;
 
 function TghSQLTable.GetRecordCount: Longint;
 begin
-  CheckTable;
-  Result := FResolver.RecordCount;
+  CheckData;
+  Result := FData.RecordCount;
 end;
 
 procedure TghSQLTable.FillAutoParams(ASource: TghSQLTable);
@@ -848,9 +798,9 @@ begin
   lConditions := LowerCase(Self.FConditions);
   if lConditions = '' then
     Exit;
-  for i := 0 to ASource.FResolver.Fields.Count-1 do
+  for i := 0 to ASource.FData.Fields.Count-1 do
   begin
-    lField := ASource.FResolver.Fields[i];
+    lField := ASource.FData.Fields[i];
     if Pos(':' + LowerCase(lField.FieldName), lConditions) > 0 then
     begin
       Self.Params[lField.FieldName].Value := lField.Value;
@@ -870,43 +820,37 @@ begin
   FConstraints.Free;
 end;
 
-procedure TghSQLTable.CheckTable;
+procedure TghSQLTable.CheckData;
 begin
   if not Active then
-    raise EghSQLError.Create(Self, 'Table not active');
+    raise EghSQLError.Create(Self, 'Table data is not active');
 end;
 
 procedure TghSQLTable.InternalOpen;
 var
-  lDataSet: TDataSet;
   lSelectColumns: string;
   lSQL: TghSQLClient;
+  lDs: TDataSet;
 begin
+  lDs := nil;
   lSelectColumns := Iif(FSelectColumns = '', '*', FSelectColumns);
-  lDataSet := nil;
-
-  FResolver
   lSQL := TghSQLClient.Create(FConnector);
   try
     try
       lSQL.Script.Add('select ' + lSelectColumns + ' from ' + FTableName);
       lSQL.Script.Add('where 1=1');
-
       if FConditions <> '' then
         lSQL.Script.Add('and ' + FConditions);
-
       lSQL.Params.Assign(FParams);
-
       if FOrderBy <> '' then
         lSQL.Script.Add('order by ' + FOrderBy);
-
-      lSQL.Open(lDataSet);
+      lSQL.Open(lDs);
+      if Assigned(FData) then
+        FData.Free;
+      FData := (lDs as IghDataSetResolver);
     except
-      on e: Exception do
-      begin
-        lDataSet.Free;
-        raise;
-      end;
+      lDs.Free;
+      raise;
     end;
   finally
     lSQL.Free;
@@ -914,9 +858,9 @@ begin
 
   ///if lDataSet is TghSQLQuery then
   ///begin
-  ///  FResolver := lDataSet as TghSQLQuery;
-  ///  FResolver.OnUpdateError := @CallResolverError;
-  ///  FResolver.OnApplyRec := @CallApplyRecUpdate;
+  ///  FData := lDataSet as TghSQLQuery;
+  ///  FData.OnUpdateError := @CallResolverError;
+  ///  FData.OnApplyRec := @CallApplyRecUpdate;
   ///  Exit;
   ///end;
 end;
@@ -978,7 +922,7 @@ procedure TghSQLTable.CallFoundTable(Sender: TObject; ATable: TghSQLTable);
 var
   lModel: TghSQLTable;
 begin
-  CheckTable;
+  CheckData;
   lModel := GetRelations.FindByName(ATable.TableName);
   if not Assigned(lModel) then
     raise EghSQLError.CreateFmt(Self, 'Model "%s" not found.', [ATable.TableName]);
@@ -1039,7 +983,7 @@ constructor TghSQLTable.Create(AConn: TghSQLConnector);
 begin
   inherited Create;
   FConnector := AConn;
-  FResolver := FConnector.Lib.NewResolver;
+  FData := nil;
   FEnforceConstraints := True;
   FErrors := TStringList.Create;
   FParams := TghDataParams.Create;
@@ -1066,7 +1010,7 @@ begin
   FErrors.Free;
   FParams.Free;
   FLinks.Free;
-  FResolver.Free;
+  FData.Free;
   if Assigned(FConnector) then
     FConnector.Notify(Self, opRemove);
   inherited Destroy;
@@ -1088,7 +1032,7 @@ begin
   FOrderBy := '';
   FParams.Clear;
   if Active then
-    FResolver.Close;
+    FData.Close;
 end;
 
 function TghSQLTable.Open: TghSQLTable;
@@ -1101,33 +1045,33 @@ function TghSQLTable.Insert: TghSQLTable;
 begin
   if not Active then
     Self.Where('1=2').Open;
-  FResolver.Insert;
+  FData.Insert;
   SetDefaultValues;
   Result := Self;
 end;
 
 function TghSQLTable.Append: TghSQLTable;
 begin
-  CheckTable;
-  FResolver.Append;
+  CheckData;
+  FData.Append;
   SetDefaultValues;
   Result := Self;
 end;
 
 function TghSQLTable.Edit: TghSQLTable;
 begin
-  CheckTable;
-  FResolver.Edit;
+  CheckData;
+  FData.Edit;
   Result := Self;
 end;
 
 function TghSQLTable.Post: TghSQLTable;
 begin
-  CheckTable;
+  CheckData;
   FErrors.Clear;
   if CheckValues then
   begin
-    FResolver.Post;
+    FData.Post;
     FErrors.Clear;
   end;
   Result := Self;
@@ -1135,24 +1079,24 @@ end;
 
 function TghSQLTable.Cancel: TghSQLTable;
 begin
-  CheckTable;
-  FResolver.Cancel;
+  CheckData;
+  FData.Cancel;
   FErrors.Clear;
   Result := Self;
 end;
 
 function TghSQLTable.Delete: TghSQLTable;
 begin
-  CheckTable;
-  FResolver.Delete;
+  CheckData;
+  FData.Delete;
   Result := Self;
 end;
 
 function TghSQLTable.Commit: TghSQLTable;
 begin
-  CheckTable;
+  CheckData;
 
-  if FResolver.State in [dsInsert, dsEdit] then
+  if FData.State in [dsInsert, dsEdit] then
   begin
     if Post.HasErrors then
       raise EghSQLError.Create(Self, FErrors.Text);
@@ -1161,7 +1105,7 @@ begin
   FConnector.StartTransaction;
   try
     DoBeforeCommit;
-    FResolver.Commit;
+    FData.Commit;
     FConnector.CommitRetaining;
     FErrors.Clear;
     DoAfterCommit;
@@ -1178,45 +1122,45 @@ end;
 
 function TghSQLTable.Rollback: TghSQLTable;
 begin
-  CheckTable;
-  FResolver.Rollback;
+  CheckData;
+  FData.Rollback;
   FErrors.Clear;
   Result := Self;
 end;
 
 function TghSQLTable.Refresh: TghSQLTable;
 begin
-  CheckTable;
-  FResolver.Close;
-  FResolver.Open;
+  CheckData;
+  FData.Close;
+  FData.Open;
   Result := Self;
 end;
 
 function TghSQLTable.First: TghSQLTable;
 begin
-  CheckTable;
-  FResolver.First;
+  CheckData;
+  FData.First;
   Result := Self;
 end;
 
 function TghSQLTable.Prior: TghSQLTable;
 begin
-  CheckTable;
-  FResolver.Prior;
+  CheckData;
+  FData.Prior;
   Result := Self;
 end;
 
 function TghSQLTable.Next: TghSQLTable;
 begin
-  CheckTable;
-  FResolver.Next;
+  CheckData;
+  FData.Next;
   Result := Self;
 end;
 
 function TghSQLTable.Last: TghSQLTable;
 begin
-  CheckTable;
-  FResolver.Last;
+  CheckData;
+  FData.Last;
   Result := Self;
 end;
 
@@ -1245,8 +1189,8 @@ end;
 
 function TghSQLTable.GetColumns: TghDataColumns;
 begin
-  CheckTable;
-  Result := FResolver.Fields;
+  CheckData;
+  Result := FData.Fields;
 end;
 
 function TghSQLTable.HasErrors: Boolean;

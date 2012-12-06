@@ -69,12 +69,11 @@ begin
     User.Append;
     User['name'].AsString := 'Nick Bool';
     User.Commit;
-
     // see
     writeln('New user: <see default values>');
     ShowUser;
 
-    User.Close;
+    User.Close.Open;
 
     // select (optional) and conditionals (optional)
     writeln('Select one record:');
@@ -95,7 +94,7 @@ begin
     ShowAll;
 
     // Adding a Unique constraint
-    User.Constraints.AddUnique(['name']);
+   // User.Constraints.AddUnique(['name']);
 
     // Trying to insert admin, but he already exist!! (see script.sql)
     User.Append;
@@ -138,7 +137,6 @@ begin
     end
     else
       User.Commit;
-
     // see
     ShowAll;
   finally
