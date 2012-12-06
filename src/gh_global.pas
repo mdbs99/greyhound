@@ -28,6 +28,7 @@ type
   end;
 
   IghInterface = interface
+    procedure Free;
   end;
 
   TghObject = class

@@ -22,12 +22,12 @@ uses
   // laz
   LazUTF8,
   // zeos
-  ZConnection, ZDbcIntfs, ZDataset, ZStoredProcedure,
+  ZConnection, ZDbcIntfs, ZDataset,
   // gh
   gh_SQL;
 
 type
-  TghZeosUTF8FieldHelper = class(TghSQL)
+  TghZeosUTF8FieldHelper = class(TghSQLObject)
   protected
     procedure DoGetText(Sender: TField; var AText: string; DisplayText: Boolean);
     procedure DoSetText(Sender: TField; const AText: string);
@@ -53,6 +53,7 @@ type
     procedure CommitRetaining; override;
     procedure Rollback; override;
     procedure RollbackRetaining; override;
+    function NewResolver: IghSQLDataSetResolver; override;
     property Connection: TZConnection read FConn;
   end;
 
@@ -70,6 +71,7 @@ implementation
 procedure TghZeosUTF8FieldHelper.DoGetText(Sender: TField; var AText: string;
   DisplayText: Boolean);
 begin
+  DisplayText := False;
   case Sender.DataType of
     ftString, ftWord,
     ftMemo, ftFmtMemo,
@@ -164,6 +166,7 @@ begin
   FConn.Connect;
 end;
 
+
 function TghZeosLib.Connected: Boolean;
 begin
   Result := FConn.Connected;
@@ -197,6 +200,11 @@ end;
 procedure TghZeosLib.RollbackRetaining;
 begin
   Rollback;
+end;
+
+function TghZeosLib.NewResolver: IghSQLDataSetResolver;
+begin
+
 end;
 
 {
