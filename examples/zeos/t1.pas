@@ -64,14 +64,6 @@ begin
     User := Co.Tables['user'].Open;
     ShowAll;
 
-    with User.DataResolver do
-    begin
-      for i := 0 to Fields.Count-1 do
-        writeln(Fields[i].FieldName, ' -  ',
-                Fields[i].DataType, ' - ',
-                Fields[i].ReadOnly);
-    end;
-
     {
     User.Append;
     User['login'].AsString := 'user1';

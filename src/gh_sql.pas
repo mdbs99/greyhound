@@ -154,7 +154,7 @@ type
     property OwnerTable: TghSQLTable read FOwnerTable write SetOwnerTable;
   end;
 
-  TghSQLTable = class(TghSQLObject, IghDataSetResolver)
+  TghSQLTable = class(TghSQLObject)
   private
     FTableName: string;
     FConnector: TghSQLConnector;
@@ -244,7 +244,6 @@ type
     property EnforceConstraints: Boolean read FEnforceConstraints;
     property BeforeCommit: TNotifyEvent read FBeforeCommit write FBeforeCommit;
     property AfterCommit: TNotifyEvent read FAfterCommit write FAfterCommit;
-    property DataResolver: IghDataSetResolver read FData implements IghDataSetResolver;
   end;
 
   TghSQLTableNotifyEvent = procedure (Sender: TObject; ATable: TghSQLTable) of object;
