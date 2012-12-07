@@ -182,8 +182,9 @@ type
     function GetIsEmpty: Boolean;
     function GetRecordCount: Longint;
     procedure FillAutoParams(ASource: TghSQLTable);
+    function GetDataset: TDataSet;
   protected
-    FData: IghDataSetResolver;
+    FData: TDataSet;
     class procedure ClassInitialization;
     class procedure ClassFinalization;
     procedure CheckData;
@@ -242,6 +243,7 @@ type
     property EnforceConstraints: Boolean read FEnforceConstraints;
     property BeforeCommit: TNotifyEvent read FBeforeCommit write FBeforeCommit;
     property AfterCommit: TNotifyEvent read FAfterCommit write FAfterCommit;
+    property DataSet: TDataSet read GetDataset;
   end;
 
   TghSQLTableNotifyEvent = procedure (Sender: TObject; ATable: TghSQLTable) of object;
@@ -572,7 +574,7 @@ var
     i: Integer;
     lIxDef: TIndexDef;
   begin
-    with FOwnerTable.FData do
+    with FOwnerTable.FData as IghDataSetResolver do
     begin
       for i := 0 to GetServerIndexDefs.Count -1 do
       begin
@@ -805,6 +807,11 @@ begin
   end;
 end;
 
+function TghSQLTable.GetDataset: TDataSet;
+begin
+  Result := FData;
+end;
+
 class procedure TghSQLTable.ClassInitialization;
 begin
   FRelations := TFPHashObjectList.Create(True);
@@ -844,7 +851,7 @@ begin
       lSQL.Open(lDs);
       if Assigned(FData) then
         FData.Free;
-      FData := (lDs as IghDataSetResolver);
+      FData := lDs;
     except
       lDs.Free;
       raise;
@@ -1083,7 +1090,7 @@ begin
   FConnector.StartTransaction;
   try
     DoBeforeCommit;
-    FData.ApplyUpdates;
+    (FData as IghDataSetResolver).ApplyUpdates;
     FConnector.CommitRetaining;
     FErrors.Clear;
     DoAfterCommit;
@@ -1101,7 +1108,7 @@ end;
 function TghSQLTable.Rollback: TghSQLTable;
 begin
   CheckData;
-  FData.CancelUpdates;
+  (FData as IghDataSetResolver).CancelUpdates;
   FErrors.Clear;
   Result := Self;
 end;

@@ -42,8 +42,6 @@ begin
   writeln;
 end;
 
-var
-  i: Integer;
 begin
   // create the connector an set configurations using SQLite
   Co := TghSQLConnector.Create(TghSQLite3Lib);
