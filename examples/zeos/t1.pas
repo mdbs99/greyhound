@@ -64,14 +64,13 @@ begin
     User := Co.Tables['user'].Open;
     ShowAll;
 
-    {
     User.Append;
     User['login'].AsString := 'user1';
     User['passwd'].AsString := '123';
     User['name'].AsString := 'User 1';
     User['access_id'].AsInteger := 1;
     User.Commit;
-    }
+
     // see
     ShowAll;
   finally
