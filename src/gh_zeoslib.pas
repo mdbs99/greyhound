@@ -41,8 +41,6 @@ type
     function GetFields: TFields;
     function GetState: TDataSetState;
     function GetServerIndexDefs: TIndexDefs;
-    procedure Commit;
-    procedure Rollback;
   end;
 
   TghZeosLib = class(TghSQLLib)
@@ -95,16 +93,6 @@ end;
 function TghZeosQuery.GetServerIndexDefs: TIndexDefs;
 begin
   Result := nil;
-end;
-
-procedure TghZeosQuery.Commit;
-begin
-  Self.ApplyUpdates;
-end;
-
-procedure TghZeosQuery.Rollback;
-begin
-  Self.CancelUpdates;
 end;
 
 { TghZeosUTF8FieldHelper }

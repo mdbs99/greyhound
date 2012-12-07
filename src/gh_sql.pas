@@ -38,8 +38,8 @@ type
 
   IghDataSetResolver = interface(IghDataSet)
     function GetServerIndexDefs: TIndexDefs;
-    procedure Commit;
-    procedure Rollback;
+    procedure ApplyUpdates;
+    procedure CancelUpdates;
   end;
 
 { Classes }
@@ -1083,7 +1083,7 @@ begin
   FConnector.StartTransaction;
   try
     DoBeforeCommit;
-    FData.Commit;
+    FData.ApplyUpdates;
     FConnector.CommitRetaining;
     FErrors.Clear;
     DoAfterCommit;
@@ -1101,7 +1101,7 @@ end;
 function TghSQLTable.Rollback: TghSQLTable;
 begin
   CheckData;
-  FData.Rollback;
+  FData.CancelUpdates;
   FErrors.Clear;
   Result := Self;
 end;

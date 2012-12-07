@@ -47,8 +47,6 @@ type
     function GetFields: TFields;
     function GetState: TDataSetState;
     function GetServerIndexDefs: TIndexDefs;
-    procedure Commit;
-    procedure Rollback;
   public
     constructor Create(AOwner: TComponent); override;
   end;
@@ -185,16 +183,6 @@ end;
 function TghSQLdbQuery.GetServerIndexDefs: TIndexDefs;
 begin
   Result := Self.ServerIndexDefs;
-end;
-
-procedure TghSQLdbQuery.Commit;
-begin
-  Self.ApplyUpdates(0);
-end;
-
-procedure TghSQLdbQuery.Rollback;
-begin
-  Self.CancelUpdates;
 end;
 
 constructor TghSQLdbQuery.Create(AOwner: TComponent);
