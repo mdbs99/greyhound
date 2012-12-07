@@ -195,8 +195,6 @@ type
     procedure DoAfterCommit; virtual;
     // callback
     procedure CallFoundTable(Sender: TObject; ATable: TghSQLTable); virtual;
-    procedure CallResolverError(Sender: TObject; DataSet: TCustomBufDataset;
-      E: EUpdateError; UpdateKind: TUpdateKind; var Response: TResolverResponse); virtual;
     procedure CallApplyRecUpdate(Sender: TObject; UpdateKind: TUpdateKind); virtual;
   public
     constructor Create(AConn: TghSQLConnector); virtual; overload; reintroduce;
@@ -854,14 +852,6 @@ begin
   finally
     lSQL.Free;
   end;
-
-  ///if lDataSet is TghSQLQuery then
-  ///begin
-  ///  FData := lDataSet as TghSQLQuery;
-  ///  FData.OnUpdateError := @CallResolverError;
-  ///  FData.OnApplyRec := @CallApplyRecUpdate;
-  ///  Exit;
-  ///end;
 end;
 
 function TghSQLTable.CheckValues: Boolean;
@@ -938,15 +928,6 @@ begin
   ATable.Open;
 end;
 
-{$HINTS OFF}
-procedure TghSQLTable.CallResolverError(Sender: TObject;
-  DataSet: TCustomBufDataset; E: EUpdateError; UpdateKind: TUpdateKind;
-  var Response: TResolverResponse);
-begin
-  Response := rrAbort;
-  raise EghSQLError.Create(Self, E.Message);
-end;
-
 procedure TghSQLTable.CallApplyRecUpdate(Sender: TObject;
   UpdateKind: TUpdateKind);
 var
@@ -975,8 +956,6 @@ begin
     end;
   end;
 end;
-
-{$HINTS ON}
 
 constructor TghSQLTable.Create(AConn: TghSQLConnector);
 begin

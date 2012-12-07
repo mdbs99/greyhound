@@ -18,7 +18,7 @@ interface
 
 uses
   // fpc
-  Classes, SysUtils, DB, sqldb,
+  Classes, SysUtils, DB, BufDataset, sqldb,
   // SQLdb
   sqlite3conn,
   {$IFDEF MSSQL_LIB} mssqlconn, {$ENDIF}
@@ -36,6 +36,9 @@ type
   end;
 
   TghSQLdbQuery = class(TSQLQuery, IghDataSetResolver)
+  private
+    procedure CallResolverError(Sender: TObject; DataSet: TCustomBufDataset;
+      E: EUpdateError; UpdateKind: TUpdateKind; var Response: TResolverResponse); virtual;
   protected
     FLib: TghSQLdbLib;
     procedure ApplyRecUpdate(UpdateKind: TUpdateKind); override;
@@ -46,6 +49,8 @@ type
     function GetServerIndexDefs: TIndexDefs;
     procedure Commit;
     procedure Rollback;
+  public
+    constructor Create(AOwner: TComponent); override;
   end;
 
   TghSQLdbLib = class(TghSQLLib)
@@ -122,6 +127,16 @@ implementation
 
 { TghSQLdbQuery }
 
+{$HINTS OFF}
+procedure TghSQLdbQuery.CallResolverError(Sender: TObject;
+  DataSet: TCustomBufDataset; E: EUpdateError; UpdateKind: TUpdateKind;
+  var Response: TResolverResponse);
+begin
+  Response := rrAbort;
+  raise EghSQLError.Create(Self, E.Message);
+end;
+{$HINTS ON}
+
 procedure TghSQLdbQuery.ApplyRecUpdate(UpdateKind: TUpdateKind);
 var
   i: Integer;
@@ -180,6 +195,12 @@ end;
 procedure TghSQLdbQuery.Rollback;
 begin
   Self.CancelUpdates;
+end;
+
+constructor TghSQLdbQuery.Create(AOwner: TComponent);
+begin
+  inherited Create(AOwner);
+  OnUpdateError := @CallResolverError;
 end;
 
 { TghSQLdbLib }
