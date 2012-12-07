@@ -69,6 +69,10 @@ begin
     User['passwd'].AsString := '123';
     User['name'].AsString := 'User 1';
     User['access_id'].AsInteger := 1;
+    User.Post;
+
+    User.Edit;
+    User['passwd'].Value := '456';
     User.Commit;
 
     // see
