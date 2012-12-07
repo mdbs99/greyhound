@@ -19,22 +19,12 @@ interface
 uses
   // fpc
   Classes, SysUtils, DB,
-  // laz
-  LazUTF8,
   // zeos
   ZConnection, ZDbcIntfs, ZDataset,
   // gh
   gh_SQL;
 
 type
-  TghZeosUTF8FieldHelper = class(TghSQLObject)
-  protected
-    procedure DoGetText(Sender: TField; var AText: string; DisplayText: Boolean);
-    procedure DoSetText(Sender: TField; const AText: string);
-  public
-    procedure SetEvents(DS: TDataSet);
-  end;
-
   TghZeosQuery = class(TZQuery, IghDataSetResolver)
   protected
     function GetEOF: Boolean;
@@ -93,43 +83,6 @@ end;
 function TghZeosQuery.GetServerIndexDefs: TIndexDefs;
 begin
   Result := nil;
-end;
-
-{ TghZeosUTF8FieldHelper }
-
-procedure TghZeosUTF8FieldHelper.DoGetText(Sender: TField; var AText: string;
-  DisplayText: Boolean);
-begin
-  DisplayText := False;
-  case Sender.DataType of
-    ftString, ftWord,
-    ftMemo, ftFmtMemo,
-    ftFixedChar, ftWideString,
-    ftFixedWideChar, ftWideMemo:
-    begin
-      AText := SysToUTF8(Sender.AsString);
-      DisplayText := True;
-    end;
-  end;
-end;
-
-procedure TghZeosUTF8FieldHelper.DoSetText(Sender: TField; const AText: string);
-begin
-  Sender.AsString := UTF8ToSys(AText);
-end;
-
-procedure TghZeosUTF8FieldHelper.SetEvents(DS: TDataSet);
-var
-  I: integer;
-begin
-  for I := 0 to DS.FieldCount - 1 do
-  begin
-    with DS.Fields[I] do
-    begin
-      OnGetText := @DoGetText;
-      OnSetText := @DoSetText;
-    end;
-  end;
 end;
 
 { TghZeosLib }
