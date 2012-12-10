@@ -1,6 +1,14 @@
 Release notes
 ==========================================================
 
+(2012-12-10)
+
+- New IghDataSet and IghDataSetResolver interfaces;
+- ZEOS works better now;
+- Released 1.2 version;
+- Many more bug fixes and improvements.
+
+
 (2012-11-21)
 
 - The runtime package was created;
@@ -12,16 +20,19 @@ Release notes
 - Get AutoInc values automatically (sqlite and mssql);
 - Many more bug fixes and improvements.
 
+
 (2012-08-20)
 
 - Renamed t.DataSetToQuery method name to t.Transform;
 - Better method names to TghDBConstraintList;
 - New TghDBQuery class to use instead TSQLQuery;
 
+
 (2012-08-12)[2]
 
 - Now TghDBConnectorBroker inherits from TghDBObject.
 - The new TghDBConnectorBroker interface is compatible with TghDBConnector because they have a SQL property too but the class is TghDBSQLHandler, no TghDBSQL;
+
 
 (2012-08-12)
 
@@ -40,6 +51,7 @@ Release notes
 - Renamed gh_dbsqldbbroker unit to gh_dbsqldb;
 - Renamed gh_dbzeosbroker unit to gh_dbzeos;
 - Cleanup;
+
 
 (2012-07-01)
 
