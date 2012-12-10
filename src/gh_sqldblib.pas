@@ -101,8 +101,6 @@ type
   end;
 
   TghMSSQLQuery = class(TghSQLdbQuery)
-  protected
-    procedure ApplyRecUpdate(UpdateKind : TUpdateKind); override;
   end;
 
   TghMSSQLLib = class(TghSQLdbLib)
@@ -410,18 +408,6 @@ begin
     Result := stExecProcedure
   else
     Result := inherited;
-end;
-
-{ TghMSSQLQuery }
-
-procedure TghMSSQLQuery.ApplyRecUpdate(UpdateKind: TUpdateKind);
-begin
-  inherited ApplyRecUpdate(UpdateKind);
-
-  if UpdateKind = ukInsert then
-  begin
-    //
-  end;
 end;
 
 { TghMSSQLLib }
