@@ -5,6 +5,7 @@ Release notes
 
 - New IghDataSet and IghDataSetResolver interfaces;
 - ZEOS works better now;
+- New support for JSON using Adapter pattern;
 - Released 1.2 version;
 - Many more bug fixes and improvements.
 
