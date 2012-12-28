@@ -428,8 +428,8 @@ begin
     Lib.SQL.DoOpen(ADataSet, AOwner);
     CommitRetaining;
   except
-    ADataSet.Free;
     RollbackRetaining;
+    ADataSet.Free;
     raise;
   end;
 end;

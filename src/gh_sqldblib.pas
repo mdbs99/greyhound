@@ -230,6 +230,7 @@ begin
     ADataSet := lQ;
   except
     lQ.Free;
+    raise;
   end;
 end;
 
