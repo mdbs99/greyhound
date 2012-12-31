@@ -20,7 +20,7 @@ uses
   // fpc
   Classes, SysUtils, DB, contnrs, fgl, BufDataset, sqldb,
   // gh
-  gh_Global, gh_Data;
+  gh_Data;
 
 type
   EghSQLError = class(EghDataError);
@@ -1037,7 +1037,8 @@ end;
 
 function TghSQLTable.Append: TghSQLTable;
 begin
-  CheckData;
+  if not Active then
+    Self.Where('1=2').Open;
   FData.Append;
   SetDefaultValues;
   Result := Self;
