@@ -167,6 +167,8 @@ type
     FReuse: Boolean;
     FSelectColumns: string;
     FEnforceConstraints: Boolean;
+    FBeforePost: TNotifyEvent;
+    FAfterPost: TNotifyEvent;
     FBeforeCommit: TNotifyEvent;
     FAfterCommit: TNotifyEvent;
     class var FRelations: TFPHashObjectList;
@@ -192,6 +194,8 @@ type
     function CheckValues: Boolean; virtual;
     procedure SetDefaultValues; virtual;
     // events
+    procedure DoBeforePost; virtual;
+    procedure DoAfterPost; virtual;
     procedure DoBeforeCommit; virtual;
     procedure DoAfterCommit; virtual;
     // callback
@@ -241,6 +245,8 @@ type
     property Relations: TghSQLTableList read GetRelations;
     property Constraints: TghSQLConstraintList read GetConstraints;
     property EnforceConstraints: Boolean read FEnforceConstraints;
+    property BeforePost: TNotifyEvent read FBeforePost write FBeforePost;
+    property AfterPost: TNotifyEvent read FAfterPost write FAfterPost;
     property BeforeCommit: TNotifyEvent read FBeforeCommit write FBeforeCommit;
     property AfterCommit: TNotifyEvent read FAfterCommit write FAfterCommit;
     property DataSet: TDataSet read GetDataset;
@@ -902,6 +908,18 @@ begin
     FillAutoParams(OwnerTable);
 end;
 
+procedure TghSQLTable.DoBeforePost;
+begin
+  if Assigned(FBeforePost) then
+    FBeforePost(Self);
+end;
+
+procedure TghSQLTable.DoAfterPost;
+begin
+  if Assigned(FAfterPost) then
+    FAfterPost(Self);
+end;
+
 procedure TghSQLTable.DoBeforeCommit;
 begin
   if Assigned(FBeforeCommit) then
@@ -1055,11 +1073,13 @@ function TghSQLTable.Post: TghSQLTable;
 begin
   CheckData;
   FErrors.Clear;
+  DoBeforePost;
   if CheckValues then
   begin
     FData.Post;
     FErrors.Clear;
   end;
+  DoAfterPost;
   Result := Self;
 end;
 
