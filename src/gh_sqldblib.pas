@@ -21,6 +21,7 @@ uses
   Classes, SysUtils, DB, BufDataset, sqldb,
   // SQLdb
   sqlite3conn,
+  IBConnection,
   {$IFDEF MSSQL_LIB} mssqlconn, {$ENDIF}
   // gh
   gh_SQL;
@@ -92,7 +93,15 @@ type
   end;
   {$ENDIF}
 
-{ Especialization for MSSQLServer and Sybase }
+  { IB and Firebird especialization }
+
+  TghIBLib = class(TghSQLdbLib)
+  public
+    constructor Create; override;
+    function GetLastAutoIncValue: NativeInt; override;
+  end;
+
+  { MSSQLServer and Sybase especialization }
 
   {$IFDEF MSSQL_LIB}
   TghMSSQLConnector = class(TghSQLdbConnector)
@@ -120,6 +129,19 @@ type
   {$ENDIF}
 
 implementation
+
+{ TghIBLib }
+
+constructor TghIBLib.Create;
+begin
+  inherited Create;
+  FConn.ConnectorType := TIBConnectionDef.TypeName;
+end;
+
+function TghIBLib.GetLastAutoIncValue: NativeInt;
+begin
+  Result := -1; // TODO
+end;
 
 { TghSQLdbQuery }
 
