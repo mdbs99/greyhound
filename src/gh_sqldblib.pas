@@ -140,7 +140,13 @@ end;
 
 function TghIBLib.GetLastAutoIncValue: NativeInt;
 begin
-  Result := -1; // TODO
+  {
+    If you want to use Generators you can specialize the Lib class and
+    override the Notify method. You can set [Before/After]Post|Commit events for
+    the new Table instance. The instance have the TableName and you can use it
+    to know which generator to use.
+  }
+  Result := -1;
 end;
 
 { TghSQLdbQuery }
