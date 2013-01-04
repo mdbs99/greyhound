@@ -317,7 +317,7 @@ type
     procedure CommitRetaining;
     procedure Rollback;
     procedure RollbackRetaining;
-    procedure Notify(ATable: TghSQLTable; AOperation: TOperation);
+    procedure Notify(ATable: TghSQLTable; AOperation: TOperation); virtual;
     property Lib: TghSQLLib read FLib;
     property Database: string read FDatabase write FDatabase;
     property Connected: Boolean read GetConnected;
@@ -985,7 +985,11 @@ end;
 constructor TghSQLTable.Create(AConn: TghSQLConnector);
 begin
   inherited Create;
+
   FConnector := AConn;
+  if Assigned(FConnector) then
+    FConnector.Notify(Self, opInsert);
+
   FData := nil;
   FEnforceConstraints := True;
   FErrors := TStringList.Create;
@@ -1332,7 +1336,7 @@ begin
   begin
     Result := TghSQLTable.Create(Self, ATableName);
     Result.Reuse := False;
-    FTables.Add(Result);
+    Notify(Result, opInsert);
   end;
 end;
 
@@ -1473,9 +1477,9 @@ end;
 
 procedure TghSQLConnector.Notify(ATable: TghSQLTable; AOperation: TOperation);
 begin
-  if AOperation = opRemove then
-  begin
-    FTables.Remove(ATable);
+  case AOperation of
+    opInsert: FTables.Add(ATable);
+    opRemove: FTables.Remove(ATable);
   end;
 end;
 
