@@ -37,6 +37,7 @@ type
 { Interfaces }
 
   IghDataSetResolver = interface(IghDataSet)
+    procedure SetTableName(const ATableName: string);
     function GetServerIndexDefs: TIndexDefs;
     procedure ApplyUpdates;
     procedure CancelUpdates;
@@ -290,6 +291,7 @@ type
     procedure Rollback; virtual; abstract;
     procedure RollbackRetaining; virtual; abstract;
     function GetLastAutoIncValue: NativeInt; virtual;
+    function GetSequenceValue(const ATableName: string): NativeInt; virtual;
     property SQL: TghSQLHandler read FSQL;
   end;
 
@@ -1115,7 +1117,11 @@ begin
   FConnector.StartTransaction;
   try
     DoBeforeCommit;
-    (FData as IghDataSetResolver).ApplyUpdates;
+    with FData as IghDataSetResolver do
+    begin
+      SetTableName(FTableName);
+      ApplyUpdates;
+    end;
     FConnector.CommitRetaining;
     FErrors.Clear;
     DoAfterCommit;
@@ -1320,6 +1326,11 @@ begin
 end;
 
 function TghSQLLib.GetLastAutoIncValue: NativeInt;
+begin
+  Result := -1;
+end;
+
+function TghSQLLib.GetSequenceValue(const ATableName: string): NativeInt;
 begin
   Result := -1;
 end;

@@ -38,6 +38,7 @@ type
 
   TghSQLdbQuery = class(TSQLQuery, IghDataSetResolver)
   private
+    FTableName: string;
     procedure CallResolverError(Sender: TObject; DataSet: TCustomBufDataset;
       E: EUpdateError; UpdateKind: TUpdateKind; var Response: TResolverResponse); virtual;
   protected
@@ -47,6 +48,7 @@ type
     function GetEOF: Boolean;
     function GetFields: TFields;
     function GetState: TDataSetState;
+    procedure SetTableName(const ATableName: string);
     function GetServerIndexDefs: TIndexDefs;
   public
     constructor Create(AOwner: TComponent); override;
@@ -96,10 +98,15 @@ type
   { IB and Firebird especialization }
 
   TghIBLib = class(TghSQLdbLib)
+  protected
+    function NextValue(const ASequenceName: string): NativeInt; virtual;
   public
     constructor Create; override;
     function GetLastAutoIncValue: NativeInt; override;
+    function GetSequenceValue(const ATableName: string): NativeInt; override;
   end;
+
+  TghFirebirdLib = TghIBLib;
 
   { MSSQLServer and Sybase especialization }
 
@@ -132,6 +139,20 @@ implementation
 
 { TghIBLib }
 
+function TghIBLib.NextValue(const ASequenceName: string): NativeInt;
+var
+  lQ: TghSQLdbQuery;
+begin
+  lQ := NewSQLQuery;
+  try
+    lQ.SQL.Text := 'SELECT GEN_ID(' + ASequenceName + ', 0) as id FROM RDB$DATABASE';
+    lQ.Open;
+    Result := lQ.FieldByName('id').AsInteger;
+  finally
+    lQ.Free;
+  end;
+end;
+
 constructor TghIBLib.Create;
 begin
   inherited Create;
@@ -147,6 +168,11 @@ begin
     to know which generator to use.
   }
   Result := -1;
+end;
+
+function TghIBLib.GetSequenceValue(const ATableName: string): NativeInt;
+begin
+  Result := NextValue('G_' + ATableName);
 end;
 
 { TghSQLdbQuery }
@@ -181,8 +207,11 @@ begin
     begin
       lLastId := FLib.GetLastAutoIncValue;
       if lLastId <= 0 then
-        Exit;
-
+      begin
+        lLastId := FLib.GetSequenceValue(FTableName);
+        if lLastId <= 0 then
+          Exit;
+      end;
       Edit;
       Fields[i].SetData(@lLastId);
       Post;
@@ -204,6 +233,11 @@ end;
 function TghSQLdbQuery.GetState: TDataSetState;
 begin
   Result := Self.State;
+end;
+
+procedure TghSQLdbQuery.SetTableName(const ATableName: string);
+begin
+  FTableName := ATableName;
 end;
 
 function TghSQLdbQuery.GetServerIndexDefs: TIndexDefs;
