@@ -102,7 +102,6 @@ type
     function NextValue(const ASequenceName: string): NativeInt; virtual;
   public
     constructor Create; override;
-    function GetLastAutoIncValue: NativeInt; override;
     function GetSequenceValue(const ATableName: string): NativeInt; override;
   end;
 
@@ -157,17 +156,6 @@ constructor TghIBLib.Create;
 begin
   inherited Create;
   FConn.ConnectorType := TIBConnectionDef.TypeName;
-end;
-
-function TghIBLib.GetLastAutoIncValue: NativeInt;
-begin
-  {
-    If you want to use Generators you can specialize the TghSQLConnector class and
-    override the Notify method. You can set [Before/After]Post|Commit events for
-    the new Table instance. The instance have the TableName and you can use it
-    to know which generator to use.
-  }
-  Result := -1;
 end;
 
 function TghIBLib.GetSequenceValue(const ATableName: string): NativeInt;
