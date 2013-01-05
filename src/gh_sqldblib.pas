@@ -56,7 +56,7 @@ type
 
   TghSQLdbLib = class(TghSQLLib)
   protected
-    FConn: TghSQLdbConnector;
+    FMyConn: TghSQLdbConnector;
     FTran: TSQLTransaction;
     function NewSQLConnector: TghSQLdbConnector; virtual;
     function NewSQLQuery(AOwner: TComponent = nil): TghSQLdbQuery; virtual;
@@ -68,9 +68,9 @@ type
     procedure CallSQLOpen(Sender: TObject; out ADataSet: TDataSet; AOwner: TComponent); override;
     function CallSQLExecute(Sender: TObject): NativeInt; override;
   public
-    constructor Create; override;
+    constructor Create(var AConnector: TghSQLConnector); override;
     destructor Destroy; override;
-    procedure Connect(const AHost, ADatabase, AUser, APasswd: string); override;
+    procedure Connect; override;
     function Connected: Boolean; override;
     procedure Disconnect; override;
     procedure StartTransaction; override;
@@ -78,12 +78,12 @@ type
     procedure CommitRetaining; override;
     procedure Rollback; override;
     procedure RollbackRetaining; override;
-    property Connection: TghSQLdbConnector read FConn;
+    property Connection: TghSQLdbConnector read FMyConn;
   end;
 
   TghSQLite3Lib = class(TghSQLdbLib)
   public
-    constructor Create; override;
+    constructor Create(var AConnector: TghSQLConnector); override;
     function GetLastAutoIncValue: NativeInt; override;
   end;
 
@@ -98,11 +98,9 @@ type
   { IB and Firebird especialization }
 
   TghIBLib = class(TghSQLdbLib)
-  protected
-    function NextValue(const ASequenceName: string): NativeInt; virtual;
   public
-    constructor Create; override;
-    function GetSequenceValue(const ATableName: string): NativeInt; override;
+    constructor Create(var AConnector: TghSQLConnector); override;
+    function GetSequenceValue(const ASequenceName: string): NativeInt; override;
   end;
 
   TghFirebirdLib = TghIBLib;
@@ -124,7 +122,7 @@ type
     // events
     function CallSQLExecute(Sender: TObject): NativeInt; override;
   public
-    constructor Create; override;
+    constructor Create(var AConnector: TghSQLConnector); override;
     procedure StartTransaction; override;
     procedure Commit; override;
     procedure CommitRetaining; override;
@@ -138,29 +136,24 @@ implementation
 
 { TghIBLib }
 
-function TghIBLib.NextValue(const ASequenceName: string): NativeInt;
+constructor TghIBLib.Create(var AConnector: TghSQLConnector);
+begin
+  inherited;
+  FMyConn.ConnectorType := TIBConnectionDef.TypeName;
+end;
+
+function TghIBLib.GetSequenceValue(const ASequenceName: string): NativeInt;
 var
   lQ: TghSQLdbQuery;
 begin
   lQ := NewSQLQuery;
   try
-    lQ.SQL.Text := 'SELECT GEN_ID(' + ASequenceName + ', 0) as id FROM RDB$DATABASE';
+    lQ.SQL.Text := 'SELECT GEN_ID(' + ASequenceName + ', 1) as id FROM RDB$DATABASE';
     lQ.Open;
     Result := lQ.FieldByName('id').AsInteger;
   finally
     lQ.Free;
   end;
-end;
-
-constructor TghIBLib.Create;
-begin
-  inherited Create;
-  FConn.ConnectorType := TIBConnectionDef.TypeName;
-end;
-
-function TghIBLib.GetSequenceValue(const ATableName: string): NativeInt;
-begin
-  Result := NextValue('G_' + ATableName);
 end;
 
 { TghSQLdbQuery }
@@ -195,11 +188,8 @@ begin
     begin
       lLastId := FLib.GetLastAutoIncValue;
       if lLastId <= 0 then
-      begin
-        lLastId := FLib.GetSequenceValue(FTableName);
-        if lLastId <= 0 then
-          Exit;
-      end;
+        Exit;
+
       Edit;
       Fields[i].SetData(@lLastId);
       Post;
@@ -249,7 +239,7 @@ end;
 function TghSQLdbLib.NewSQLQuery(AOwner: TComponent): TghSQLdbQuery;
 begin
   Result := TghSQLdbQuery.Create(AOwner);
-  Result.DataBase := FConn;
+  Result.DataBase := FMyConn;
   Result.Transaction := FTran;
   Result.FLib := Self;
 end;
@@ -257,7 +247,7 @@ end;
 function TghSQLdbLib.NewSQLScript: TSQLScript;
 begin
   Result := TSQLScript.Create(nil);
-  Result.DataBase := FConn;
+  Result.DataBase := FMyConn;
   Result.Transaction := FTran;
 end;
 
@@ -324,60 +314,61 @@ end;
 procedure TghSQLdbLib.CallSQLOpen(Sender: TObject; out ADataSet: TDataSet;
   AOwner: TComponent);
 begin
-  FConn.IsBatch := Self.SQL.IsBatch;
+  FMyConn.IsBatch := Self.SQL.IsBatch;
   try
     InternalQueryOpen(Sender, ADataSet, AOwner);
   finally
-    FConn.IsBatch := False;
+    FMyConn.IsBatch := False;
   end;
 end;
 
 function TghSQLdbLib.CallSQLExecute(Sender: TObject): NativeInt;
 begin
-  FConn.IsBatch := Self.SQL.IsBatch;
+  FMyConn.IsBatch := Self.SQL.IsBatch;
   try
     if Self.SQL.IsBatch then
       Result := InternalScriptExecute(Sender)
     else
       Result := InternalQueryExecute(Sender);
   finally
-    FConn.IsBatch := False;
+    FMyConn.IsBatch := False;
   end;
 end;
 
-constructor TghSQLdbLib.Create;
+constructor TghSQLdbLib.Create(var AConnector: TghSQLConnector);
 begin
-  inherited Create;
-  FConn := NewSQLConnector;
+  inherited;
+  FMyConn := NewSQLConnector;
   FTran := TSQLTransaction.Create(nil);
-  FTran.DataBase := FConn;
-  FConn.Transaction := FTran;
+  FTran.DataBase := FMyConn;
+  FMyConn.Transaction := FTran;
 end;
 
 destructor TghSQLdbLib.Destroy;
 begin
   FTran.Free;
-  FConn.Free;
+  FMyConn.Free;
   inherited Destroy;
 end;
 
-procedure TghSQLdbLib.Connect(const AHost, ADatabase, AUser, APasswd: string);
+procedure TghSQLdbLib.Connect;
 begin
-  FConn.HostName := AHost;
-  FConn.DatabaseName := ADatabase;
-  FConn.UserName := AUser;
-  FConn.Password := APasswd;
-  FConn.Open;
+  FMyConn.HostName := FConnector.Host;
+  FMyConn.DatabaseName := FConnector.Database;
+  FMyConn.UserName := FConnector.User;
+  FMyConn.Password := FConnector.Password;
+
+  FMyConn.Open;
 end;
 
 function TghSQLdbLib.Connected: Boolean;
 begin
-  Result := FConn.Connected;
+  Result := FMyConn.Connected;
 end;
 
 procedure TghSQLdbLib.Disconnect;
 begin
-  FConn.Close;
+  FMyConn.Close;
 end;
 
 procedure TghSQLdbLib.StartTransaction;
@@ -408,10 +399,10 @@ end;
 
 { TghSQLite3Lib }
 
-constructor TghSQLite3Lib.Create;
+constructor TghSQLite3Lib.Create(var AConnector: TghSQLConnector);
 begin
-  inherited Create;
-  FConn.ConnectorType := TSQLite3ConnectionDef.TypeName;
+  inherited;
+  FMyConn.ConnectorType := TSQLite3ConnectionDef.TypeName;
 end;
 
 function TghSQLite3Lib.GetLastAutoIncValue: NativeInt;
@@ -470,31 +461,31 @@ end;
 
 function TghMSSQLLib.CallSQLExecute(Sender: TObject): NativeInt;
 begin
-  FConn.IsBatch := Self.SQL.IsBatch;
+  FMyConn.IsBatch := Self.SQL.IsBatch;
   try
     // MSSQL do not need to use TSQLScript
     Result := InternalQueryExecute(Sender);
   finally
-    FConn.IsBatch := False;
+    FMyConn.IsBatch := False;
   end;
 end;
 
-constructor TghMSSQLLib.Create;
+constructor TghMSSQLLib.Create(var AConnector: TghSQLConnector);
 begin
-  inherited Create;
-  FConn.ConnectorType := TMSSQLConnectionDef.TypeName;
-  FConn.Params.Add('TEXTSIZE=2147483647');
-  FConn.Params.Add('AUTOCOMMIT=True');
+  inherited;
+  FMyConn.ConnectorType := TMSSQLConnectionDef.TypeName;
+  FMyConn.Params.Add('TEXTSIZE=2147483647');
+  FMyConn.Params.Add('AUTOCOMMIT=True');
 end;
 
 procedure TghMSSQLLib.StartTransaction;
 begin
-  FConn.ExecuteDirect('BEGIN TRAN');
+  FMyConn.ExecuteDirect('BEGIN TRAN');
 end;
 
 procedure TghMSSQLLib.Commit;
 begin
-  FConn.ExecuteDirect('COMMIT');
+  FMyConn.ExecuteDirect('COMMIT');
 end;
 
 procedure TghMSSQLLib.CommitRetaining;
@@ -504,7 +495,7 @@ end;
 
 procedure TghMSSQLLib.Rollback;
 begin
-  FConn.ExecuteDirect('ROLLBACK');
+  FMyConn.ExecuteDirect('ROLLBACK');
 end;
 
 procedure TghMSSQLLib.RollbackRetaining;

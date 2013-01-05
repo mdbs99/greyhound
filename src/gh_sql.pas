@@ -276,13 +276,14 @@ type
   TghSQLLibClass = class of TghSQLLib;
   TghSQLLib = class abstract(TghSQLObject)
   protected
+    FConnector: TghSQLConnector;
     FSQL: TghSQLHandler;
     procedure CallSQLOpen(Sender: TObject; out ADataSet: TDataSet; AOwner: TComponent); virtual; abstract;
     function CallSQLExecute(Sender: TObject): NativeInt; virtual; abstract;
   public
-    constructor Create; override;
+    constructor Create(var AConnector: TghSQLConnector); virtual; reintroduce;
     destructor Destroy; override;
-    procedure Connect(const AHost, ADatabase, AUser, APasswd: string); virtual; abstract;
+    procedure Connect; virtual; abstract;
     function Connected: Boolean; virtual; abstract;
     procedure Disconnect; virtual; abstract;
     procedure StartTransaction; virtual; abstract;
@@ -291,17 +292,17 @@ type
     procedure Rollback; virtual; abstract;
     procedure RollbackRetaining; virtual; abstract;
     function GetLastAutoIncValue: NativeInt; virtual;
-    function GetSequenceValue(const ATableName: string): NativeInt; virtual;
+    function GetSequenceValue(const ASequenceName: string): NativeInt; virtual; abstract;
     property SQL: TghSQLHandler read FSQL;
   end;
 
   TghSQLConnector = class(TghSQLObject)
   strict private
     FTransCount: SmallInt;
-    FDatabase: string;
     FHost: string;
-    FPassword: string;
+    FDatabase: string;
     FUser: string;
+    FPassword: string;
     FTables: TghSQLTableList;
   protected
     FLib: TghSQLLib;
@@ -321,9 +322,9 @@ type
     procedure RollbackRetaining;
     procedure Notify(ATable: TghSQLTable; AOperation: TOperation); virtual;
     property Lib: TghSQLLib read FLib;
-    property Database: string read FDatabase write FDatabase;
     property Connected: Boolean read GetConnected;
     property Host: string read FHost write FHost;
+    property Database: string read FDatabase write FDatabase;
     property User: string read FUser write FUser;
     property Password: string read FPassword write FPassword;
     property Tables[const ATableName: string]: TghSQLTable read GetTables;
@@ -1311,9 +1312,10 @@ end;
 
 { TghSQLLib }
 
-constructor TghSQLLib.Create;
+constructor TghSQLLib.Create(var AConnector: TghSQLConnector);
 begin
   inherited Create;
+  FConnector := AConnector;
   FSQL := TghSQLHandler.Create;
   FSQL.OnOpen := @CallSQLOpen;
   FSQL.OnExecute := @CallSQLExecute;
@@ -1326,11 +1328,6 @@ begin
 end;
 
 function TghSQLLib.GetLastAutoIncValue: NativeInt;
-begin
-  Result := -1;
-end;
-
-function TghSQLLib.GetSequenceValue(const ATableName: string): NativeInt;
 begin
   Result := -1;
 end;
@@ -1390,13 +1387,13 @@ begin
 
   if Assigned(FLib) then
     FLib.Free;
-  FLib := ALib.Create;
+  FLib := ALib.Create(Self);
 end;
 
 procedure TghSQLConnector.Connect;
 begin
   try
-    FLib.Connect(FHost, FDatabase, FUser, FPassword);
+    FLib.Connect;
   except
     on e: Exception do
       raise EghSQLError.Create(e.Message);
