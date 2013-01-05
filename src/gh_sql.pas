@@ -1,6 +1,6 @@
 {
     Greyhound
-    Copyright (C) 2012  -  Marcos Douglas B. dos Santos
+    Copyright (C) 2012-2013  -  Marcos Douglas B. dos Santos
 
     See the files COPYING.GH, included in this
     distribution, for details about the copyright.
