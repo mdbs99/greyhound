@@ -1,6 +1,14 @@
 Release notes
 ==========================================================
 
+(2013-01-05)
+
+- New TghIBLib/TghFirebirdLib class for IB/Firebird supports;
+- Implemented sequence/generator supports;
+- New events for Table;
+- Many more improvements.
+
+
 (2012-12-10)
 
 - New IghDataSet and IghDataSetResolver interfaces;
