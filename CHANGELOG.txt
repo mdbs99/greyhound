@@ -3,8 +3,8 @@ Release notes
 
 (2013-01-05)
 
-- New TghIBLib/TghFirebirdLib class for IB/Firebird supports;
-- Implemented sequence/generator supports;
+- New TghIBLib/TghFirebirdLib class for IB/Firebird support;
+- Implemented sequence/generator support;
 - New events for Table;
 - Many more improvements.
 

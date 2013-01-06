@@ -57,12 +57,26 @@ type
     property Connection: TZConnection read FMyConn;
   end;
 
+  { SQLite3 especialization }
+
   TghSQLite3Lib = class(TghZeosLib)
   public
     constructor Create(var AConnector: TghSQLConnector); override;
     function GetLastAutoIncValue: NativeInt; override;
   end;
 
+  { IB and Firebird especialization }
+
+  TghIBLib = class(TghZeosLib)
+  public
+    constructor Create(var AConnector: TghSQLConnector); override;
+    function GetSequenceValue(const ASequenceName: string): NativeInt; override;
+  end;
+
+  TghFirebirdLib = class(TghIBLib)
+  public
+    constructor Create(var AConnector: TghSQLConnector); override;
+  end;
 
 implementation
 
@@ -239,6 +253,34 @@ begin
   finally
     Free;
   end;
+end;
+
+{ TghIBLib }
+
+constructor TghIBLib.Create(var AConnector: TghSQLConnector);
+begin
+  inherited;
+  FMyConn.Protocol := 'interbase-6';
+end;
+
+function TghIBLib.GetSequenceValue(const ASequenceName: string): NativeInt;
+begin
+  with NewQuery do
+  try
+    SQL.Text := 'SELECT GEN_ID(' + ASequenceName + ', 1) as id FROM RDB$DATABASE';
+    Open;
+    Result := FieldByName('id').AsInteger;
+  finally
+    Free;
+  end;
+end;
+
+{ TghFirebirdLib }
+
+constructor TghFirebirdLib.Create(var AConnector: TghSQLConnector);
+begin
+  inherited;
+  FMyConn.Protocol := 'firebird-2.5';
 end;
 
 end.

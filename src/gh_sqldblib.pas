@@ -58,9 +58,9 @@ type
   protected
     FMyConn: TghSQLdbConnector;
     FTran: TSQLTransaction;
-    function NewSQLConnector: TghSQLdbConnector; virtual;
-    function NewSQLQuery(AOwner: TComponent = nil): TghSQLdbQuery; virtual;
-    function NewSQLScript: TSQLScript; virtual;
+    function NewConnector: TghSQLdbConnector; virtual;
+    function NewQuery(AOwner: TComponent = nil): TghSQLdbQuery; virtual;
+    function NewScript: TSQLScript; virtual;
     procedure InternalQueryOpen(Sender: TObject; out ADataSet: TDataSet; AOwner: TComponent);
     function InternalQueryExecute(Sender: TObject): NativeInt;
     function InternalScriptExecute(Sender: TObject): NativeInt;
@@ -80,6 +80,8 @@ type
     procedure RollbackRetaining; override;
     property Connection: TghSQLdbConnector read FMyConn;
   end;
+
+  { SQLite3 especialization }
 
   TghSQLite3Lib = class(TghSQLdbLib)
   public
@@ -118,7 +120,7 @@ type
 
   TghMSSQLLib = class(TghSQLdbLib)
   protected
-    function NewSQLConnector: TghSQLdbConnector; override;
+    function NewConnector: TghSQLdbConnector; override;
     // events
     function CallSQLExecute(Sender: TObject): NativeInt; override;
   public
@@ -143,16 +145,14 @@ begin
 end;
 
 function TghIBLib.GetSequenceValue(const ASequenceName: string): NativeInt;
-var
-  lQ: TghSQLdbQuery;
 begin
-  lQ := NewSQLQuery;
+  with NewQuery do
   try
-    lQ.SQL.Text := 'SELECT GEN_ID(' + ASequenceName + ', 1) as id FROM RDB$DATABASE';
-    lQ.Open;
-    Result := lQ.FieldByName('id').AsInteger;
+    SQL.Text := 'SELECT GEN_ID(' + ASequenceName + ', 1) as id FROM RDB$DATABASE';
+    Open;
+    Result := FieldByName('id').AsInteger;
   finally
-    lQ.Free;
+    Free;
   end;
 end;
 
@@ -231,12 +231,12 @@ end;
 
 { TghSQLdbLib }
 
-function TghSQLdbLib.NewSQLConnector: TghSQLdbConnector;
+function TghSQLdbLib.NewConnector: TghSQLdbConnector;
 begin
   Result := TghSQLdbConnector.Create(nil);
 end;
 
-function TghSQLdbLib.NewSQLQuery(AOwner: TComponent): TghSQLdbQuery;
+function TghSQLdbLib.NewQuery(AOwner: TComponent): TghSQLdbQuery;
 begin
   Result := TghSQLdbQuery.Create(AOwner);
   Result.DataBase := FMyConn;
@@ -244,7 +244,7 @@ begin
   Result.FLib := Self;
 end;
 
-function TghSQLdbLib.NewSQLScript: TSQLScript;
+function TghSQLdbLib.NewScript: TSQLScript;
 begin
   Result := TSQLScript.Create(nil);
   Result.DataBase := FMyConn;
@@ -257,7 +257,7 @@ var
   lQ: TghSQLdbQuery;
 begin
   ADataSet := nil;
-  lQ := NewSQLQuery(AOwner);
+  lQ := NewQuery(AOwner);
   try
     lQ.PacketRecords := -1;
     lQ.UsePrimaryKeyAsKey := True;
@@ -278,7 +278,7 @@ function TghSQLdbLib.InternalQueryExecute(Sender: TObject): NativeInt;
 var
   lQ: TghSQLdbQuery;
 begin
-  lQ := NewSQLQuery;
+  lQ := NewQuery;
   try
     if not lQ.SQL.Equals(FSQL.Script) then
       lQ.SQL.Assign(FSQL.Script);
@@ -297,17 +297,15 @@ begin
 end;
 
 function TghSQLdbLib.InternalScriptExecute(Sender: TObject): NativeInt;
-var
-  lS: TSQLScript;
 begin
-  lS := NewSQLScript;
+  with NewScript do
   try
-    if not lS.Script.Equals(FSQL.Script) then
-      lS.Script.Assign(FSQL.Script);
-    lS.Execute;
+    if not Script.Equals(FSQL.Script) then
+      Script.Assign(FSQL.Script);
+    Execute;
     Result := -1;
   finally
-    lS.Free;
+    Free;
   end;
 end;
 
@@ -338,7 +336,7 @@ end;
 constructor TghSQLdbLib.Create(var AConnector: TghSQLConnector);
 begin
   inherited;
-  FMyConn := NewSQLConnector;
+  FMyConn := NewConnector;
   FTran := TSQLTransaction.Create(nil);
   FTran.DataBase := FMyConn;
   FMyConn.Transaction := FTran;
@@ -409,7 +407,7 @@ function TghSQLite3Lib.GetLastAutoIncValue: NativeInt;
 var
   lQ: TghSQLdbQuery;
 begin
-  lQ := NewSQLQuery;
+  lQ := NewQuery;
   try
     lQ.SQL.Text := 'select last_insert_rowid() as id';
     lQ.Open;
@@ -454,7 +452,7 @@ end;
 
 { TghMSSQLLib }
 
-function TghMSSQLLib.NewSQLConnector: TghSQLdbConnector;
+function TghMSSQLLib.NewConnector: TghSQLdbConnector;
 begin
   Result := TghMSSQLConnector.Create(nil);
 end;
@@ -507,7 +505,7 @@ function TghMSSQLLib.GetLastAutoIncValue: NativeInt;
 var
   lQ: TghSQLdbQuery;
 begin
-  lQ := NewSQLQuery;
+  lQ := NewQuery;
   try
     lQ.SQL.Text := 'select scope_identity() as id';
     lQ.Open;
