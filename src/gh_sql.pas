@@ -1403,7 +1403,8 @@ end;
 procedure TghSQLConnector.Disconnect;
 begin
   try
-    FLib.Disconnect;
+    if Connected then
+      FLib.Disconnect;
   except
     on e: Exception do
       raise EghSQLError.Create(e.Message);
