@@ -136,26 +136,6 @@ type
 
 implementation
 
-{ TghIBLib }
-
-constructor TghIBLib.Create(var AConnector: TghSQLConnector);
-begin
-  inherited;
-  FMyConn.ConnectorType := TIBConnectionDef.TypeName;
-end;
-
-function TghIBLib.GetSequenceValue(const ASequenceName: string): NativeInt;
-begin
-  with NewQuery do
-  try
-    SQL.Text := 'SELECT GEN_ID(' + ASequenceName + ', 1) as id FROM RDB$DATABASE';
-    Open;
-    Result := FieldByName('id').AsInteger;
-  finally
-    Free;
-  end;
-end;
-
 { TghSQLdbQuery }
 
 {$HINTS OFF}
@@ -437,6 +417,26 @@ begin
 end;
 
 {$ENDIF FPC2_6_0}
+
+{ TghIBLib }
+
+constructor TghIBLib.Create(var AConnector: TghSQLConnector);
+begin
+  inherited;
+  FMyConn.ConnectorType := TIBConnectionDef.TypeName;
+end;
+
+function TghIBLib.GetSequenceValue(const ASequenceName: string): NativeInt;
+begin
+  with NewQuery do
+  try
+    SQL.Text := 'SELECT GEN_ID(' + ASequenceName + ', 1) as id FROM RDB$DATABASE';
+    Open;
+    Result := FieldByName('id').AsInteger;
+  finally
+    Free;
+  end;
+end;
 
 {$IFDEF MSSQL_LIB}
 
