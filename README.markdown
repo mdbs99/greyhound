@@ -1,4 +1,4 @@
-####Greyhound Project
+#Greyhound Project
 
 ##What is?
 * Greyhound is a tiny ORM-ish for [Free Pascal](http://freepascal.org/);
