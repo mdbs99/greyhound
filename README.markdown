@@ -1,5 +1,4 @@
-Greyhound Project
-=================
+####Greyhound Project
 
 ##What is?
 * Greyhound is a tiny ORM-ish for [Free Pascal](http://freepascal.org/);
@@ -18,5 +17,5 @@ Greyhound Project
 Greyhound compiles with FPC 2.6.0 (better with 2.6.1 or above).
 
 
-##Who uses Greyhound?
+##Who uses it?
 [Brook framework](http://brookframework.org)
