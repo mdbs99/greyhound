@@ -15,8 +15,8 @@
 
 
 ##System requirements
-Greyhound requires Free Pascal 2.6.1 or newer.
+Greyhound requires Free Pascal 2.6.0 or newer.
 
 
 ##Who uses it?
-[Brook framework](http://brookframework.org)
+* [Brook framework](http://brookframework.org)
