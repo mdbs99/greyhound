@@ -14,8 +14,8 @@
 * It is fast, clean and simple to use.
 
 
-##What FPC version it will need?
-Greyhound compiles with FPC 2.6.0 (better with 2.6.1 or above).
+##System requirements
+Greyhound requires Free Pascal 2.6.1 or newer.
 
 
 ##Who uses it?
