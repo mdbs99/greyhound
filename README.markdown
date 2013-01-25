@@ -1,6 +1,5 @@
 #Greyhound Project
 
-##Introduction
 Greyhound is a tiny ORM-ish for [Free Pascal](http://freepascal.org/).
 It is fast, clean and simple to use.
 
