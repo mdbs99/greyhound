@@ -12,7 +12,7 @@ It is fast, clean and simple to use.
 * It was inspired in ActiveRecord pattern but have dynamic columns, not "attributes";
 * It allows developers to have greater control of SQL rather than relying on the framework to generate it automatically;
 * It has easy transaction support;
-* It has the ability to add support for other databases libraries (SQLdb is default) like, ZEOS or whatever you want;
+* It has the ability to add support for other databases libraries like SQLdb (default), ZEOS or whatever you want;
 * It works with IDENTITY columns (AutoInc) automatic and Sequence values (generators);
 
 
