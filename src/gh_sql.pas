@@ -168,6 +168,7 @@ type
     FReuse: Boolean;
     FSelectColumns: string;
     FEnforceConstraints: Boolean;
+    FUseRetaining: Boolean;
     FBeforePost: TNotifyEvent;
     FAfterPost: TNotifyEvent;
     FBeforeCommit: TNotifyEvent;
@@ -192,6 +193,8 @@ type
     class procedure ClassFinalization;
     procedure CheckData;
     procedure InternalOpen; virtual;
+    procedure InternalCommit(ARetaining: Boolean); virtual;
+    procedure InternalRollback(ARetaining: Boolean); virtual;
     function CheckValues: Boolean; virtual;
     procedure SetDefaultValues; virtual;
     // events
@@ -217,7 +220,9 @@ type
     function Cancel: TghSQLTable;
     function Delete: TghSQLTable;
     function Commit: TghSQLTable;
+    function CommitRetaining: TghSQLTable;
     function Rollback: TghSQLTable;
+    function RollbackRetaining: TghSQLTable;
     function Refresh: TghSQLTable;
     function First: TghSQLTable;
     function Prior: TghSQLTable;
@@ -246,6 +251,7 @@ type
     property Relations: TghSQLTableList read GetRelations;
     property Constraints: TghSQLConstraintList read GetConstraints;
     property EnforceConstraints: Boolean read FEnforceConstraints;
+    property UseRetaining: Boolean read FUseRetaining write FUseRetaining;
     property BeforePost: TNotifyEvent read FBeforePost write FBeforePost;
     property AfterPost: TNotifyEvent read FAfterPost write FAfterPost;
     property BeforeCommit: TNotifyEvent read FBeforeCommit write FBeforeCommit;
@@ -870,6 +876,50 @@ begin
   end;
 end;
 
+procedure TghSQLTable.InternalCommit(ARetaining: Boolean);
+begin
+  if FData.State in [dsInsert, dsEdit] then
+  begin
+    if Post.HasErrors then
+      raise EghSQLError.Create(Self, FErrors.Text);
+  end;
+
+  FConnector.StartTransaction;
+  try
+    DoBeforeCommit;
+    with FData as IghDataSetResolver do
+    begin
+      SetTableName(FTableName);
+      ApplyUpdates;
+    end;
+    if ARetaining then
+      FConnector.CommitRetaining
+    else
+      FConnector.Commit;
+    FErrors.Clear;
+    DoAfterCommit;
+  except
+    on e: Exception do
+    begin
+      if ARetaining then
+        FConnector.RollbackRetaining
+      else
+        FConnector.Rollback;
+      raise EghSQLError.Create(Self, e.Message);
+    end;
+  end;
+end;
+
+procedure TghSQLTable.InternalRollback(ARetaining: Boolean);
+begin
+  if ARetaining then
+    FConnector.RollbackRetaining
+  else
+    FConnector.Rollback;
+  (FData as IghDataSetResolver).CancelUpdates;
+  FErrors.Clear;
+end;
+
 function TghSQLTable.CheckValues: Boolean;
 var
   i: Integer;
@@ -994,6 +1044,7 @@ begin
     FConnector.Notify(Self, opInsert);
 
   FData := nil;
+  FUseRetaining := True;
   FEnforceConstraints := True;
   FErrors := TStringList.Create;
   FParams := TghDataParams.Create;
@@ -1108,40 +1159,28 @@ end;
 function TghSQLTable.Commit: TghSQLTable;
 begin
   CheckData;
+  InternalCommit(FUseRetaining);
+  Result := Self;
+end;
 
-  if FData.State in [dsInsert, dsEdit] then
-  begin
-    if Post.HasErrors then
-      raise EghSQLError.Create(Self, FErrors.Text);
-  end;
-
-  FConnector.StartTransaction;
-  try
-    DoBeforeCommit;
-    with FData as IghDataSetResolver do
-    begin
-      SetTableName(FTableName);
-      ApplyUpdates;
-    end;
-    FConnector.CommitRetaining;
-    FErrors.Clear;
-    DoAfterCommit;
-  except
-    on e: Exception do
-    begin
-      FConnector.RollbackRetaining;
-      raise EghSQLError.Create(Self, e.Message);
-    end;
-  end;
-
+function TghSQLTable.CommitRetaining: TghSQLTable;
+begin
+  CheckData;
+  InternalCommit(True);
   Result := Self;
 end;
 
 function TghSQLTable.Rollback: TghSQLTable;
 begin
   CheckData;
-  (FData as IghDataSetResolver).CancelUpdates;
-  FErrors.Clear;
+  InternalRollback(False);
+  Result := Self;
+end;
+
+function TghSQLTable.RollbackRetaining: TghSQLTable;
+begin
+  CheckData;
+  InternalRollback(True);
   Result := Self;
 end;
 
