@@ -1,6 +1,12 @@
 Release notes
 ==========================================================
 
+(2013-02-24)
+
+- The gh_pack file was renamed to greyhound (the gh_pack will continue existing some time);
+- Tests were created using FPCUnit framework;
+
+
 (2013-01-05)
 
 - New TghIBLib/TghFirebirdLib class for IB/Firebird support;

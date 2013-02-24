@@ -18,7 +18,7 @@ interface
 
 uses
   // fpc
-  Classes, SysUtils, DB, fpjson,
+  Classes, SysUtils, DB,
   // gh
   gh_Global;
 
@@ -86,11 +86,6 @@ type
     property DataRow: TghDataRow read FDataRow;
   end;
 
-  TghJSONDataAdapter = class(TghDataAdapter)
-  public
-    procedure Adapt(ASource: TObject); override;
-  end;
-
 implementation
 
 { TghDataParams }
@@ -132,43 +127,6 @@ destructor TghDataAdapter.Destroy;
 begin
   FDataRow.Free;
   inherited Destroy;
-end;
-
-{ TghJSONDataAdapter }
-
-procedure TghJSONDataAdapter.Adapt(ASource: TObject);
-var
-  i: Integer;
-  lJson: TJSONObject absolute ASource;
-  lName: string;
-  lData: TJSONData;
-  lParam: TParam;
-begin
-  DataRow.Clear;
-  for i := 0 to lJson.Count-1 do
-  begin
-    lName := lJson.Names[i];
-    lData := lJson.Items[i];
-    lParam := DataRow[lName];
-    case lData.JSONType of
-      jtNumber:
-        begin
-          if lData is TJSONFloatNumber then
-            lParam.AsFloat := lData.AsFloat
-          else
-          if lData is TJSONIntegerNumber then
-            lParam.AsInteger := lData.AsInteger
-        end;
-      jtString:
-        lParam.AsString := lData.AsString;
-      jtBoolean:
-        lParam.AsBoolean := lData.AsBoolean;
-      jtNull:
-        lParam.Value := Null;
-    else
-      raise EghDataError.Create(Self, 'JSONType not supported.');
-    end;
-  end;
 end;
 
 end.
