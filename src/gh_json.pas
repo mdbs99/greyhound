@@ -23,7 +23,7 @@ uses
   gh_Global, gh_Data;
 
 type
-  EghJSONError = class(EghError);
+  EghJSONDataError = class(EghDataError);
 
 { Classes }
 
@@ -66,7 +66,7 @@ begin
       jtNull:
         lParam.Value := Null;
     else
-      raise EghDataError.Create(Self, 'JSONType not supported.');
+      raise EghJSONDataError.Create(Self, 'JSONType not supported.');
     end;
   end;
 end;
