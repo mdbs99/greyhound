@@ -17,7 +17,7 @@ It is fast, clean and simple to use.
 
 
 ##System requirements
-Greyhound requires Free Pascal 2.6.0 or newer.
+Greyhound requires Free Pascal 2.6.2 or newer.
 
 
 ##Who uses it?
