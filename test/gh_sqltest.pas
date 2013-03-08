@@ -47,7 +47,7 @@ begin
 end;
 
 initialization
+  RegisterTest('SQL Tests', TghSQLTableTest);
 
-  RegisterTest(TghSQLTableTest);
 end.
 

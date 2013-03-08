@@ -53,7 +53,7 @@ begin
 end;
 
 initialization
-  RegisterTest(TghDataParamsTest);
+  RegisterTest('Data Tests', TghDataParamsTest);
 
 end.
 

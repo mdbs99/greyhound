@@ -58,7 +58,7 @@ begin
 end;
 
 initialization
-  RegisterTest(TghJSONDataAdapterTest);
+  RegisterTest('JSON Tests', TghJSONDataAdapterTest);
 
 end.
 
