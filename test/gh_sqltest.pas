@@ -18,35 +18,119 @@ interface
 
 uses
   Classes, SysUtils, fpcunit, testutils, testregistry,
-  gh_SQL;
+  gh_SQL, gh_SQLdbLib;
 
 type
-  TghSQLTableTest = class(TTestCase)
+  TghSQLTest = class(TTestCase)
   protected
+    FConn: TghSQLConnector;
+    FClient: TghSQLClient;
+    procedure DeleteDB;
+    procedure ExecScript;
+
+    procedure SetUp; override;
+    procedure TearDown; override;
+  end;
+
+  TghSQLConnectorTest = class(TghSQLTest)
+  published
+    procedure TestGetTable;
+  end;
+
+  TghSQLTableTest = class(TghSQLTest)
+  protected
+    FTable: TghSQLTable;
     procedure SetUp; override;
     procedure TearDown; override;
   published
-    procedure TestHookUp;
+    procedure TestOpen;
+    procedure TestConstraints;
   end;
 
 implementation
 
-procedure TghSQLTableTest.TestHookUp;
+const
+  DB_FILE = 'DB.sqlite';
+  SCRIPT_PATH = 'script' + DirectorySeparator;
+
+{ TghSQLTest }
+
+procedure TghSQLTest.DeleteDB;
 begin
-  Fail('Write your own test');
+  if FileExists(DB_FILE) then
+    DeleteFile(DB_FILE);
 end;
+
+procedure TghSQLTest.ExecScript;
+begin
+  FClient.Clear;
+  FClient.Script.LoadFromFile(SCRIPT_PATH + 'sql-table-1.sql');
+  FClient.IsBatch := True;
+  FClient.Execute;
+end;
+
+procedure TghSQLTest.SetUp;
+begin
+  FConn := TghSQLConnector.Create(TghSQLite3Lib);
+  FClient := TghSQLClient.Create(FConn);
+  DeleteDB;
+  FConn.Database := DB_FILE;
+  ExecScript;
+end;
+
+procedure TghSQLTest.TearDown;
+begin
+  FClient.Free;
+  FConn.Free;
+  DeleteDB;
+end;
+
+{ TghSQLConnectorTest }
+
+procedure TghSQLConnectorTest.TestGetTable;
+begin
+  FConn.Tables['user'].Open;
+end;
+
+{ TghSQLTableTest }
 
 procedure TghSQLTableTest.SetUp;
 begin
-
+  inherited SetUp;
+  FTable := FConn.Tables['user'].Open;
 end;
 
 procedure TghSQLTableTest.TearDown;
 begin
+  FTable.Free;
+  inherited TearDown;
+end;
 
+procedure TghSQLTableTest.TestOpen;
+begin
+  FTable.Open;
+end;
+
+procedure TghSQLTableTest.TestConstraints;
+begin
+  with FTable.Constraints do
+  begin
+    Clear;
+    AddDefault('login', 'guest');
+    AddDefault('passwd', '123');
+    AddDefault('access_id', '2');
+  end;
+  AssertEquals(3, FTable.Constraints.Count);
+
+  FTable.Insert;
+  AssertEquals(FTable['login'].AsString, 'guest');
+  AssertEquals(FTable['passwd'].AsString, '123');
+  AssertEquals(FTable['access_id'].AsString, '2');
+  FTable.Post;
 end;
 
 initialization
+  RegisterTest('SQL Tests', TghSQLConnectorTest);
   RegisterTest('SQL Tests', TghSQLTableTest);
 
 end.

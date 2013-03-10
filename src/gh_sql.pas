@@ -1383,7 +1383,6 @@ begin
   begin
     Result := TghSQLTable.Create(Self, ATableName);
     Result.Reuse := False;
-    Notify(Result, opInsert);
   end;
 end;
 
@@ -1411,7 +1410,9 @@ begin
   while FTables.Count > 0 do
   begin
     lTable := FTables.Items[0];
-    FTables.Remove(lTable);
+    lTable.Close;
+    lTable.Connector := nil;
+    Notify(lTable, opRemove);
     lTable.Free;
   end;
   FTables.Free;

@@ -3,7 +3,7 @@ program test;
 {$mode objfpc}{$H+}
 
 uses
-  Interfaces, Forms, GuiTestRunner, gh_SQLTest, gh_DataTest, gh_JSONTest;
+  Interfaces, Forms, GuiTestRunner, gh_DataTest, gh_SQLTest, gh_JSONTest;
 
 {$R *.res}
 
