@@ -36,6 +36,7 @@ type
   published
     procedure TestGetTable;
     procedure TestTableNotification;
+    procedure TestFindByName;
   end;
 
   TghSQLTableTest = class(TghSQLTest)
@@ -99,7 +100,22 @@ var
 begin
   lT := FConn.Tables['user'].Open;
   AssertTrue(lT.Active);
+  AssertEquals(1, FConn.Tables.Count);
+  // notify connection
+  lT.Free;
+  AssertEquals(0, FConn.Tables.Count);
 
+  // tables aren't reused
+  lT := FConn.Tables['user'].Open;
+  lT := FConn.Tables['user'].Open;
+  lT := FConn.Tables['user'].Open;
+  AssertEquals(3, FConn.Tables.Count);
+end;
+
+procedure TghSQLConnectorTest.TestFindByName;
+begin
+  AssertNull(FConn.Tables.FindByName('table_not_exists'));
+  AssertEquals('user', FConn.Tables['user'].TableName);
 end;
 
 { TghSQLTableTest }

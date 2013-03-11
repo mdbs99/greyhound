@@ -262,6 +262,7 @@ type
   TghSQLTableNotifyEvent = procedure (Sender: TObject; ATable: TghSQLTable) of object;
   TghSQLTableList = class(specialize TFPGObjectList<TghSQLTable>)
   private
+    FLocked: Boolean;
     FOwnerTable: TghSQLTable;
     FOnNewTable: TghSQLTableNotifyEvent;
     FOnFoundTable: TghSQLTableNotifyEvent;
@@ -273,6 +274,8 @@ type
     constructor Create(AOwnerTable: TghSQLTable; AFreeObjects: Boolean = True); virtual; reintroduce;
     destructor Destroy; override;
     function FindByName(const AName: string): TghSQLTable;
+    procedure Lock;
+    procedure UnLock;
     property Tables[const ATableName: string]: TghSQLTable read GetTables; default;
     property OnNewTable: TghSQLTableNotifyEvent read FOnNewTable write FOnNewTable;
     property OnFoundTable: TghSQLTableNotifyEvent read FOnFoundTable write FOnFoundTable;
@@ -312,8 +315,9 @@ type
     FTables: TghSQLTableList;
   protected
     FLib: TghSQLLib;
-    function GetTables(const ATableName: string): TghSQLTable; virtual;
     function GetConnected: Boolean;
+    // callback
+    procedure CallNewTable(Sender: TObject; ATable: TghSQLTable); virtual;
   public
     constructor Create(ALib: TghSQLLibClass); virtual; reintroduce;
     destructor Destroy; override;
@@ -333,7 +337,7 @@ type
     property Database: string read FDatabase write FDatabase;
     property User: string read FUser write FUser;
     property Password: string read FPassword write FPassword;
-    property Tables[const ATableName: string]: TghSQLTable read GetTables;
+    property Tables: TghSQLTableList read FTables;
   end;
 
 implementation
@@ -776,13 +780,17 @@ end;
 
 procedure TghSQLTable.SetConnector(AValue: TghSQLConnector);
 begin
-  if FConnector = AValue then
-    Exit;
-
   if Self.Active then
     raise EghSQLError.Create(Self, 'Table is active.');
 
+  if (AValue = nil) or (FConnector = AValue) then
+    Exit;
+
+  if Assigned(FConnector) then
+    FConnector.Notify(Self, opRemove);
+
   FConnector := AValue;
+  FConnector.Notify(Self, opInsert);
 end;
 
 function TghSQLTable.GetState: TDataSetState;
@@ -1286,9 +1294,10 @@ begin
     raise EghSQLError.Create(Self, 'TableName not defined.');
 
   Result := FindByName(ATableName);
-  if Result = nil then
+  if ((Result = nil) and not FLocked) or (Result.Active and not Result.Reuse) then
   begin
     Result := TghSQLTable.Create(nil, ATableName);
+    Result.Reuse := False;
     Add(Result);
     DoNewTable(Result);
   end;
@@ -1309,6 +1318,7 @@ end;
 constructor TghSQLTableList.Create(AOwnerTable: TghSQLTable; AFreeObjects: Boolean);
 begin
   inherited Create(AFreeObjects);
+  FLocked := False;
   FOwnerTable := AOwnerTable;
 end;
 
@@ -1352,6 +1362,16 @@ begin
   end;
 end;
 
+procedure TghSQLTableList.Lock;
+begin
+  FLocked := True;
+end;
+
+procedure TghSQLTableList.UnLock;
+begin
+  FLocked := False;
+end;
+
 { TghSQLLib }
 
 constructor TghSQLLib.Create(var AConnector: TghSQLConnector);
@@ -1376,19 +1396,6 @@ end;
 
 { TghSQLConnector }
 
-function TghSQLConnector.GetTables(const ATableName: string): TghSQLTable;
-begin
-  if ATableName = '' then
-    raise EghSQLError.Create(Self, 'TableName not defined.');
-
-  Result := FTables.FindByName(ATableName);
-  if (Result = nil) or (Result.Active and not Result.Reuse) then
-  begin
-    Result := TghSQLTable.Create(Self, ATableName);
-    Result.Reuse := False;
-  end;
-end;
-
 function TghSQLConnector.GetConnected: Boolean;
 begin
   try
@@ -1399,10 +1406,16 @@ begin
   end;
 end;
 
+procedure TghSQLConnector.CallNewTable(Sender: TObject; ATable: TghSQLTable);
+begin
+  ATable.Connector := Self;
+end;
+
 constructor TghSQLConnector.Create(ALib: TghSQLLibClass);
 begin
   inherited Create;
   FTables := TghSQLTableList.Create(nil, False);
+  FTables.OnNewTable := @CallNewTable;
   SetLibClass(ALib);
 end;
 
@@ -1530,7 +1543,11 @@ end;
 procedure TghSQLConnector.Notify(ATable: TghSQLTable; AOperation: TOperation);
 begin
   case AOperation of
-    opInsert: FTables.Add(ATable);
+    opInsert:
+      begin
+        if FTables.IndexOf(ATable) = -1 then
+          FTables.Add(ATable);
+      end;
     opRemove: FTables.Remove(ATable);
   end;
 end;
