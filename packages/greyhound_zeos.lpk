@@ -2,7 +2,7 @@
 <CONFIG>
   <Package Version="4">
     <PathDelim Value="\"/>
-    <Name Value="Greyhound"/>
+    <Name Value="Greyhound_Zeos"/>
     <Author Value="Marcos Douglas B. dos Santos"/>
     <CompilerOptions>
       <Version Value="11"/>
@@ -19,36 +19,27 @@
         <CompilerPath Value="$(CompPath)"/>
       </Other>
     </CompilerOptions>
-    <Description Value="Greyhound runtime package."/>
+    <Description Value="Greyhound ZEOS runtime package."/>
     <License Value="See the file LICENSE, included in this distribution, for details about the copyright."/>
-    <Version Release="1" Build="2"/>
-    <Files Count="6">
+    <Version Release="1"/>
+    <Files Count="1">
       <Item1>
-        <Filename Value="..\src\gh_sqldblib.pas"/>
-        <UnitName Value="gh_SQLdbLib"/>
+        <Filename Value="..\src\gh_zeoslib.pas"/>
+        <UnitName Value="gh_ZeosLib"/>
       </Item1>
-      <Item2>
-        <Filename Value="..\src\gh_data.pas"/>
-        <UnitName Value="gh_Data"/>
-      </Item2>
-      <Item3>
-        <Filename Value="..\src\gh_def.inc"/>
-        <Type Value="Include"/>
-      </Item3>
-      <Item4>
-        <Filename Value="..\src\gh_global.pas"/>
-        <UnitName Value="gh_Global"/>
-      </Item4>
-      <Item5>
-        <Filename Value="..\src\gh_json.pas"/>
-        <UnitName Value="gh_JSON"/>
-      </Item5>
-      <Item6>
-        <Filename Value="..\src\gh_sql.pas"/>
-        <UnitName Value="gh_SQL"/>
-      </Item6>
     </Files>
     <Type Value="RunTimeOnly"/>
+    <RequiredPkgs Count="3">
+      <Item1>
+        <PackageName Value="zcomponent"/>
+      </Item1>
+      <Item2>
+        <PackageName Value="Greyhound"/>
+      </Item2>
+      <Item3>
+        <PackageName Value="FCL"/>
+      </Item3>
+    </RequiredPkgs>
     <UsageOptions>
       <UnitPath Value="$(PkgOutDir)"/>
     </UsageOptions>
