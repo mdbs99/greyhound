@@ -139,13 +139,11 @@ end;
 
 procedure TghSQLTableTest.TestConstraints;
 begin
-  with FTable.Constraints do
-  begin
-    Clear;
-    AddDefault('login', 'guest');
-    AddDefault('passwd', '123');
-    AddDefault('access_id', '2');
-  end;
+  // DEFAULT CONSTRAINT
+  FTable.Constraints.Clear;
+  FTable.Constraints.AddDefault('login', 'guest');
+  FTable.Constraints.AddDefault('passwd', '123');
+  FTable.Constraints.AddDefault('access_id', '2');
   AssertEquals(3, FTable.Constraints.Count);
 
   FTable.Insert;
@@ -153,6 +151,30 @@ begin
   AssertEquals(FTable['passwd'].AsString, '123');
   AssertEquals(FTable['access_id'].AsString, '2');
   FTable.Cancel;
+
+  // CHECK CONSTRAINT
+  FTable.Constraints.Clear;
+  FTable.Constraints.AddCheck('login', ['user1', 'user2', 'user3']);
+  AssertEquals(1, FTable.Constraints.Count);
+  // test using a valid value
+  FTable.Insert;
+  FTable['login'].AsString := 'user1';
+  AssertFalse('Check constraint is not running.', FTable.Post.HasErrors);
+  // test using a invalid value
+  FTable.Insert;
+  FTable['login'].AsString := 'foo';
+  AssertTrue('Check constraint is not running.', FTable.Post.HasErrors);
+  FTable.Cancel;
+
+  // UNIQUE CONSTRAINT
+  FTable.Constraints.Clear;
+  FTable.Constraints.AddUnique(['login']);
+  FTable.Insert;
+  FTable['login'].AsString := 'foo';
+  FTable.Post.Commit;
+  FTable.Insert;
+  FTable['login'].AsString := 'foo';
+  AssertTrue('Unique constraint is not running.', FTable.Post.HasErrors);
 end;
 
 initialization
