@@ -35,6 +35,7 @@ type
   TghSQLConnectorTest = class(TghSQLTest)
   published
     procedure TestGetTable;
+    procedure TestTableNotification;
   end;
 
   TghSQLTableTest = class(TghSQLTest)
@@ -64,7 +65,7 @@ end;
 procedure TghSQLTest.ExecScript;
 begin
   FClient.Clear;
-  FClient.Script.LoadFromFile(SCRIPT_PATH + 'sql-table-1.sql');
+  FClient.Script.LoadFromFile(SCRIPT_PATH + 'script-1.sql');
   FClient.IsBatch := True;
   FClient.Execute;
 end;
@@ -89,7 +90,16 @@ end;
 
 procedure TghSQLConnectorTest.TestGetTable;
 begin
-  FConn.Tables['user'].Open;
+  AssertTrue(FConn.Tables['user'].Open.Active);
+end;
+
+procedure TghSQLConnectorTest.TestTableNotification;
+var
+  lT: TghSQLTable;
+begin
+  lT := FConn.Tables['user'].Open;
+  AssertTrue(lT.Active);
+
 end;
 
 { TghSQLTableTest }
@@ -126,7 +136,7 @@ begin
   AssertEquals(FTable['login'].AsString, 'guest');
   AssertEquals(FTable['passwd'].AsString, '123');
   AssertEquals(FTable['access_id'].AsString, '2');
-  FTable.Post;
+  FTable.Cancel;
 end;
 
 initialization

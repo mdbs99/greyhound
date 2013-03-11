@@ -1282,6 +1282,9 @@ end;
 
 function TghSQLTableList.GetTables(const ATableName: string): TghSQLTable;
 begin
+  if ATableName = '' then
+    raise EghSQLError.Create(Self, 'TableName not defined.');
+
   Result := FindByName(ATableName);
   if Result = nil then
   begin
