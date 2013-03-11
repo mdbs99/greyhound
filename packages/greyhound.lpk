@@ -8,8 +8,8 @@
       <Version Value="11"/>
       <PathDelim Value="\"/>
       <SearchPaths>
-        <IncludeFiles Value="."/>
-        <OtherUnitFiles Value="."/>
+        <IncludeFiles Value="..\src"/>
+        <OtherUnitFiles Value="..\src"/>
         <UnitOutputDirectory Value="lib\$(TargetCPU)-$(TargetOS)"/>
       </SearchPaths>
       <Other>
@@ -24,36 +24,31 @@
     <Version Release="1" Build="1"/>
     <Files Count="6">
       <Item1>
-        <Filename Value="gh_data.pas"/>
-        <UnitName Value="gh_Data"/>
+        <Filename Value="..\src\gh_sqldblib.pas"/>
+        <UnitName Value="gh_SQLdbLib"/>
       </Item1>
       <Item2>
-        <Filename Value="gh_def.inc"/>
-        <Type Value="Include"/>
+        <Filename Value="..\src\gh_data.pas"/>
+        <UnitName Value="gh_Data"/>
       </Item2>
       <Item3>
-        <Filename Value="gh_global.pas"/>
-        <UnitName Value="gh_Global"/>
+        <Filename Value="..\src\gh_def.inc"/>
+        <Type Value="Include"/>
       </Item3>
       <Item4>
-        <Filename Value="gh_sql.pas"/>
-        <UnitName Value="gh_SQL"/>
+        <Filename Value="..\src\gh_global.pas"/>
+        <UnitName Value="gh_Global"/>
       </Item4>
       <Item5>
-        <Filename Value="gh_sqldblib.pas"/>
-        <UnitName Value="gh_SQLdbLib"/>
+        <Filename Value="..\src\gh_json.pas"/>
+        <UnitName Value="gh_JSON"/>
       </Item5>
       <Item6>
-        <Filename Value="gh_json.pas"/>
-        <UnitName Value="gh_JSON"/>
+        <Filename Value="..\src\gh_sql.pas"/>
+        <UnitName Value="gh_SQL"/>
       </Item6>
     </Files>
     <Type Value="RunTimeOnly"/>
-    <RequiredPkgs Count="1">
-      <Item1>
-        <PackageName Value="LCLBase"/>
-      </Item1>
-    </RequiredPkgs>
     <UsageOptions>
       <UnitPath Value="$(PkgOutDir)"/>
     </UsageOptions>
