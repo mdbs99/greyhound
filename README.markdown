@@ -9,7 +9,7 @@ It is fast, clean and simple to use.
 * It use SQL as query language and does not try to create a complex abstraction between objects and tables;
 * It implements relationship between tables using "Links" property;
 * It implements constraints for tables (default, check and unique);
-* It was inspired in ActiveRecord pattern but have dynamic columns, not "attributes";
+* It was inspired in ActiveRecord pattern;
 * It allows developers to have greater control of SQL rather than relying on the framework to generate it automatically;
 * It has easy transaction support;
 * It has the ability to add support for other databases libraries like SQLdb (default), ZEOS or whatever you want;
