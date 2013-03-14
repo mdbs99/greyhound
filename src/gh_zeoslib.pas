@@ -25,7 +25,7 @@ uses
   gh_SQL;
 
 type
-  TghZeosQuery = class(TZQuery, IghDataSetResolver)
+  TghZeosQuery = class(TZQuery, IghSQLDataSetResolver)
   private
     FTableName: string;
   protected

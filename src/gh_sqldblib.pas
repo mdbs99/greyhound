@@ -36,7 +36,7 @@ type
     property IsBatch: Boolean read FIsBatch write FIsBatch;
   end;
 
-  TghSQLdbQuery = class(TSQLQuery, IghDataSetResolver)
+  TghSQLdbQuery = class(TSQLQuery, IghSQLDataSetResolver)
   private
     FTableName: string;
     procedure CallResolverError(Sender: TObject; DataSet: TCustomBufDataset;
@@ -44,7 +44,7 @@ type
   protected
     FLib: TghSQLdbLib;
     procedure ApplyRecUpdate(UpdateKind: TUpdateKind); override;
-    { IghDataSetResolver }
+    { IghSQLDataSetResolver }
     function GetEOF: Boolean;
     function GetFields: TFields;
     function GetState: TDataSetState;

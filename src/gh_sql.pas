@@ -36,7 +36,7 @@ type
 
 { Interfaces }
 
-  IghDataSetResolver = interface(IghDataSet)
+  IghSQLDataSetResolver = interface(IghDataSet)
     procedure SetTableName(const ATableName: string);
     function GetServerIndexDefs: TIndexDefs;
     procedure ApplyUpdates;
@@ -593,7 +593,7 @@ var
     i: Integer;
     lIxDef: TIndexDef;
   begin
-    with FOwnerTable.FData as IghDataSetResolver do
+    with FOwnerTable.FData as IghSQLDataSetResolver do
     begin
       for i := 0 to GetServerIndexDefs.Count -1 do
       begin
@@ -895,7 +895,7 @@ begin
   FConnector.StartTransaction;
   try
     DoBeforeCommit;
-    with FData as IghDataSetResolver do
+    with FData as IghSQLDataSetResolver do
     begin
       SetTableName(FTableName);
       ApplyUpdates;
@@ -924,7 +924,7 @@ begin
     FConnector.RollbackRetaining
   else
     FConnector.Rollback;
-  (FData as IghDataSetResolver).CancelUpdates;
+  (FData as IghSQLDataSetResolver).CancelUpdates;
   FErrors.Clear;
 end;
 
