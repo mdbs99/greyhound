@@ -47,6 +47,8 @@ type
   published
     procedure TestOpen;
     procedure TestConstraints;
+    procedure TestAutoInc;
+    procedure TestBypassAutoInc;
   end;
 
 implementation
@@ -175,6 +177,29 @@ begin
   FTable.Insert;
   FTable['login'].AsString := 'foo';
   AssertTrue('Unique constraint is not running.', FTable.Post.HasErrors);
+end;
+
+procedure TghSQLTableTest.TestAutoInc;
+var
+  lLastId: Integer;
+begin
+  lLastId := FTable.Last.Columns['id'].AsInteger;
+
+  FTable.Insert;
+  FTable['login'].Value := 'user1';
+  FTable.Commit;
+
+  AssertEquals(lLastId+1, FTable['id'].AsInteger);
+end;
+
+procedure TghSQLTableTest.TestBypassAutoInc;
+begin
+  FTable.Insert;
+  FTable['id'].Value := 333;
+  FTable['login'].Value := 'user1';
+  FTable.Commit;
+
+  AssertEquals(333, FTable['id'].AsInteger);
 end;
 
 initialization

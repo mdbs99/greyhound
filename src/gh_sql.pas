@@ -1027,9 +1027,8 @@ begin
   for i := 0 to GetColumns.Count -1 do
   begin
     lField := GetColumns.Fields[i];
-    if (lField.DataType = ftAutoInc) or
-       ((LowerCase(lField.FieldName) = 'id') and
-        (lField is TNumericField) and (lField.IsNull)) then
+    if lField.IsNull and
+       ((lField.DataType = ftAutoInc) or (LowerCase(lField.FieldName) = 'id') and (lField is TNumericField)) then
     begin
       lLastId := FConnector.Lib.GetLastAutoIncValue;
       if lLastId <= 0 then
