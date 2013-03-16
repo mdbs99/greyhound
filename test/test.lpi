@@ -60,22 +60,19 @@
         <FormatVersion Value="1"/>
       </local>
     </RunParams>
-    <RequiredPackages Count="5">
+    <RequiredPackages Count="4">
       <Item1>
-        <PackageName Value="zcomponent"/>
+        <PackageName Value="Greyhound"/>
       </Item1>
       <Item2>
-        <PackageName Value="Greyhound"/>
+        <PackageName Value="FPCUnitTestRunner"/>
       </Item2>
       <Item3>
-        <PackageName Value="FPCUnitTestRunner"/>
+        <PackageName Value="LCL"/>
       </Item3>
       <Item4>
-        <PackageName Value="LCL"/>
-      </Item4>
-      <Item5>
         <PackageName Value="FCL"/>
-      </Item5>
+      </Item4>
     </RequiredPackages>
     <Units Count="4">
       <Unit0>
