@@ -41,7 +41,7 @@ type
 
   TghSQLTableTest = class(TghSQLTest)
   protected
-    FTable: TghSQLTable;
+    FUser: TghSQLTable;
     procedure SetUp; override;
     procedure TearDown; override;
   published
@@ -49,6 +49,7 @@ type
     procedure TestConstraints;
     procedure TestAutoInc;
     procedure TestBypassAutoInc;
+    procedure TestLinks;
   end;
 
 implementation
@@ -125,81 +126,95 @@ end;
 procedure TghSQLTableTest.SetUp;
 begin
   inherited SetUp;
-  FTable := FConn.Tables['user'].Open;
+  FUser := FConn.Tables['user'].Open;
 end;
 
 procedure TghSQLTableTest.TearDown;
 begin
-  FTable.Free;
+  FUser.Free;
   inherited TearDown;
 end;
 
 procedure TghSQLTableTest.TestOpen;
 begin
-  FTable.Open;
+  FUser.Open;
 end;
 
 procedure TghSQLTableTest.TestConstraints;
 begin
   // DEFAULT CONSTRAINT
-  FTable.Constraints.Clear;
-  FTable.Constraints.AddDefault('login', 'guest');
-  FTable.Constraints.AddDefault('passwd', '123');
-  FTable.Constraints.AddDefault('access_id', '2');
-  AssertEquals(3, FTable.Constraints.Count);
+  FUser.Constraints.Clear;
+  FUser.Constraints.AddDefault('login', 'guest');
+  FUser.Constraints.AddDefault('passwd', '123');
+  FUser.Constraints.AddDefault('role_id', 2);
+  AssertEquals(3, FUser.Constraints.Count);
 
-  FTable.Insert;
-  AssertEquals(FTable['login'].AsString, 'guest');
-  AssertEquals(FTable['passwd'].AsString, '123');
-  AssertEquals(FTable['access_id'].AsString, '2');
-  FTable.Cancel;
+  FUser.Insert;
+  AssertEquals(FUser['login'].AsString, 'guest');
+  AssertEquals(FUser['passwd'].AsString, '123');
+  AssertEquals(FUser['role_id'].AsInteger, 2);
+  FUser.Cancel;
 
   // CHECK CONSTRAINT
-  FTable.Constraints.Clear;
-  FTable.Constraints.AddCheck('login', ['user1', 'user2', 'user3']);
-  AssertEquals(1, FTable.Constraints.Count);
+  FUser.Constraints.Clear;
+  FUser.Constraints.AddCheck('login', ['user1', 'user2', 'user3']);
+  AssertEquals(1, FUser.Constraints.Count);
   // test using a valid value
-  FTable.Insert;
-  FTable['login'].AsString := 'user1';
-  AssertFalse('Check constraint is not running.', FTable.Post.HasErrors);
+  FUser.Insert;
+  FUser['login'].AsString := 'user1';
+  AssertFalse('Check constraint is not running.', FUser.Post.HasErrors);
   // test using a invalid value
-  FTable.Insert;
-  FTable['login'].AsString := 'foo';
-  AssertTrue('Check constraint is not running.', FTable.Post.HasErrors);
-  FTable.Cancel;
+  FUser.Insert;
+  FUser['login'].AsString := 'foo';
+  AssertTrue('Check constraint is not running.', FUser.Post.HasErrors);
+  FUser.Cancel;
 
   // UNIQUE CONSTRAINT
-  FTable.Constraints.Clear;
-  FTable.Constraints.AddUnique(['login']);
-  FTable.Insert;
-  FTable['login'].AsString := 'foo';
-  FTable.Post.Commit;
-  FTable.Insert;
-  FTable['login'].AsString := 'foo';
-  AssertTrue('Unique constraint is not running.', FTable.Post.HasErrors);
+  FUser.Constraints.Clear;
+  FUser.Constraints.AddUnique(['login']);
+  FUser.Insert;
+  FUser['login'].AsString := 'foo';
+  FUser.Post.Commit;
+  FUser.Insert;
+  FUser['login'].AsString := 'foo';
+  AssertTrue('Unique constraint is not running.', FUser.Post.HasErrors);
 end;
 
 procedure TghSQLTableTest.TestAutoInc;
 var
   lLastId: Integer;
 begin
-  lLastId := FTable.Last.Columns['id'].AsInteger;
+  lLastId := FUser.Last.Columns['id'].AsInteger;
 
-  FTable.Insert;
-  FTable['login'].Value := 'user1';
-  FTable.Commit;
+  FUser.Insert;
+  FUser['login'].Value := 'user1';
+  FUser.Commit;
 
-  AssertEquals(lLastId+1, FTable['id'].AsInteger);
+  AssertEquals(lLastId+1, FUser['id'].AsInteger);
 end;
 
 procedure TghSQLTableTest.TestBypassAutoInc;
 begin
-  FTable.Insert;
-  FTable['id'].Value := 333;
-  FTable['login'].Value := 'user1';
-  FTable.Commit;
+  FUser.Insert;
+  FUser['id'].Value := 333;
+  FUser['login'].Value := 'user1';
+  FUser.Commit;
 
-  AssertEquals(333, FTable['id'].AsInteger);
+  AssertEquals(333, FUser['id'].AsInteger);
+end;
+
+procedure TghSQLTableTest.TestLinks;
+var
+  lRole: TghSQLTable;
+begin
+  FUser.Relations['role'].Where('id = :role_id');
+  lRole := FUser.Links['role'];
+  // test auto open
+  AssertTrue(lRole.Active);
+  // test count
+  AssertEquals(1, lRole.RecordCount);
+  // test same foreign key id
+  AssertEquals(FUser['role_id'].AsInteger, lRole['id'].AsInteger);
 end;
 
 initialization
