@@ -1002,9 +1002,14 @@ begin
   if not Assigned(lModel) then
     raise EghSQLError.CreateFmt(Self, 'Model "%s" not found.', [ATable.TableName]);
 
-  ATable.Connector := FConnector;
-  ATable.OwnerTable := Self;
-  ATable.Reuse := False;  // TODO: important?
+  if not ATable.Active then
+  begin
+    ATable.Connector := FConnector;
+    ATable.OwnerTable := Self;
+    ATable.Reuse := False;  // TODO: important?
+  end;
+
+  ATable.Close;
   ATable.Assign(lModel);
   ATable.FillAutoParams(Self);
 
@@ -1090,6 +1095,7 @@ begin
   Self.FConditions := ASource.FConditions;
   Self.FOrderBy := ASource.FOrderBy;
   Self.FTableName := ASource.FTableName;
+  Self.FReuse := ASource.FReuse;
 end;
 
 function TghSQLTable.Close: TghSQLTable;
@@ -1293,7 +1299,10 @@ begin
     raise EghSQLError.Create(Self, 'TableName not defined.');
 
   Result := FindByName(ATableName);
-  if ((Result = nil) and not FLocked) or (Result.Active and not Result.Reuse) then
+  if (Result = nil) and FLocked then
+    raise EghSQLError.Create(Self, 'Table not found.');
+
+  if (Result = nil) or (Result.Active and (not Result.Reuse)) then
   begin
     Result := TghSQLTable.Create(nil, ATableName);
     Result.Reuse := False;

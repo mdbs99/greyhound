@@ -26,7 +26,7 @@ type
     FConn: TghSQLConnector;
     FClient: TghSQLClient;
     procedure DeleteDB;
-    procedure ExecScript;
+    procedure ExecScript(const AFileName: string);
 
     procedure SetUp; override;
     procedure TearDown; override;
@@ -40,16 +40,13 @@ type
   end;
 
   TghSQLTableTest = class(TghSQLTest)
-  protected
-    FUser: TghSQLTable;
-    procedure SetUp; override;
-    procedure TearDown; override;
   published
     procedure TestOpen;
     procedure TestConstraints;
     procedure TestAutoInc;
     procedure TestBypassAutoInc;
-    procedure TestLinks;
+    procedure TestRelations;
+    procedure TestRelationsThrough;
   end;
 
 implementation
@@ -66,10 +63,10 @@ begin
     DeleteFile(DB_FILE);
 end;
 
-procedure TghSQLTest.ExecScript;
+procedure TghSQLTest.ExecScript(const AFileName: string);
 begin
   FClient.Clear;
-  FClient.Script.LoadFromFile(SCRIPT_PATH + 'script-1.sql');
+  FClient.Script.LoadFromFile(SCRIPT_PATH + AFileName);
   FClient.IsBatch := True;
   FClient.Execute;
 end;
@@ -78,9 +75,8 @@ procedure TghSQLTest.SetUp;
 begin
   FConn := TghSQLConnector.Create(TghSQLite3Lib);
   FClient := TghSQLClient.Create(FConn);
-  DeleteDB;
   FConn.Database := DB_FILE;
-  ExecScript;
+  ExecScript('script-1.sql');
 end;
 
 procedure TghSQLTest.TearDown;
@@ -123,98 +119,135 @@ end;
 
 { TghSQLTableTest }
 
-procedure TghSQLTableTest.SetUp;
-begin
-  inherited SetUp;
-  FUser := FConn.Tables['user'].Open;
-end;
-
-procedure TghSQLTableTest.TearDown;
-begin
-  FUser.Free;
-  inherited TearDown;
-end;
-
 procedure TghSQLTableTest.TestOpen;
 begin
-  FUser.Open;
+  FConn.Tables['user'].Open;
 end;
 
 procedure TghSQLTableTest.TestConstraints;
+var
+  lUser: TghSQLTable;
 begin
-  // DEFAULT CONSTRAINT
-  FUser.Constraints.Clear;
-  FUser.Constraints.AddDefault('login', 'guest');
-  FUser.Constraints.AddDefault('passwd', '123');
-  FUser.Constraints.AddDefault('role_id', 2);
-  AssertEquals(3, FUser.Constraints.Count);
+  lUser := FConn.Tables['user'].Open;
 
-  FUser.Insert;
-  AssertEquals(FUser['login'].AsString, 'guest');
-  AssertEquals(FUser['passwd'].AsString, '123');
-  AssertEquals(FUser['role_id'].AsInteger, 2);
-  FUser.Cancel;
+  // DEFAULT CONSTRAINT
+  lUser.Constraints.Clear;
+  lUser.Constraints.AddDefault('login', 'guest');
+  lUser.Constraints.AddDefault('passwd', '123');
+  lUser.Constraints.AddDefault('role_id', 2);
+  AssertEquals(3, lUser.Constraints.Count);
+
+  lUser.Insert;
+  AssertEquals(lUser['login'].AsString, 'guest');
+  AssertEquals(lUser['passwd'].AsString, '123');
+  AssertEquals(lUser['role_id'].AsInteger, 2);
+  lUser.Cancel;
 
   // CHECK CONSTRAINT
-  FUser.Constraints.Clear;
-  FUser.Constraints.AddCheck('login', ['user1', 'user2', 'user3']);
-  AssertEquals(1, FUser.Constraints.Count);
+  lUser.Constraints.Clear;
+  lUser.Constraints.AddCheck('login', ['user1', 'user2', 'user3']);
+  AssertEquals(1, lUser.Constraints.Count);
   // test using a valid value
-  FUser.Insert;
-  FUser['login'].AsString := 'user1';
-  AssertFalse('Check constraint is not running.', FUser.Post.HasErrors);
+  lUser.Insert;
+  lUser['login'].AsString := 'user1';
+  AssertFalse('Check constraint is not running.', lUser.Post.HasErrors);
   // test using a invalid value
-  FUser.Insert;
-  FUser['login'].AsString := 'foo';
-  AssertTrue('Check constraint is not running.', FUser.Post.HasErrors);
-  FUser.Cancel;
+  lUser.Insert;
+  lUser['login'].AsString := 'foo';
+  AssertTrue('Check constraint is not running.', lUser.Post.HasErrors);
+  lUser.Cancel;
 
   // UNIQUE CONSTRAINT
-  FUser.Constraints.Clear;
-  FUser.Constraints.AddUnique(['login']);
-  FUser.Insert;
-  FUser['login'].AsString := 'foo';
-  FUser.Post.Commit;
-  FUser.Insert;
-  FUser['login'].AsString := 'foo';
-  AssertTrue('Unique constraint is not running.', FUser.Post.HasErrors);
+  lUser.Constraints.Clear;
+  lUser.Constraints.AddUnique(['login']);
+  lUser.Insert;
+  lUser['login'].AsString := 'foo';
+  lUser.Post.Commit;
+  lUser.Insert;
+  lUser['login'].AsString := 'foo';
+  AssertTrue('Unique constraint is not running.', lUser.Post.HasErrors);
 end;
 
 procedure TghSQLTableTest.TestAutoInc;
 var
+  lUser: TghSQLTable;
   lLastId: Integer;
 begin
-  lLastId := FUser.Last.Columns['id'].AsInteger;
+  lUser := FConn.Tables['user'].Open;
+  lLastId := lUser.Last.Columns['id'].AsInteger;
 
-  FUser.Insert;
-  FUser['login'].Value := 'user1';
-  FUser.Commit;
+  lUser.Insert;
+  lUser['login'].Value := 'user1';
+  lUser.Commit;
 
-  AssertEquals(lLastId+1, FUser['id'].AsInteger);
+  AssertEquals(lLastId+1, lUser['id'].AsInteger);
 end;
 
 procedure TghSQLTableTest.TestBypassAutoInc;
+var
+  lUser: TghSQLTable;
 begin
-  FUser.Insert;
-  FUser['id'].Value := 333;
-  FUser['login'].Value := 'user1';
-  FUser.Commit;
+  lUser := FConn.Tables['user'].Open;
+  lUser.Insert;
+  lUser['id'].Value := 333;
+  lUser['login'].Value := 'user1';
+  lUser.Commit;
 
-  AssertEquals(333, FUser['id'].AsInteger);
+  AssertEquals(333, lUser['id'].AsInteger);
 end;
 
-procedure TghSQLTableTest.TestLinks;
+procedure TghSQLTableTest.TestRelations;
 var
+  lUser: TghSQLTable;
   lRole: TghSQLTable;
 begin
-  FUser.Relations['role'].Where('id = :role_id');
-  lRole := FUser.Links['role'];
+  lUser := FConn.Tables['user'].Open;
+
+  lUser.Relations['role'].Where('id = :role_id');
+  lRole := lUser.Links['role'];
   // test auto open
   AssertTrue(lRole.Active);
   // test count
   AssertEquals(1, lRole.RecordCount);
   // test same foreign key id
-  AssertEquals(FUser['role_id'].AsInteger, lRole['id'].AsInteger);
+  AssertEquals(lUser['role_id'].AsInteger, lRole['id'].AsInteger);
+end;
+
+procedure TghSQLTableTest.TestRelationsThrough;
+var
+  lUser: TghSQLTable;
+  lRole: TghSQLTable;
+begin
+  ExecScript('script-2.sql');
+
+  lUser := FConn.Tables['user'].Open;
+
+  with lUser.Relations['role'] do
+  begin
+    Where('id in (select role_id from role_user where user_id = :id)');
+    OrderBy('id');
+  end;
+
+  lRole := lUser.Links['role'];
+
+  // test auto open
+  AssertTrue(lRole.Active);
+
+  // test role
+  AssertEquals(2, lRole.RecordCount);
+  AssertEquals('admin', lRole['name'].AsString);
+
+  // move to next role
+  AssertEquals('analyst', lRole.Next['name'].AsString);
+
+  // move to next user
+  AssertEquals('jonh', lUser.Next['name'].AsString);
+
+  // refresh roles for the current user
+  lRole := lUser.Links['role'];
+  AssertEquals(2, lRole.RecordCount);
+  AssertEquals('analyst', lRole['name'].AsString);
+  AssertEquals('programmer', lRole.Next['name'].AsString);
 end;
 
 initialization
