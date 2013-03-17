@@ -162,9 +162,8 @@ begin
   for i := 0 to Fields.Count -1 do
   begin
     lField := Fields.Fields[i];
-    if (lField.DataType = ftAutoInc) or
-       ((LowerCase(lField.FieldName) = 'id') and
-        (lField is TNumericField) and (lField.IsNull)) then
+    if lField.IsNull and
+       ((lField.DataType = ftAutoInc) or (LowerCase(lField.FieldName) = 'id') and (lField is TNumericField)) then
     begin
       lLastId := FLib.GetLastAutoIncValue;
       if lLastId <= 0 then
