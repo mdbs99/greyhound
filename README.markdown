@@ -7,7 +7,7 @@ It is fast, clean and simple to use.
 ##Features
 * It will help you with a thin layer to read/write data in a DBMS, but don't trying to simulate a pure object model;
 * It use SQL as query language and does not try to create a complex abstraction between objects and tables;
-* It implements relationship between tables using "Links" property;
+* It implements relationship between tables using "Links" property (1-n, n-1, m-n... whatever you want);
 * It implements constraints for tables (default, check and unique);
 * It was inspired in ActiveRecord pattern;
 * It allows developers to have greater control of SQL rather than relying on the framework to generate it automatically;

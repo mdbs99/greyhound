@@ -1,10 +1,20 @@
 Release notes
 ==========================================================
 
+(2013-03-17)
+
+- The greyhound package was moved to /packages directory;
+- Created a new greyhound_zeos package;
+- You can make M-N relationship using a sub query in Where method.
+- Many more improvements.
+- Version 1.1.3
+
+
 (2013-02-24)
 
 - The gh_pack file was renamed to greyhound (the gh_pack will continue existing some time);
 - Tests were created using FPCUnit framework;
+- Version 1.1.1
 
 
 (2013-01-05)
