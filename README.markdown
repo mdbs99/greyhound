@@ -20,6 +20,6 @@ It is fast, clean and simple to use.
 Greyhound requires Free Pascal 2.6.0 or newer.
 
 
-##Who uses it?
+##Who uses?
 * [Brook framework](http://brookframework.org)
 * [fpcup](https://bitbucket.org/reiniero/fpcup/)
