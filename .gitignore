@@ -9,3 +9,4 @@
 *.bat
 *.compiled
 bin/
+test/lib/

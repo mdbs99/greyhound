@@ -204,7 +204,6 @@ type
     procedure DoAfterCommit; virtual;
     // callback
     procedure CallFoundTable(Sender: TObject; ATable: TghSQLTable); virtual;
-    //procedure CallApplyRecUpdate(Sender: TObject; UpdateKind: TUpdateKind); virtual;
   public
     constructor Create(AConn: TghSQLConnector); virtual; overload; reintroduce;
     constructor Create(AConn: TghSQLConnector; const ATableName: string); virtual; overload;
@@ -281,7 +280,7 @@ type
     property OnFoundTable: TghSQLTableNotifyEvent read FOnFoundTable write FOnFoundTable;
   end;
 
-  EghSQLLib = class(EghSQLError);
+  EghSQLLibError = class(EghSQLError);
   TghSQLLibClass = class of TghSQLLib;
   TghSQLLib = class abstract(TghSQLObject)
   protected
@@ -1018,34 +1017,6 @@ begin
 
   ATable.Open;
 end;
-
-//procedure TghSQLTable.CallApplyRecUpdate(Sender: TObject;
-//  UpdateKind: TUpdateKind);
-//var
-//  i: Integer;
-//  lLastId: NativeInt;
-//  lField: TField;
-//begin
-//  if UpdateKind <> ukInsert then
-//    Exit;
-//
-//  for i := 0 to GetColumns.Count -1 do
-//  begin
-//    lField := GetColumns.Fields[i];
-//    if lField.IsNull and
-//       ((lField.DataType = ftAutoInc) or (LowerCase(lField.FieldName) = 'id') and (lField is TNumericField)) then
-//    begin
-//      lLastId := FConnector.Lib.GetLastAutoIncValue;
-//      if lLastId <= 0 then
-//        Exit;
-//
-//      Edit;
-//      GetColumns.Fields[i].SetData(@lLastId);
-//      Post;
-//      Exit;
-//    end;
-//  end;
-//end;
 
 constructor TghSQLTable.Create(AConn: TghSQLConnector);
 begin
