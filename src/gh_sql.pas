@@ -959,7 +959,6 @@ var
     lFld: TField;
     lPar: TParam;
     lTemplates: array[1..3] of string;
-    lIdxDefs: TIndexDefs;
   begin
     lTemplates[1] := 'id_'+OwnerTable.TableName; // id_table
     lTemplates[2] := OwnerTable.TableName+'_id'; // table_id
