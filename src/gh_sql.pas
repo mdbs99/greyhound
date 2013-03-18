@@ -955,29 +955,30 @@ var
 
   procedure LocalFillFieldValues;
   var
-    I, X: Integer;
-    Fld: TField;
-    Par: TParam;
-    OTN: string;
-    Templates: array[1..3] of string;
+    i, x: Integer;
+    lFld: TField;
+    lPar: TParam;
+    lTemplates: array[1..3] of string;
+    lIdxDefs: TIndexDefs;
   begin
-    OTN := OwnerTable.TableName;
-    Templates[1] := 'id_'+OTN; // id_table
-    Templates[2] := OTN+'_id'; // table_id
-    Templates[3] := 'id'+OTN;  // idtable
+    lTemplates[1] := 'id_'+OwnerTable.TableName; // id_table
+    lTemplates[2] := OwnerTable.TableName+'_id'; // table_id
+    lTemplates[3] := 'id'+OwnerTable.TableName;  // idtable
 
-    for I := 0 to Params.Count-1 do
+    for i := 0 to Params.Count-1 do
     begin
-      Par := Params.Items[I];
-      // check if table belongs to owner
-      if SameText('ID', Par.Name) then
+      lPar := Params.Items[i];
+      // Check if table belongs_to owner
+      // TODO: Use OwnerTable.GetServerIndexDefs to get the right fields and
+      //       to know which fields should be initialized , eg, user_id = :id
+      if SameText('id', lPar.Name) then
       begin
-        for X := Low(Templates) to High(Templates) do
+        for x := Low(lTemplates) to High(lTemplates) do
         begin
-          Fld := FData.Fields.FindField(Templates[X]);
-          if Assigned(Fld) then
+          lFld := FData.Fields.FindField(lTemplates[x]);
+          if Assigned(lFld) then
           begin
-            Fld.Value := Par.Value;
+            lFld.Value := lPar.Value;
             Break;
           end;
         end;

@@ -45,9 +45,9 @@ type
     procedure TestConstraints;
     procedure TestAutoInc;
     procedure TestBypassAutoInc;
-    procedure TestRelations;
-    procedure TestRelationsThrough;
-    procedure TestRelationsPost;
+    procedure TestLinks_1toN;
+    procedure TestLinks_MtoN;
+    procedure TestLinks_MtoN_Post;
   end;
 
 implementation
@@ -166,7 +166,8 @@ begin
   U.Post.Commit;
   U.Insert;
   U['login'].AsString := 'foo';
-  AssertTrue('Unique constraint is not running.', U.Post.HasErrors);
+  U.Post;
+  AssertTrue('Unique constraint is not running.', U.HasErrors);
 end;
 
 procedure TghSQLTableTest.TestAutoInc;
@@ -197,7 +198,7 @@ begin
   AssertEquals(333, U['id'].AsInteger);
 end;
 
-procedure TghSQLTableTest.TestRelations;
+procedure TghSQLTableTest.TestLinks_1toN;
 var
   U: TghSQLTable;
   R: TghSQLTable;
@@ -214,7 +215,7 @@ begin
   AssertEquals(U['role_id'].AsInteger, R['id'].AsInteger);
 end;
 
-procedure TghSQLTableTest.TestRelationsThrough;
+procedure TghSQLTableTest.TestLinks_MtoN;
 var
   U: TghSQLTable;
   R: TghSQLTable;
@@ -251,7 +252,7 @@ begin
   AssertEquals('programmer', R.Next['name'].AsString);
 end;
 
-procedure TghSQLTableTest.TestRelationsPost;
+procedure TghSQLTableTest.TestLinks_MtoN_Post;
 var
   U, RU: TghSQLTable;
 begin
