@@ -952,6 +952,39 @@ procedure TghSQLTable.SetDefaultValues;
 var
   i: Integer;
   lCnt: TghSQLConstraint;
+
+  procedure LocalFillFieldValues;
+  var
+    I: Integer;
+    Fld: TField;
+    Par: TParam;
+    S: string;
+  begin
+    S := OwnerTable.TableName;
+    for I := 0 to Params.Count-1 do
+    begin
+      Par := Params.Items[I];
+      // table belongs to owner
+      if LowerCase(Par.Name) = 'id' then
+      begin
+        // template: [tablename]_id
+        Fld := FData.Fields.FieldByName(S+'_id');
+        if not Assigned(Fld) then
+        begin
+          // template: id_[tablename]
+          Fld := FData.Fields.FieldByName('id_'+S);
+          if not Assigned(Fld) then
+          begin
+            // template: id[tablename]
+            Fld := FData.Fields.FieldByName('id'+S);
+          end;
+        end;
+        if Assigned(Fld) then
+          Fld.Value := Par.Value;
+      end;
+    end;
+  end;
+
 begin
   for i := 0 to GetConstraints.Count -1 do
   begin
@@ -965,7 +998,10 @@ begin
 
   // get default values in OwnerTable
   if Assigned(OwnerTable) then
+  begin
+    LocalFillFieldValues;
     FillAutoParams(OwnerTable);
+  end;
 end;
 
 procedure TghSQLTable.DoBeforePost;
