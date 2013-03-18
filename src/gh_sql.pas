@@ -955,32 +955,32 @@ var
 
   procedure LocalFillFieldValues;
   var
-    I: Integer;
+    I, X: Integer;
     Fld: TField;
     Par: TParam;
-    S: string;
+    OTN: string;
+    Templates: array[1..3] of string;
   begin
-    S := OwnerTable.TableName;
+    OTN := OwnerTable.TableName;
+    Templates[1] := 'id_'+OTN; // id_table
+    Templates[2] := OTN+'_id'; // table_id
+    Templates[3] := 'id'+OTN;  // idtable
+
     for I := 0 to Params.Count-1 do
     begin
       Par := Params.Items[I];
-      // table belongs to owner
-      if LowerCase(Par.Name) = 'id' then
+      // check if table belongs to owner
+      if SameText('ID', Par.Name) then
       begin
-        // template: [tablename]_id
-        Fld := FData.Fields.FieldByName(S+'_id');
-        if not Assigned(Fld) then
+        for X := Low(Templates) to High(Templates) do
         begin
-          // template: id_[tablename]
-          Fld := FData.Fields.FieldByName('id_'+S);
-          if not Assigned(Fld) then
+          Fld := FData.Fields.FindField(Templates[X]);
+          if Assigned(Fld) then
           begin
-            // template: id[tablename]
-            Fld := FData.Fields.FieldByName('id'+S);
+            Fld.Value := Par.Value;
+            Break;
           end;
         end;
-        if Assigned(Fld) then
-          Fld.Value := Par.Value;
       end;
     end;
   end;
