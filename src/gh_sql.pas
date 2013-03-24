@@ -968,6 +968,7 @@ var
     begin
       lPar := Params.Items[i];
       // Check if table belongs_to owner
+      // TODO: Test not only "id" name
       // TODO: Use OwnerTable.GetServerIndexDefs to get the right fields and
       //       to know which fields should be initialized , eg, user_id = :id
       if SameText('id', lPar.Name) then

@@ -6,7 +6,7 @@
     distribution, for details about the copyright.
 
     This program is distributed in the hope that it will be useful,
-    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    but WITHOUT A WARRANTY; without even the implied warranty of
     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
 }
 
@@ -204,8 +204,8 @@ var
   R: TghSQLTable;
 begin
   U := FConn.Tables['user'].Open;
-
   U.Relations['role'].Where('id = :role_id');
+
   R := U.Links['role'];
   // test auto open
   AssertTrue(R.Active);
@@ -224,7 +224,7 @@ begin
 
   U := FConn.Tables['user'].Open;
 
-  with U.Relations['role'] do
+  with U.Relations['role']  do
   begin
     Where('id in (select role_id from role_user where user_id = :id)');
     OrderBy('id');
