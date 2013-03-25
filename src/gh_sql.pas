@@ -433,36 +433,52 @@ end;
 
 procedure TghSQLClient.InternalOpen(Sender: TObject; out ADataSet: TDataSet;
   AOwner: TComponent);
+var
+  lOldHandler: TghSQLHandler;
 begin
-  ADataSet := nil;
-  with FConn do
+  lOldHandler := TghSQLHandler.Create;
   try
-    if not FConn.Connected then
-      FConn.Connect;
-    StartTransaction;
-    Lib.Assign(Self);
-    Lib.Open(ADataSet, AOwner);
-    CommitRetaining;
-  except
-    RollbackRetaining;
-    ADataSet.Free;
-    raise;
+    lOldHandler.Assign(FConn.Lib);
+    ADataSet := nil;
+    try
+      if not FConn.Connected then
+        FConn.Connect;
+      FConn.StartTransaction;
+      FConn.Lib.Assign(Self);
+      FConn.Lib.Open(ADataSet, AOwner);
+      FConn.CommitRetaining;
+    except
+      FConn.RollbackRetaining;
+      ADataSet.Free;
+      raise;
+    end;
+  finally
+    FConn.Lib.Assign(lOldHandler);
+    lOldHandler.Free;
   end;
 end;
 
 function TghSQLClient.InternalExecute(Sender: TObject): NativeInt;
+var
+  lOldHandler: TghSQLHandler;
 begin
-  with FConn do
+  lOldHandler := TghSQLHandler.Create;
   try
-    if not FConn.Connected then
-      FConn.Connect;
-    StartTransaction;
-    Lib.Assign(Self);
-    Result := Lib.Execute;
-    CommitRetaining;
-  except
-    RollbackRetaining;
-    raise;
+    lOldHandler.Assign(FConn.Lib);
+    try
+      if not FConn.Connected then
+        FConn.Connect;
+      FConn.StartTransaction;
+      FConn.Lib.Assign(Self);
+      Result := FConn.Lib.Execute;
+      FConn.CommitRetaining;
+    except
+      FConn.RollbackRetaining;
+      raise;
+    end;
+  finally
+    FConn.Lib.Assign(lOldHandler);
+    lOldHandler.Free;
   end;
 end;
 
