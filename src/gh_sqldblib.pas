@@ -58,15 +58,14 @@ type
   protected
     FMyConn: TghSQLdbConnector;
     FTran: TSQLTransaction;
+    procedure InternalOpen(Sender: TObject; out ADataSet: TDataSet; AOwner: TComponent); override;
+    function InternalExecute(Sender: TObject): NativeInt; override;
     function NewConnector: TghSQLdbConnector; virtual;
     function NewQuery(AOwner: TComponent = nil): TghSQLdbQuery; virtual;
     function NewScript: TSQLScript; virtual;
     procedure InternalQueryOpen(Sender: TObject; out ADataSet: TDataSet; AOwner: TComponent);
     function InternalQueryExecute(Sender: TObject): NativeInt;
     function InternalScriptExecute(Sender: TObject): NativeInt;
-    // events
-    procedure CallSQLOpen(Sender: TObject; out ADataSet: TDataSet; AOwner: TComponent); override;
-    function CallSQLExecute(Sender: TObject): NativeInt; override;
   public
     constructor Create(var AConnector: TghSQLConnector); override;
     destructor Destroy; override;
@@ -120,9 +119,8 @@ type
 
   TghMSSQLLib = class(TghSQLdbLib)
   protected
+    function InternalExecute(Sender: TObject): NativeInt; override;
     function NewConnector: TghSQLdbConnector; override;
-    // events
-    function CallSQLExecute(Sender: TObject): NativeInt; override;
   public
     constructor Create(var AConnector: TghSQLConnector); override;
     procedure StartTransaction; override;
@@ -210,6 +208,30 @@ end;
 
 { TghSQLdbLib }
 
+procedure TghSQLdbLib.InternalOpen(Sender: TObject; out ADataSet: TDataSet;
+  AOwner: TComponent);
+begin
+  FMyConn.IsBatch := Self.IsBatch;
+  try
+    InternalQueryOpen(Sender, ADataSet, AOwner);
+  finally
+    FMyConn.IsBatch := False;
+  end;
+end;
+
+function TghSQLdbLib.InternalExecute(Sender: TObject): NativeInt;
+begin
+  FMyConn.IsBatch := Self.IsBatch;
+  try
+    if Self.IsBatch then
+      Result := InternalScriptExecute(Sender)
+    else
+      Result := InternalQueryExecute(Sender);
+  finally
+    FMyConn.IsBatch := False;
+  end;
+end;
+
 function TghSQLdbLib.NewConnector: TghSQLdbConnector;
 begin
   Result := TghSQLdbConnector.Create(nil);
@@ -238,12 +260,12 @@ begin
   ADataSet := nil;
   lQ := NewQuery(AOwner);
   try
-    lQ.PacketRecords := -1;
+    lQ.PacketRecords := FPacketRecords;
     lQ.UsePrimaryKeyAsKey := True;
-    lQ.SQL.Text := FSQL.Script.Text;
-    if Assigned(FSQL.Params) then
-      lQ.Params.Assign(FSQL.Params);
-    if not FSQL.Prepared then
+    lQ.SQL.Text := FScript.Text;
+    if Assigned(FParams) then
+      lQ.Params.Assign(FParams);
+    if not FPrepared then
       lQ.Prepare;
     lQ.Open;
     ADataSet := lQ;
@@ -259,14 +281,14 @@ var
 begin
   lQ := NewQuery;
   try
-    if not lQ.SQL.Equals(FSQL.Script) then
-      lQ.SQL.Assign(FSQL.Script);
+    if not lQ.SQL.Equals(FScript) then
+      lQ.SQL.Assign(FScript);
 
-    if not FSQL.Prepared then
+    if not FPrepared then
       lQ.Prepare;
 
-    if Assigned(FSQL.Params) then
-      lQ.Params.Assign(FSQL.Params);
+    if Assigned(FParams) then
+      lQ.Params.Assign(FParams);
 
     lQ.ExecSQL;
     Result := lQ.RowsAffected;
@@ -279,36 +301,12 @@ function TghSQLdbLib.InternalScriptExecute(Sender: TObject): NativeInt;
 begin
   with NewScript do
   try
-    if not Script.Equals(FSQL.Script) then
-      Script.Assign(FSQL.Script);
+    if not Script.Equals(FScript) then
+      Script.Assign(FScript);
     Execute;
     Result := -1;
   finally
     Free;
-  end;
-end;
-
-procedure TghSQLdbLib.CallSQLOpen(Sender: TObject; out ADataSet: TDataSet;
-  AOwner: TComponent);
-begin
-  FMyConn.IsBatch := Self.SQL.IsBatch;
-  try
-    InternalQueryOpen(Sender, ADataSet, AOwner);
-  finally
-    FMyConn.IsBatch := False;
-  end;
-end;
-
-function TghSQLdbLib.CallSQLExecute(Sender: TObject): NativeInt;
-begin
-  FMyConn.IsBatch := Self.SQL.IsBatch;
-  try
-    if Self.SQL.IsBatch then
-      Result := InternalScriptExecute(Sender)
-    else
-      Result := InternalQueryExecute(Sender);
-  finally
-    FMyConn.IsBatch := False;
   end;
 end;
 
@@ -451,20 +449,20 @@ end;
 
 { TghMSSQLLib }
 
-function TghMSSQLLib.NewConnector: TghSQLdbConnector;
+function TghMSSQLLib.InternalExecute(Sender: TObject): NativeInt;
 begin
-  Result := TghMSSQLConnector.Create(nil);
-end;
-
-function TghMSSQLLib.CallSQLExecute(Sender: TObject): NativeInt;
-begin
-  FMyConn.IsBatch := Self.SQL.IsBatch;
+  FMyConn.IsBatch := FIsBatch;
   try
     // MSSQL do not need to use TSQLScript
     Result := InternalQueryExecute(Sender);
   finally
     FMyConn.IsBatch := False;
   end;
+end;
+
+function TghMSSQLLib.NewConnector: TghSQLdbConnector;
+begin
+  Result := TghMSSQLConnector.Create(nil);
 end;
 
 constructor TghMSSQLLib.Create(var AConnector: TghSQLConnector);

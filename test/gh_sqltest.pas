@@ -48,6 +48,7 @@ type
     procedure TestLinks_1toN;
     procedure TestLinks_MtoN;
     procedure TestLinks_MtoN_Post;
+    procedure TestPacketRecords;
   end;
 
 implementation
@@ -270,6 +271,29 @@ begin
 
   // check if got the user_id automatically
   AssertEquals(RU['user_id'].AsInteger, U['id'].AsInteger);
+end;
+
+procedure TghSQLTableTest.TestPacketRecords;
+var
+  U: TghSQLTable;
+  I: Integer;
+begin
+  U := FConn.Tables['user'].Open;
+  for I := 1 to 20 do
+  begin
+    U.Append;
+    U['login'].AsString := Format('user%d', [I]);
+    U['passwd'].AsInteger := I;
+    U.Post;
+  end;
+
+  U.Commit;
+
+  U.Close;
+  U.PacketRecords := 15;
+  U.Open;
+
+  AssertEquals(U.PacketRecords, u.RecordCount);
 end;
 
 initialization

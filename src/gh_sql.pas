@@ -58,32 +58,30 @@ type
     property Script: TStrings read FScript;
   end;
 
-  TghSQLHandlerOpenEvent = procedure (Sender: TObject; out ADataSet: TDataSet; AOwner: TComponent) of object;
-  TghSQLHandlerExecuteEvent = function (Sender: TObject): NativeInt of object;
   TghSQLHandler = class(TghSQLStatement)
-  private
-    FPrepared: Boolean;
+  protected
     FIsBatch: Boolean;
-    FOnOpen: TghSQLHandlerOpenEvent;
-    FOnExecute: TghSQLHandlerExecuteEvent;
+    FPrepared: Boolean;
+    FPacketRecords: Integer;
     FBeforeOpen: TNotifyEvent;
     FAfterOpen: TDataSetNotifyEvent;
     FBeforeExecute: TNotifyEvent;
     FAfterExecute: TNotifyEvent;
-  protected
-    procedure DoOpen(out ADataSet: TDataSet; AOwner: TComponent);
-    function DoExecute: NativeInt;
+    procedure InternalOpen(Sender: TObject; out ADataSet: TDataSet; AOwner: TComponent); virtual; abstract;
+    function InternalExecute(Sender: TObject): NativeInt; virtual; abstract;
     procedure DoBeforeOpen;
     procedure DoAfterOpen(ADataSet: TDataSet);
     procedure DoBeforeExecute;
     procedure DoAfterExecute;
   public
+    constructor Create; override;
     procedure Assign(ASource: TghSQLStatement); override;
     procedure Clear; override;
-    property Prepared: Boolean read FPrepared write FPrepared;
+    procedure Open(out ADataSet: TDataSet; AOwner: TComponent = nil); virtual;
+    function Execute: NativeInt; virtual;
     property IsBatch: Boolean read FIsBatch write FIsBatch;
-    property OnOpen: TghSQLHandlerOpenEvent read FOnOpen write FOnOpen;
-    property OnExecute: TghSQLHandlerExecuteEvent read FOnExecute write FOnExecute;
+    property PacketRecords: Integer read FPacketRecords write FPacketRecords;
+    property Prepared: Boolean read FPrepared write FPrepared;
     property BeforeOpen: TNotifyEvent read FBeforeOpen write FBeforeOpen;
     property AfterOpen: TDataSetNotifyEvent read FAfterOpen write FAfterOpen;
     property BeforeExecute: TNotifyEvent read FBeforeExecute write FBeforeExecute;
@@ -93,12 +91,10 @@ type
   TghSQLClient = class(TghSQLHandler)
   private
     FConn: TghSQLConnector;
-    procedure InternalOpen(Sender: TObject; out ADataSet: TDataSet; AOwner: TComponent); virtual;
-    function InternalExecute(Sender: TObject): NativeInt; virtual;
+    procedure InternalOpen(Sender: TObject; out ADataSet: TDataSet; AOwner: TComponent); override;
+    function InternalExecute(Sender: TObject): NativeInt; override;
   public
     constructor Create(AConn: TghSQLConnector); reintroduce;
-    procedure Open(out ADataSet: TDataSet; AOwner: TComponent = nil);
-    function Execute: NativeInt;
   end;
 
   TghSQLConstraint = class(TghSQLObject)
@@ -165,6 +161,7 @@ type
     FOrderBy: string;
     FOwnerTable: TghSQLTable;
     FParams: TghDataParams;
+    FPacketRecords: Integer;
     FReuse: Boolean;
     FSelectColumns: string;
     FEnforceConstraints: Boolean;
@@ -244,6 +241,7 @@ type
     property Links: TghSQLTableList read FLinks;
     property OwnerTable: TghSQLTable read FOwnerTable write FOwnerTable;
     property Params: TghDataParams read FParams;
+    property PacketRecords: Integer read FPacketRecords write FPacketRecords;
     property Reuse: Boolean read FReuse write FReuse;
     property RecordCount: Longint read GetRecordCount;
     property TableName: string read FTableName write SetTableName;
@@ -282,15 +280,11 @@ type
 
   EghSQLLibError = class(EghSQLError);
   TghSQLLibClass = class of TghSQLLib;
-  TghSQLLib = class abstract(TghSQLObject)
+  TghSQLLib = class abstract(TghSQLHandler)
   protected
     FConnector: TghSQLConnector;
-    FSQL: TghSQLHandler;
-    procedure CallSQLOpen(Sender: TObject; out ADataSet: TDataSet; AOwner: TComponent); virtual; abstract;
-    function CallSQLExecute(Sender: TObject): NativeInt; virtual; abstract;
   public
     constructor Create(var AConnector: TghSQLConnector); virtual; reintroduce;
-    destructor Destroy; override;
     procedure Connect; virtual; abstract;
     function Connected: Boolean; virtual; abstract;
     procedure Disconnect; virtual; abstract;
@@ -301,7 +295,6 @@ type
     procedure RollbackRetaining; virtual; abstract;
     function GetLastAutoIncValue: NativeInt; virtual;
     function GetSequenceValue(const ASequenceName: string): NativeInt; virtual; abstract;
-    property SQL: TghSQLHandler read FSQL;
   end;
 
   TghSQLConnector = class(TghSQLObject)
@@ -371,22 +364,6 @@ end;
 
 { TghSQLHandler }
 
-procedure TghSQLHandler.DoOpen(out ADataSet: TDataSet; AOwner: TComponent);
-begin
-  DoBeforeOpen;
-  if Assigned(OnOpen) then
-    OnOpen(Self, ADataSet, AOwner);
-  DoAfterOpen(ADataSet);
-end;
-
-function TghSQLHandler.DoExecute: NativeInt;
-begin
-  DoBeforeExecute;
-  if Assigned(OnExecute) then
-    Result := OnExecute(Self);
-  DoAfterExecute;
-end;
-
 procedure TghSQLHandler.DoBeforeOpen;
 begin
   if Assigned(FBeforeOpen) then
@@ -411,6 +388,12 @@ begin
     FAfterExecute(Self);
 end;
 
+constructor TghSQLHandler.Create;
+begin
+  inherited Create;
+  FPacketRecords := -1;
+end;
+
 procedure TghSQLHandler.Assign(ASource: TghSQLStatement);
 var
   lHandler: TghSQLHandler;
@@ -420,6 +403,7 @@ begin
   begin
     lHandler := TghSQLHandler(ASource);
     Self.Prepared := lHandler.Prepared;
+    Self.PacketRecords := lHandler.PacketRecords;
     Self.IsBatch := lHandler.IsBatch;
   end;
 end;
@@ -429,6 +413,20 @@ begin
   inherited Clear;
   FPrepared := False;
   FIsBatch := False;
+end;
+
+procedure TghSQLHandler.Open(out ADataSet: TDataSet; AOwner: TComponent);
+begin
+  DoBeforeOpen;
+  InternalOpen(Self, ADataSet, AOwner);
+  DoAfterOpen(ADataSet);
+end;
+
+function TghSQLHandler.Execute: NativeInt;
+begin
+  DoBeforeExecute;
+  Result := InternalExecute(Self);
+  DoAfterExecute;
 end;
 
 { TghSQLClient }
@@ -442,8 +440,8 @@ begin
     if not FConn.Connected then
       FConn.Connect;
     StartTransaction;
-    Lib.SQL.Assign(Self);
-    Lib.SQL.DoOpen(ADataSet, AOwner);
+    Lib.Assign(Self);
+    Lib.Open(ADataSet, AOwner);
     CommitRetaining;
   except
     RollbackRetaining;
@@ -459,8 +457,8 @@ begin
     if not FConn.Connected then
       FConn.Connect;
     StartTransaction;
-    Lib.SQL.Assign(Self);
-    Result := Lib.SQL.DoExecute;
+    Lib.Assign(Self);
+    Result := Lib.Execute;
     CommitRetaining;
   except
     RollbackRetaining;
@@ -472,18 +470,6 @@ constructor TghSQLClient.Create(AConn: TghSQLConnector);
 begin
   inherited Create;
   FConn := AConn;
-  OnOpen := @InternalOpen;
-  OnExecute := @InternalExecute;
-end;
-
-procedure TghSQLClient.Open(out ADataSet: TDataSet; AOwner: TComponent);
-begin
-  InternalOpen(Self, ADataSet, AOwner);
-end;
-
-function TghSQLClient.Execute: NativeInt;
-begin
-  Result := InternalExecute(Self);
 end;
 
 { TghSQLConstraint }
@@ -863,6 +849,7 @@ begin
   lSQL := TghSQLClient.Create(FConnector);
   try
     try
+      lSQL.PacketRecords := FPacketRecords;
       lSQL.Script.Add('select ' + lSelectColumns + ' from ' + FTableName);
       lSQL.Script.Add('where 1=1');
       if FConditions <> '' then
@@ -1068,6 +1055,7 @@ begin
   FEnforceConstraints := True;
   FErrors := TStringList.Create;
   FParams := TghDataParams.Create;
+  FPacketRecords := -1;
   FLinks := TghSQLTableList.Create(Self, True);
   FLinks.OnNewTable := @CallFoundTable;
   FLinks.OnFoundTable := @CallFoundTable;
@@ -1394,15 +1382,6 @@ constructor TghSQLLib.Create(var AConnector: TghSQLConnector);
 begin
   inherited Create;
   FConnector := AConnector;
-  FSQL := TghSQLHandler.Create;
-  FSQL.OnOpen := @CallSQLOpen;
-  FSQL.OnExecute := @CallSQLExecute;
-end;
-
-destructor TghSQLLib.Destroy;
-begin
-  FSQL.Free;
-  inherited Destroy;
 end;
 
 function TghSQLLib.GetLastAutoIncValue: NativeInt;

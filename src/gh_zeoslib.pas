@@ -41,8 +41,8 @@ type
     FMyConn: TZConnection;
     function NewQuery(AOwner: TComponent = nil): TghZeosQuery; virtual;
     // events
-    procedure CallSQLOpen(Sender: TObject; out ADataSet: TDataSet; AOwner: TComponent); override;
-    function CallSQLExecute(Sender: TObject): NativeInt; override;
+    procedure InternalOpen(Sender: TObject; out ADataSet: TDataSet; AOwner: TComponent); override;
+    function InternalExecute(Sender: TObject): NativeInt; override;
   public
     constructor Create(var AConnector: TghSQLConnector); override;
     destructor Destroy; override;
@@ -116,7 +116,7 @@ begin
   Result.CachedUpdates := True;
 end;
 
-procedure TghZeosLib.CallSQLOpen(Sender: TObject; out ADataSet: TDataSet;
+procedure TghZeosLib.InternalOpen(Sender: TObject; out ADataSet: TDataSet;
   AOwner: TComponent);
 var
   lQ: TghZeosQuery;
@@ -124,9 +124,9 @@ begin
   ADataSet := nil;
   lQ := NewQuery(AOwner);
   try
-    lQ.SQL.Text := FSQL.Script.Text;
-    if Assigned(FSQL.Params) then
-      lQ.Params.Assign(FSQL.Params);
+    lQ.SQL.Text := FScript.Text;
+    if Assigned(FParams) then
+      lQ.Params.Assign(FParams);
     lQ.Open;
     ADataSet := lQ;
   except
@@ -135,15 +135,15 @@ begin
   end;
 end;
 
-function TghZeosLib.CallSQLExecute(Sender: TObject): NativeInt;
+function TghZeosLib.InternalExecute(Sender: TObject): NativeInt;
 var
   lQ: TghZeosQuery;
 begin
   lQ := NewQuery;
   try
-    lQ.SQL.Text := FSQL.Script.Text;
-    if Assigned(FSQL.Params) then
-      lQ.Params.Assign(FSQL.Params);
+    lQ.SQL.Text := FScript.Text;
+    if Assigned(FParams) then
+      lQ.Params.Assign(FParams);
     lQ.ExecSQL;
     Result := lQ.RowsAffected;
   finally
