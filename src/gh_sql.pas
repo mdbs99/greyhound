@@ -184,6 +184,7 @@ type
     function GetRecordCount: Longint;
     procedure FillAutoParams(ASource: TghSQLTable);
     function GetDataset: TDataSet;
+    procedure SetPacketRecords(AValue: Integer);
   protected
     FData: TDataSet;
     class procedure ClassInitialization;
@@ -215,6 +216,7 @@ type
     function Post: TghSQLTable;
     function Cancel: TghSQLTable;
     function Delete: TghSQLTable;
+    function DeleteAll: TghSQLTable;
     function Commit: TghSQLTable;
     function CommitRetaining: TghSQLTable;
     function Rollback: TghSQLTable;
@@ -241,7 +243,7 @@ type
     property Links: TghSQLTableList read FLinks;
     property OwnerTable: TghSQLTable read FOwnerTable write FOwnerTable;
     property Params: TghDataParams read FParams;
-    property PacketRecords: Integer read FPacketRecords write FPacketRecords;
+    property PacketRecords: Integer read FPacketRecords write SetPacketRecords;
     property Reuse: Boolean read FReuse write FReuse;
     property RecordCount: Longint read GetRecordCount;
     property TableName: string read FTableName write SetTableName;
@@ -402,9 +404,9 @@ begin
   if ASource is TghSQLHandler then
   begin
     lHandler := TghSQLHandler(ASource);
+    Self.IsBatch := lHandler.IsBatch;
     Self.Prepared := lHandler.Prepared;
     Self.PacketRecords := lHandler.PacketRecords;
-    Self.IsBatch := lHandler.IsBatch;
   end;
 end;
 
@@ -836,6 +838,15 @@ begin
   Result := FData;
 end;
 
+procedure TghSQLTable.SetPacketRecords(AValue: Integer);
+begin
+  if FPacketRecords = AValue then
+    Exit;
+  if Active then
+    (FData as IghDataSet).PacketRecords := AValue;
+  FPacketRecords := AValue;
+end;
+
 class procedure TghSQLTable.ClassInitialization;
 begin
   FRelations := TFPHashObjectList.Create(True);
@@ -1118,7 +1129,10 @@ begin
   FOrderBy := '';
   FParams.Clear;
   if Active then
+  begin
     FData.Close;
+    FreeAndNil(FData);
+  end;
 end;
 
 function TghSQLTable.Open: TghSQLTable;
@@ -1178,6 +1192,14 @@ function TghSQLTable.Delete: TghSQLTable;
 begin
   CheckData;
   FData.Delete;
+  Result := Self;
+end;
+
+function TghSQLTable.DeleteAll: TghSQLTable;
+begin
+  CheckData;
+  while not FData.EOF do
+    FData.Delete;
   Result := Self;
 end;
 

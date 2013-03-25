@@ -48,6 +48,7 @@ type
     function GetEOF: Boolean;
     function GetFields: TFields;
     function GetState: TDataSetState;
+    function GetPacketRecords: Integer;
     procedure SetTableName(const ATableName: string);
     function GetServerIndexDefs: TIndexDefs;
   public
@@ -188,6 +189,11 @@ end;
 function TghSQLdbQuery.GetState: TDataSetState;
 begin
   Result := Self.State;
+end;
+
+function TghSQLdbQuery.GetPacketRecords: Integer;
+begin
+  Result := PacketRecords;
 end;
 
 procedure TghSQLdbQuery.SetTableName(const ATableName: string);

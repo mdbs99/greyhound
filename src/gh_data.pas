@@ -35,6 +35,8 @@ type
     // dataset
     function GetActive: Boolean;
     function GetRecordCount: Longint;
+    function GetPacketRecords: Integer;
+    procedure SetPacketRecords(AValue: Integer);
     procedure Close;
     procedure Open;
     procedure Insert;
@@ -54,6 +56,7 @@ type
     property Fields: TFields read GetFields;
     property RecordCount: Longint read GetRecordCount;
     property State: TDataSetState read GetState;
+    property PacketRecords: Integer read GetPacketRecords write SetPacketRecords;
   end;
 
 { Classes }

@@ -274,26 +274,38 @@ begin
 end;
 
 procedure TghSQLTableTest.TestPacketRecords;
+const
+  TOTAL_REC = 50;
+  PACKET_REC = 10;
 var
   U: TghSQLTable;
   I: Integer;
 begin
   U := FConn.Tables['user'].Open;
-  for I := 1 to 20 do
+  U.DeleteAll;
+
+  for I := 1 to TOTAL_REC do
   begin
     U.Append;
     U['login'].AsString := Format('user%d', [I]);
     U['passwd'].AsInteger := I;
     U.Post;
   end;
-
   U.Commit;
 
-  U.Close;
-  U.PacketRecords := 15;
+  // get first packet
+  U.PacketRecords := PACKET_REC;
   U.Open;
-
   AssertEquals(U.PacketRecords, u.RecordCount);
+
+  // get 2 packets
+  U.PacketRecords := PACKET_REC*2;
+  U.Open;
+  AssertEquals(U.PacketRecords, u.RecordCount);
+
+  // get all
+  U.Last;
+  AssertEquals(TOTAL_REC, u.RecordCount);
 end;
 
 initialization
