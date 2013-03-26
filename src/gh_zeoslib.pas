@@ -28,12 +28,15 @@ type
   TghZeosQuery = class(TZQuery, IghSQLDataSetResolver)
   private
     FTableName: string;
+    function GetPacketRecords: Integer;
+    procedure SetPacketRecords(AValue: Integer);
   protected
     function GetEOF: Boolean;
     function GetFields: TFields;
     function GetState: TDataSetState;
     procedure SetTableName(const ATableName: string);
     function GetServerIndexDefs: TIndexDefs;
+    property PacketRecords: Integer read GetPacketRecords write SetPacketRecords;
   end;
 
   TghZeosLib = class(TghSQLLib)
@@ -81,6 +84,16 @@ type
 implementation
 
 { TghZeosQuery }
+
+function TghZeosQuery.GetPacketRecords: Integer;
+begin
+  Result := FetchRow;
+end;
+
+procedure TghZeosQuery.SetPacketRecords(AValue: Integer);
+begin
+  FetchRow := AValue;
+end;
 
 function TghZeosQuery.GetEOF: Boolean;
 begin
