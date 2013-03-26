@@ -49,6 +49,7 @@ type
     procedure TestLinks_MtoN;
     procedure TestLinks_MtoN_Post;
     procedure TestPacketRecords;
+    procedure TestUsingScript;
   end;
 
 implementation
@@ -306,6 +307,38 @@ begin
   // get all
   U.Last;
   AssertEquals(TOTAL_REC, u.RecordCount);
+end;
+
+procedure TghSQLTableTest.TestUsingScript;
+var
+  U: TghSQLTable;
+  Count: Integer;
+begin
+  U := FConn.Tables['user'].Open;
+  Count := U.RecordCount;
+
+  // insert new
+  U.Append;
+  U['login'].AsString := 'bob';
+  U.Commit;
+  Count += 1;
+
+  // open using script
+  U.Close;
+  U.Script.Text := 'select u.* '#13
+                 + 'from user u '#13
+                 + 'left join role r '#13
+                 + '  on r.id = u.role_id '#13
+                 + 'where u.login = :login';
+  U.Params['login'].AsString := 'bob';
+  U.Open;
+  AssertEquals('bob', U['login'].AsString);
+  AssertEquals(1, U.RecordCount);
+
+  // refresh data
+  U.Close;
+  U.Open;
+  AssertEquals(Count, U.RecordCount);
 end;
 
 initialization
