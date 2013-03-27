@@ -62,35 +62,40 @@ type
   TghSQLHandler = class(TghSQLStatement)
   protected
     FIsBatch: Boolean;
-    FPrepared: Boolean;
     FPacketRecords: Integer;
-    FBeforeOpen: TNotifyEvent;
-    FAfterOpen: TDataSetNotifyEvent;
-    FBeforeExecute: TNotifyEvent;
-    FAfterExecute: TNotifyEvent;
-    procedure InternalOpen(Sender: TObject; out ADataSet: TDataSet; AOwner: TComponent = nil); virtual; abstract;
-    function InternalExecute(Sender: TObject): NativeInt; virtual; abstract;
+    FPrepared: Boolean;
     procedure SetPacketRecords(AValue: Integer); virtual;
-    procedure DoBeforeOpen;
-    procedure DoAfterOpen(ADataSet: TDataSet);
-    procedure DoBeforeExecute;
-    procedure DoAfterExecute;
   public
     constructor Create; override;
     procedure Assign(ASource: TghSQLStatement); override;
     procedure Clear; override;
-    procedure Open(out ADataSet: TDataSet; AOwner: TComponent = nil); virtual;
-    function Execute: NativeInt; virtual;
     property IsBatch: Boolean read FIsBatch write FIsBatch;
     property PacketRecords: Integer read FPacketRecords write SetPacketRecords;
     property Prepared: Boolean read FPrepared write FPrepared;
+  end;
+
+  TghSQLBaseHandler = class(TghSQLHandler)
+  protected
+    FBeforeOpen: TNotifyEvent;
+    FAfterOpen: TDataSetNotifyEvent;
+    FBeforeExecute: TNotifyEvent;
+    FAfterExecute: TNotifyEvent;
+    procedure DoBeforeOpen;
+    procedure DoAfterOpen(ADataSet: TDataSet);
+    procedure DoBeforeExecute;
+    procedure DoAfterExecute;
+    procedure InternalOpen(Sender: TObject; out ADataSet: TDataSet; AOwner: TComponent = nil); virtual; abstract;
+    function InternalExecute(Sender: TObject): NativeInt; virtual; abstract;
+  public
+    procedure Open(out ADataSet: TDataSet; AOwner: TComponent = nil); virtual;
+    function Execute: NativeInt; virtual;
     property BeforeOpen: TNotifyEvent read FBeforeOpen write FBeforeOpen;
     property AfterOpen: TDataSetNotifyEvent read FAfterOpen write FAfterOpen;
     property BeforeExecute: TNotifyEvent read FBeforeExecute write FBeforeExecute;
     property AfterExecute: TNotifyEvent read FAfterExecute write FAfterExecute;
   end;
 
-  TghSQLClient = class(TghSQLHandler)
+  TghSQLClient = class(TghSQLBaseHandler)
   protected
     FConnector: TghSQLConnector;
     procedure InternalOpen(Sender: TObject; out ADataSet: TDataSet; AOwner: TComponent = nil); override;
@@ -279,7 +284,7 @@ type
 
   EghSQLLibError = class(EghSQLError);
   TghSQLLibClass = class of TghSQLLib;
-  TghSQLLib = class abstract(TghSQLHandler)
+  TghSQLLib = class abstract(TghSQLBaseHandler)
   protected
     FConnector: TghSQLConnector;
   public
@@ -370,30 +375,6 @@ begin
   FPacketRecords := AValue;
 end;
 
-procedure TghSQLHandler.DoBeforeOpen;
-begin
-  if Assigned(FBeforeOpen) then
-    FBeforeOpen(Self);
-end;
-
-procedure TghSQLHandler.DoAfterOpen(ADataSet: TDataSet);
-begin
-  if Assigned(FAfterOpen) then
-    FAfterOpen(ADataSet);
-end;
-
-procedure TghSQLHandler.DoBeforeExecute;
-begin
-  if Assigned(FBeforeExecute) then
-    FBeforeExecute(Self);
-end;
-
-procedure TghSQLHandler.DoAfterExecute;
-begin
-  if Assigned(FAfterExecute) then
-    FAfterExecute(Self);
-end;
-
 constructor TghSQLHandler.Create;
 begin
   inherited Create;
@@ -417,18 +398,45 @@ end;
 procedure TghSQLHandler.Clear;
 begin
   inherited Clear;
-  FPrepared := False;
   FIsBatch := False;
+  FPacketRecords := -1;
+  FPrepared := False;
 end;
 
-procedure TghSQLHandler.Open(out ADataSet: TDataSet; AOwner: TComponent);
+{ TghSQLBaseHandler }
+
+procedure TghSQLBaseHandler.DoBeforeOpen;
+begin
+  if Assigned(FBeforeOpen) then
+    FBeforeOpen(Self);
+end;
+
+procedure TghSQLBaseHandler.DoAfterOpen(ADataSet: TDataSet);
+begin
+  if Assigned(FAfterOpen) then
+    FAfterOpen(ADataSet);
+end;
+
+procedure TghSQLBaseHandler.DoBeforeExecute;
+begin
+  if Assigned(FBeforeExecute) then
+    FBeforeExecute(Self);
+end;
+
+procedure TghSQLBaseHandler.DoAfterExecute;
+begin
+  if Assigned(FAfterExecute) then
+    FAfterExecute(Self);
+end;
+
+procedure TghSQLBaseHandler.Open(out ADataSet: TDataSet; AOwner: TComponent);
 begin
   DoBeforeOpen;
   InternalOpen(Self, ADataSet, AOwner);
   DoAfterOpen(ADataSet);
 end;
 
-function TghSQLHandler.Execute: NativeInt;
+function TghSQLBaseHandler.Execute: NativeInt;
 begin
   DoBeforeExecute;
   Result := InternalExecute(Self);

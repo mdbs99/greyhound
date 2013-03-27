@@ -20,7 +20,7 @@ uses
   // fpc
   Classes, SysUtils, DB,
   // gh
-  gh_Global;
+  gh_Classes;
 
 type
   EghDataError = class(EghError);

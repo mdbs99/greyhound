@@ -36,16 +36,16 @@
         <Type Value="Include"/>
       </Item3>
       <Item4>
-        <Filename Value="..\src\gh_global.pas"/>
-        <UnitName Value="gh_Global"/>
-      </Item4>
-      <Item5>
         <Filename Value="..\src\gh_json.pas"/>
         <UnitName Value="gh_JSON"/>
-      </Item5>
-      <Item6>
+      </Item4>
+      <Item5>
         <Filename Value="..\src\gh_sql.pas"/>
         <UnitName Value="gh_SQL"/>
+      </Item5>
+      <Item6>
+        <Filename Value="..\src\gh_classes.pas"/>
+        <UnitName Value="gh_Classes"/>
       </Item6>
     </Files>
     <Type Value="RunTimeOnly"/>

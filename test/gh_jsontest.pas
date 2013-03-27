@@ -17,7 +17,7 @@ unit gh_JSONTest;
 interface
 
 uses
-  Classes, SysUtils, fpcunit, testutils, testregistry, fpjson,
+  Classes, SysUtils, fpcunit, testregistry, fpjson,
   gh_JSON;
 
 type

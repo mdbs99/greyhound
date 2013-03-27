@@ -7,7 +7,7 @@ unit Greyhound;
 interface
 
 uses
-  gh_SQLdbLib, gh_Data, gh_Global, gh_JSON, gh_SQL;
+  gh_SQLdbLib, gh_Data, gh_JSON, gh_SQL, gh_Classes;
 
 implementation
 

@@ -20,7 +20,7 @@ uses
   // fpc
   Classes, SysUtils, DB, fpjson,
   // gh
-  gh_Global, gh_Data;
+  gh_Data;
 
 type
   EghJSONDataError = class(EghDataError);

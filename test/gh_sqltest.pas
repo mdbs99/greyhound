@@ -17,7 +17,7 @@ unit gh_SQLTest;
 interface
 
 uses
-  Classes, SysUtils, fpcunit, testutils, testregistry,
+  Classes, SysUtils, fpcunit, testregistry,
   gh_SQL, gh_SQLdbLib;
 
 type
