@@ -1132,7 +1132,10 @@ var
 begin
   lClearScript := False;
   FreeAndNil(FData);
-  lSelectColumns := Iif(FSelectColumns = '', '*', FSelectColumns);
+  if FSelectColumns = '' then
+    lSelectColumns := '*'
+  else
+    lSelectColumns := FSelectColumns;
   try
     // check if user is using your own script
     if FScript.Count = 0 then

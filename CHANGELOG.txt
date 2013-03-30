@@ -1,6 +1,13 @@
 Release notes
 ==========================================================
 
+(2013-03-26)
+
+- New TghSQLBaseHandler class inherits from TghSQLHandler class.
+- Renamed gh_global unit name to gh_classes.
+- Version 0.1.4
+
+
 (2013-03-25)
 
 - Now TghSQLLib inherits from TghSQLHandler.
