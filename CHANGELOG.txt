@@ -4,7 +4,8 @@ Release notes
 (2013-03-29)
 
 - Now TghSQLTable class inherits from TghSQLHandler.
-- New TghSQLBaseHandler class inherits from TghSQLHandler class.
+- New TghSQLEventHandler class inherits from TghSQLHandler.
+- Renamed TghSQLConstraint OwnerTable property to just Table.
 - Renamed gh_global unit name to gh_classes.
 - Version 0.1.4
 

@@ -74,7 +74,7 @@ type
     property Prepared: Boolean read FPrepared write FPrepared;
   end;
 
-  TghSQLBaseHandler = class(TghSQLHandler)
+  TghSQLEventHandler = class(TghSQLHandler)
   protected
     FBeforeOpen: TNotifyEvent;
     FAfterOpen: TDataSetNotifyEvent;
@@ -95,7 +95,7 @@ type
     property AfterExecute: TNotifyEvent read FAfterExecute write FAfterExecute;
   end;
 
-  TghSQLClient = class(TghSQLBaseHandler)
+  TghSQLClient = class(TghSQLEventHandler)
   protected
     FConnector: TghSQLConnector;
     procedure InternalOpen(Sender: TObject; out ADataSet: TDataSet; AOwner: TComponent = nil); override;
@@ -107,15 +107,15 @@ type
   TghSQLConstraint = class(TghSQLObject)
   protected
     FParams: TghDataParams;
-    FOwnerTable: TghSQLTable;
-    procedure SetOwnerTable(AValue: TghSQLTable);
+    FTable: TghSQLTable;
+    procedure SetTable(AValue: TghSQLTable);
     function NamesToBeautifulStr: string;
     function ValuesToBeautifulStr: string;
   public
     constructor Create; override;
     destructor Destroy; override;
     procedure Execute; virtual; abstract;
-    property OwnerTable: TghSQLTable read FOwnerTable write SetOwnerTable;
+    property Table: TghSQLTable read FTable write SetTable;
   end;
 
   TghSQLDefaultConstraint = class(TghSQLConstraint)
@@ -170,6 +170,8 @@ type
     FSelectColumns: string;
     FEnforceConstraints: Boolean;
     FUseRetaining: Boolean;
+    FBeforeOpen: TNotifyEvent;
+    FAfterOpen: TNotifyEvent;
     FBeforePost: TNotifyEvent;
     FAfterPost: TNotifyEvent;
     FBeforeCommit: TNotifyEvent;
@@ -200,6 +202,8 @@ type
     function CheckValues: Boolean; virtual;
     procedure SetDefaultValues; virtual;
     // events
+    procedure DoBeforeOpen; virtual;
+    procedure DoAfterOpen; virtual;
     procedure DoBeforePost; virtual;
     procedure DoAfterPost; virtual;
     procedure DoBeforeCommit; virtual;
@@ -254,6 +258,8 @@ type
     property Constraints: TghSQLConstraintList read GetConstraints;
     property EnforceConstraints: Boolean read FEnforceConstraints;
     property UseRetaining: Boolean read FUseRetaining write FUseRetaining;
+    property BeforeOpen: TNotifyEvent read FBeforeOpen write FBeforeOpen;
+    property AfterOpen: TNotifyEvent read FAfterOpen write FAfterOpen;
     property BeforePost: TNotifyEvent read FBeforePost write FBeforePost;
     property AfterPost: TNotifyEvent read FAfterPost write FAfterPost;
     property BeforeCommit: TNotifyEvent read FBeforeCommit write FBeforeCommit;
@@ -285,7 +291,7 @@ type
 
   EghSQLLibError = class(EghSQLError);
   TghSQLLibClass = class of TghSQLLib;
-  TghSQLLib = class abstract(TghSQLBaseHandler)
+  TghSQLLib = class abstract(TghSQLEventHandler)
   protected
     FConnector: TghSQLConnector;
   public
@@ -404,40 +410,40 @@ begin
   FPrepared := False;
 end;
 
-{ TghSQLBaseHandler }
+{ TghSQLEventHandler }
 
-procedure TghSQLBaseHandler.DoBeforeOpen;
+procedure TghSQLEventHandler.DoBeforeOpen;
 begin
   if Assigned(FBeforeOpen) then
     FBeforeOpen(Self);
 end;
 
-procedure TghSQLBaseHandler.DoAfterOpen(ADataSet: TDataSet);
+procedure TghSQLEventHandler.DoAfterOpen(ADataSet: TDataSet);
 begin
   if Assigned(FAfterOpen) then
     FAfterOpen(ADataSet);
 end;
 
-procedure TghSQLBaseHandler.DoBeforeExecute;
+procedure TghSQLEventHandler.DoBeforeExecute;
 begin
   if Assigned(FBeforeExecute) then
     FBeforeExecute(Self);
 end;
 
-procedure TghSQLBaseHandler.DoAfterExecute;
+procedure TghSQLEventHandler.DoAfterExecute;
 begin
   if Assigned(FAfterExecute) then
     FAfterExecute(Self);
 end;
 
-procedure TghSQLBaseHandler.Open(out ADataSet: TDataSet; AOwner: TComponent);
+procedure TghSQLEventHandler.Open(out ADataSet: TDataSet; AOwner: TComponent);
 begin
   DoBeforeOpen;
   InternalOpen(Self, ADataSet, AOwner);
   DoAfterOpen(ADataSet);
 end;
 
-function TghSQLBaseHandler.Execute: NativeInt;
+function TghSQLEventHandler.Execute: NativeInt;
 begin
   DoBeforeExecute;
   Result := InternalExecute(Self);
@@ -505,10 +511,10 @@ end;
 
 { TghSQLConstraint }
 
-procedure TghSQLConstraint.SetOwnerTable(AValue: TghSQLTable);
+procedure TghSQLConstraint.SetTable(AValue: TghSQLTable);
 begin
-  if FOwnerTable = AValue then Exit;
-  FOwnerTable := AValue;
+  if FTable = AValue then Exit;
+  FTable := AValue;
 end;
 
 function TghSQLConstraint.NamesToBeautifulStr: string;
@@ -569,7 +575,7 @@ var
 begin
   for i := 0 to FParams.Count -1 do
   begin
-    lColum := FOwnerTable.GetColumns.FindField(FParams.Items[i].Name);
+    lColum := FTable.GetColumns.FindField(FParams.Items[i].Name);
     if Assigned(lColum) then
       lColum.Value := FParams.Items[i].Value;
   end;
@@ -601,32 +607,32 @@ end;
 
 procedure TghSQLUniqueConstraint.Execute;
 var
-  SC: TghSQLClient;
-  DS: TDataSet;
+  lSC: TghSQLClient;
+  lDS: TDataSet;
 
-  procedure MakeFilterUsingIndexDefs;
+  procedure FilterUsingIndexDefs;
   var
     i: Integer;
     lIxDef: TIndexDef;
   begin
-    with FOwnerTable.FData as IghSQLDataSetResolver do
+    with FTable.FData as IghSQLDataSetResolver do
     begin
       for i := 0 to GetServerIndexDefs.Count -1 do
       begin
         lIxDef := GetServerIndexDefs[i];
         if ixPrimary in lIxDef.Options then
         begin
-          if not FOwnerTable[lIxDef.Fields].IsNull then
+          if not FTable[lIxDef.Fields].IsNull then
           begin
-            SC.Script.Add('and (' + lIxDef.Fields + ' <> :' + lIxDef.Fields + ')');
-            SC.Params[lIxDef.Fields].Value := FOwnerTable[lIxDef.Fields].Value;
+            lSC.Script.Add('and (' + lIxDef.Fields + ' <> :' + lIxDef.Fields + ')');
+            lSC.Params[lIxDef.Fields].Value := FTable[lIxDef.Fields].Value;
           end;
         end;
       end;
     end;
   end;
 
-  procedure MakeFilterUsingParams;
+  procedure FilterUsingParams;
   var
     i: Integer;
     lParam: TParam;
@@ -635,27 +641,27 @@ var
     for i := 0 to FParams.Count -1 do
     begin
       lParam := FParams.Items[i];
-      lColumn := FOwnerTable.GetColumns.FindField(lParam.Name);
+      lColumn := FTable.GetColumns.FindField(lParam.Name);
       if lColumn = nil then
         raise EghSQLError.CreateFmt(Self, 'Column "%s" not found.', [lParam.Name]);
-      SC.Script.Add('and (' + lParam.Name + ' = :' + lParam.Name + ')');
-      SC.Params[lParam.Name].Value := lColumn.Value;
+      lSC.Script.Add('and (' + lParam.Name + ' = :' + lParam.Name + ')');
+      lSC.Params[lParam.Name].Value := lColumn.Value;
     end;
   end;
 
 begin
-  SC := TghSQLClient.Create(FOwnerTable.Connector);
+  lSC := TghSQLClient.Create(FTable.Connector);
   try
-    SC.Script.Add('select 1 from ' + FOwnerTable.TableName);
-    SC.Script.Add('where 1=1');
-    MakeFilterUsingIndexDefs;
-    MakeFilterUsingParams;
-    SC.Open(DS);
-    if not DS.IsEmpty then
-      FOwnerTable.GetErrors.Add(GetError);
+    lSC.Script.Add('select 1 from ' + FTable.TableName);
+    lSC.Script.Add('where 1=1');
+    FilterUsingIndexDefs;
+    FilterUsingParams;
+    lSC.Open(lDS);
+    if not lDS.IsEmpty then
+      FTable.GetErrors.Add(GetError);
   finally
-    DS.Free;
-    SC.Free;
+    lDS.Free;
+    lSC.Free;
   end;
 end;
 
@@ -690,7 +696,7 @@ var
   lAccept: Boolean;
 begin
   lParam := FParams.Items[0];
-  lColumn := FOwnerTable.GetColumns.FindField(lParam.Name);
+  lColumn := FTable.GetColumns.FindField(lParam.Name);
 
   if lColumn = nil then
     raise EghSQLError.CreateFmt(Self, 'Column "%s" not found.', [lParam.Name]);
@@ -706,7 +712,7 @@ begin
   end;
 
   if not lAccept then
-    FOwnerTable.GetErrors.Add(GetError);
+    FTable.GetErrors.Add(GetError);
 end;
 
 { TghSQLConstraintList }
@@ -722,7 +728,7 @@ var
   lCnt: TghSQLConstraint;
 begin
   lCnt := TghSQLDefaultConstraint.Create(AColumName, AValue);
-  lCnt.OwnerTable := FOwnerTable;
+  lCnt.Table := FOwnerTable;
   Result := Add(lCnt);
 end;
 
@@ -732,7 +738,7 @@ var
   lCnt: TghSQLConstraint;
 begin
   lCnt := TghSQLUniqueConstraint.Create(AColumNames, AError);
-  lCnt.OwnerTable := FOwnerTable;
+  lCnt.Table := FOwnerTable;
   Result := Add(lCnt);
 end;
 
@@ -742,7 +748,7 @@ var
   lCnt: TghSQLConstraint;
 begin
   lCnt := TghSQLCheckConstraint.Create(AColumName, AValues, AError);
-  lCnt.OwnerTable := FOwnerTable;
+  lCnt.Table := FOwnerTable;
   Result := Add(lCnt);
 end;
 
@@ -942,7 +948,7 @@ begin
     if GetConstraints[i] is TghSQLValidationConstraint then
       with TghSQLValidationConstraint(GetConstraints[i]) do
       begin
-        OwnerTable := Self;
+        Table := Self;
         Execute;
       end;
   end;
@@ -993,7 +999,7 @@ begin
     lCnt := GetConstraints[i];
     if lCnt is TghSQLDefaultConstraint then
     begin
-      lCnt.OwnerTable := Self;
+      lCnt.Table := Self;
       TghSQLDefaultConstraint(lCnt).Execute;
     end;
   end;
@@ -1004,6 +1010,18 @@ begin
     LocalFillFieldValues;
     FillAutoParams(OwnerTable);
   end;
+end;
+
+procedure TghSQLTable.DoBeforeOpen;
+begin
+  if Assigned(FBeforeOpen) then
+    FBeforeOpen(Self);
+end;
+
+procedure TghSQLTable.DoAfterOpen;
+begin
+  if Assigned(FAfterOpen) then
+    FAfterOpen(Self);
 end;
 
 procedure TghSQLTable.DoBeforePost;
@@ -1137,6 +1155,7 @@ function TghSQLTable.Open: TghSQLTable;
 var
   lSC: TghSQLClient;
 begin
+  DoBeforeOpen;
   FreeAndNil(FData);
 
   lSC := TghSQLClient.Create(FConnector);
@@ -1163,6 +1182,7 @@ begin
     lSC.Free;
   end;
   Result := Self;
+  DoAfterOpen;
 end;
 
 function TghSQLTable.Insert: TghSQLTable;
