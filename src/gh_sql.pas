@@ -157,8 +157,9 @@ type
     property OwnerTable: TghSQLTable read FOwnerTable write SetOwnerTable;
   end;
 
-  TghSQLTable = class(TghSQLClient)
+  TghSQLTable = class(TghSQLHandler)
   private
+    FConnector: TghSQLConnector;
     FTableName: string;
     FConditions: string;
     FErrors: TStrings;
@@ -206,14 +207,14 @@ type
     // callback
     procedure CallFoundTable(Sender: TObject; ATable: TghSQLTable); virtual;
   public
-    constructor Create(AConn: TghSQLConnector); override; overload;
+    constructor Create(AConn: TghSQLConnector); virtual; overload;
     constructor Create(AConn: TghSQLConnector; const ATableName: string); virtual; overload;
     constructor Create(AConn: TghSQLConnector; const ATableName: string; AOwnerTable: TghSQLTable); virtual; overload;
     destructor Destroy; override;
     procedure Assign(ASource: TghSQLStatement); override;
     procedure Clear; override;
     function Close: TghSQLTable;
-    function Open: TghSQLTable; overload;
+    function Open: TghSQLTable;
     function Insert: TghSQLTable;
     function Append: TghSQLTable;
     function Edit: TghSQLTable;
@@ -1054,12 +1055,15 @@ end;
 
 constructor TghSQLTable.Create(AConn: TghSQLConnector);
 begin
-  inherited Create(AConn);
+  inherited Create;
+
+  FConnector := AConn;
 
   if Assigned(FConnector) then
     FConnector.Notify(Self, opInsert);
 
   FData := nil;
+  FSelectColumns := '*';
   FUseRetaining := True;
   FEnforceConstraints := True;
   FErrors := TStringList.Create;
@@ -1095,6 +1099,7 @@ procedure TghSQLTable.Assign(ASource: TghSQLStatement);
 var
   lTable: TghSQLTable;
 begin
+  inherited Assign(ASource);
   if ASource is TghSQLTable then
   begin
     lTable := TghSQLTable(ASource);
@@ -1109,7 +1114,7 @@ end;
 procedure TghSQLTable.Clear;
 begin
   inherited Clear;
-  FSelectColumns := '';
+  FSelectColumns := '*';
   FConditions := '';
   FOrderBy := '';
 end;
@@ -1127,33 +1132,32 @@ end;
 
 function TghSQLTable.Open: TghSQLTable;
 var
-  lSelectColumns: string;
-  lClearScript: Boolean;
+  lSC: TghSQLClient;
 begin
-  lClearScript := False;
   FreeAndNil(FData);
-  if FSelectColumns = '' then
-    lSelectColumns := '*'
-  else
-    lSelectColumns := FSelectColumns;
+
+  lSC := TghSQLClient.Create(FConnector);
   try
-    // check if user is using your own script
-    if FScript.Count = 0 then
-    begin
-      lClearScript := True;
-      FScript.Add('select ' + lSelectColumns + ' from ' + FTableName);
-      FScript.Add('where 1=1');
-      if FConditions <> '' then
-        FScript.Add('and ' + FConditions);
-      if FOrderBy <> '' then
-        FScript.Add('order by ' + FOrderBy);
+    try
+      lSC.Assign(Self);
+      // check if user is using your own script
+      if FScript.Count = 0 then
+      begin
+        lSC.Script.Clear;
+        lSC.Script.Add('select ' + FSelectColumns + ' from ' + FTableName);
+        lSC.Script.Add('where 1=1');
+        if FConditions <> '' then
+          lSC.Script.Add('and ' + FConditions);
+        if FOrderBy <> '' then
+          lSC.Script.Add('order by ' + FOrderBy);
+      end;
+      lSC.Open(FData, nil);
+    except
+      FreeAndNil(FData);
+      raise;
     end;
-    InternalOpen(Self, FData, nil);
-    if lClearScript then
-      FScript.Clear;
-  except
-    FreeAndNil(FData);
-    raise;
+  finally
+    lSC.Free;
   end;
   Result := Self;
 end;
