@@ -1,8 +1,9 @@
 Release notes
 ==========================================================
 
-(2013-03-26)
+(2013-03-29)
 
+- Now TghSQLTable class inherits from TghSQLHandler.
 - New TghSQLBaseHandler class inherits from TghSQLHandler class.
 - Renamed gh_global unit name to gh_classes.
 - Version 0.1.4
@@ -11,8 +12,7 @@ Release notes
 (2013-03-25)
 
 - Now TghSQLLib inherits from TghSQLHandler.
-- Implemented PacketRecords property to TghSQLTable and TghSQLClient.
-- Now TghSQLTable class inherits from TghSQLClient.
+- Implemented PacketRecords property in TghSQLHandler.
 - Now is possible to use t.Script.Text to get a DataSet using your own SQL.
 - Using a real version.
 - Many more improvements.

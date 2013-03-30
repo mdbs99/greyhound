@@ -601,10 +601,10 @@ end;
 
 procedure TghSQLUniqueConstraint.Execute;
 var
-  lTable: TghSQLTable;
-  lWhere: string;
+  SC: TghSQLClient;
+  DS: TDataSet;
 
-  procedure SetPK;
+  procedure MakeFilterUsingIndexDefs;
   var
     i: Integer;
     lIxDef: TIndexDef;
@@ -618,15 +618,15 @@ var
         begin
           if not FOwnerTable[lIxDef.Fields].IsNull then
           begin
-            lWhere += ' and (' + lIxDef.Fields + ' <> :' + lIxDef.Fields + ')';
-            lTable.Params[lIxDef.Fields].Value := FOwnerTable[lIxDef.Fields].Value;
+            SC.Script.Add('and (' + lIxDef.Fields + ' <> :' + lIxDef.Fields + ')');
+            SC.Params[lIxDef.Fields].Value := FOwnerTable[lIxDef.Fields].Value;
           end;
         end;
       end;
     end;
   end;
 
-  procedure SetValues;
+  procedure MakeFilterUsingParams;
   var
     i: Integer;
     lParam: TParam;
@@ -638,21 +638,24 @@ var
       lColumn := FOwnerTable.GetColumns.FindField(lParam.Name);
       if lColumn = nil then
         raise EghSQLError.CreateFmt(Self, 'Column "%s" not found.', [lParam.Name]);
-      lWhere += ' and (' + lParam.Name + ' = :' + lParam.Name + ')';
-      lTable.Params[lParam.Name].Value := lColumn.Value;
+      SC.Script.Add('and (' + lParam.Name + ' = :' + lParam.Name + ')');
+      SC.Params[lParam.Name].Value := lColumn.Value;
     end;
   end;
 
 begin
-  lWhere := '1=1 ';
-  lTable := TghSQLTable.Create(FOwnerTable.Connector, FOwnerTable.TableName);
+  SC := TghSQLClient.Create(FOwnerTable.Connector);
   try
-    SetPK;
-    SetValues;
-    if lTable.Where(lWhere).Open.RecordCount > 0 then
+    SC.Script.Add('select 1 from ' + FOwnerTable.TableName);
+    SC.Script.Add('where 1=1');
+    MakeFilterUsingIndexDefs;
+    MakeFilterUsingParams;
+    SC.Open(DS);
+    if not DS.IsEmpty then
       FOwnerTable.GetErrors.Add(GetError);
   finally
-    lTable.Free;
+    DS.Free;
+    SC.Free;
   end;
 end;
 
