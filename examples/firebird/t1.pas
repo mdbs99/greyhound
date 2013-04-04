@@ -6,7 +6,7 @@ uses
   heaptrc,
   Classes, SysUtils, DB,
   // gh
-  gh_SQL, gh_SQLdbLib;
+  ghSQL, ghSQLdbLib;
 
 var
   Co: TghSQLConnector;

@@ -10,15 +10,15 @@
     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
 }
 
-unit gh_JSONTest;
+unit ghJSONTest;
 
-{$i gh_test.inc}
+{$i ghtest.inc}
 
 interface
 
 uses
   Classes, SysUtils, fpcunit, testregistry, fpjson,
-  gh_JSON;
+  ghJSON;
 
 type
   TghJSONDataAdapterTest = class(TTestCase)

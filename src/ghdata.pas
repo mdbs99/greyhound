@@ -10,9 +10,9 @@
     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
 }
 
-unit gh_Data;
+unit ghData;
 
-{$i gh_def.inc}
+{$i ghdef.inc}
 
 interface
 
@@ -20,7 +20,7 @@ uses
   // fpc
   Classes, SysUtils, DB,
   // gh
-  gh_Classes;
+  ghClasses;
 
 type
   EghDataError = class(EghError);

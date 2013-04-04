@@ -10,9 +10,9 @@
     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
 }
 
-unit gh_Classes;
+unit ghClasses;
 
-{$i gh_def.inc}
+{$i ghdef.inc}
 
 interface
 

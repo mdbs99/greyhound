@@ -10,15 +10,15 @@
     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
 }
 
-unit gh_DataTest;
+unit ghDataTest;
 
-{$i gh_test.inc}
+{$i ghtest.inc}
 
 interface
 
 uses
   Classes, SysUtils, fpcunit, testregistry,
-  gh_Data;
+  ghData;
 
 type
   TghDataParamsTest = class(TTestCase)

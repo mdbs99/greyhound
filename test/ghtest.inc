@@ -11,8 +11,8 @@
 }
 
 {$IFDEF WINDOWS}
-{$I ..\src\gh_def.inc}
+{$I ..\src\ghdef.inc}
 {$ELSE}
-{$I ../src/gh_def.inc}
+{$I ../src/ghdef.inc}
 {$ENDIF}
 

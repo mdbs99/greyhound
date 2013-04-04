@@ -1,6 +1,12 @@
 Release notes
 ==========================================================
 
+(2013-04-03)
+
+- Started the new version 0.1.6 in dev-0.1.6 branch.
+- All names of the units have been modified to use only the prefix "gh" instead of "gh_" to be more Pascal style.
+
+
 (2013-03-29)
 
 - Now TghSQLTable class inherits from TghSQLHandler.

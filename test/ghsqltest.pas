@@ -10,15 +10,15 @@
     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
 }
 
-unit gh_SQLTest;
+unit ghSQLTest;
 
-{$i gh_test.inc}
+{$i ghtest.inc}
 
 interface
 
 uses
   Classes, SysUtils, fpcunit, testregistry,
-  gh_SQL, gh_SQLdbLib;
+  ghSQL, ghSQLdbLib;
 
 type
   TghSQLTest = class(TTestCase)

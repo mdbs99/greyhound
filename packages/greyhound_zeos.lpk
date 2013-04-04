@@ -24,8 +24,8 @@
     <Version Release="1"/>
     <Files Count="1">
       <Item1>
-        <Filename Value="..\src\gh_zeoslib.pas"/>
-        <UnitName Value="gh_ZeosLib"/>
+        <Filename Value="..\src\ghzeoslib.pas"/>
+        <UnitName Value="ghZeosLib"/>
       </Item1>
     </Files>
     <Type Value="RunTimeOnly"/>

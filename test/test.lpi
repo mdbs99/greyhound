@@ -77,19 +77,19 @@
         <UnitName Value="test"/>
       </Unit0>
       <Unit1>
-        <Filename Value="gh_sqltest.pas"/>
+        <Filename Value="ghsqltest.pas"/>
         <IsPartOfProject Value="True"/>
-        <UnitName Value="gh_SQLTest"/>
+        <UnitName Value="ghSQLTest"/>
       </Unit1>
       <Unit2>
-        <Filename Value="gh_datatest.pas"/>
+        <Filename Value="ghdatatest.pas"/>
         <IsPartOfProject Value="True"/>
-        <UnitName Value="gh_DataTest"/>
+        <UnitName Value="ghDataTest"/>
       </Unit2>
       <Unit3>
-        <Filename Value="gh_jsontest.pas"/>
+        <Filename Value="ghjsontest.pas"/>
         <IsPartOfProject Value="True"/>
-        <UnitName Value="gh_JSONTest"/>
+        <UnitName Value="ghJSONTest"/>
       </Unit3>
     </Units>
   </ProjectOptions>

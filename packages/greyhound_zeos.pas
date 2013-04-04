@@ -7,7 +7,7 @@ unit Greyhound_Zeos;
 interface
 
 uses
-  gh_ZeosLib;
+  ghZeosLib;
 
 implementation
 

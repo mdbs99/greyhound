@@ -10,9 +10,9 @@
     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
 }
 
-unit gh_JSON;
+unit ghJSON;
 
-{$i gh_def.inc}
+{$i ghdef.inc}
 
 interface
 
@@ -20,7 +20,7 @@ uses
   // fpc
   Classes, SysUtils, DB, fpjson,
   // gh
-  gh_Data;
+  ghData;
 
 type
   EghJSONDataError = class(EghDataError);

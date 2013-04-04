@@ -10,9 +10,9 @@
     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
 }
 
-unit gh_ZeosLib;
+unit ghZeosLib;
 
-{$i gh_def.inc}
+{$i ghdef.inc}
 
 interface
 
@@ -22,7 +22,7 @@ uses
   // zeos
   ZConnection, ZDbcIntfs, ZDataset,
   // gh
-  gh_SQL;
+  ghSQL;
 
 type
   TghZeosQuery = class(TZQuery, IghSQLDataSetResolver)

@@ -10,9 +10,9 @@
     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
 }
 
-unit gh_SQLdbLib;
+unit ghSQLdbLib;
 
-{$i gh_def.inc}
+{$i ghdef.inc}
 
 interface
 
@@ -24,7 +24,7 @@ uses
   IBConnection,
   {$IFDEF MSSQL_LIB} mssqlconn, {$ENDIF}
   // gh
-  gh_SQL;
+  ghSQL;
 
 type
   TghSQLdbLib = class;

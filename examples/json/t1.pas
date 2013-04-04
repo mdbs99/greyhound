@@ -6,7 +6,7 @@ uses
   heaptrc,
   Classes, SysUtils, fpjson,
   // gh
-  gh_Data, gh_JSON, gh_SQL, gh_SQLdbLib;
+  ghData, ghJSON, ghSQL, ghSQLdbLib;
 
 var
   Co: TghSQLConnector;

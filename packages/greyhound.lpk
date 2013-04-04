@@ -21,31 +21,31 @@
     </CompilerOptions>
     <Description Value="Greyhound runtime package."/>
     <License Value="See the file LICENSE, included in this distribution, for details about the copyright."/>
-    <Version Minor="1" Release="4"/>
+    <Version Minor="1" Release="6"/>
     <Files Count="6">
       <Item1>
-        <Filename Value="..\src\gh_sqldblib.pas"/>
-        <UnitName Value="gh_SQLdbLib"/>
+        <Filename Value="..\src\ghsqldblib.pas"/>
+        <UnitName Value="ghSQLdbLib"/>
       </Item1>
       <Item2>
-        <Filename Value="..\src\gh_data.pas"/>
-        <UnitName Value="gh_Data"/>
+        <Filename Value="..\src\ghdata.pas"/>
+        <UnitName Value="ghData"/>
       </Item2>
       <Item3>
-        <Filename Value="..\src\gh_def.inc"/>
+        <Filename Value="..\src\ghdef.inc"/>
         <Type Value="Include"/>
       </Item3>
       <Item4>
-        <Filename Value="..\src\gh_json.pas"/>
-        <UnitName Value="gh_JSON"/>
+        <Filename Value="..\src\ghjson.pas"/>
+        <UnitName Value="ghJSON"/>
       </Item4>
       <Item5>
-        <Filename Value="..\src\gh_sql.pas"/>
-        <UnitName Value="gh_SQL"/>
+        <Filename Value="..\src\ghsql.pas"/>
+        <UnitName Value="ghSQL"/>
       </Item5>
       <Item6>
-        <Filename Value="..\src\gh_classes.pas"/>
-        <UnitName Value="gh_Classes"/>
+        <Filename Value="..\src\ghclasses.pas"/>
+        <UnitName Value="ghClasses"/>
       </Item6>
     </Files>
     <Type Value="RunTimeOnly"/>

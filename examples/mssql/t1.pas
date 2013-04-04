@@ -6,7 +6,7 @@ uses
   heaptrc,
   Classes, SysUtils, DB, mssqlconn,
   // gh
-  gh_SQL, gh_SQLdbLib;
+  ghSQL, ghSQLdbLib;
 
 const
   TABLE_NAME = 'user_tmp001';
