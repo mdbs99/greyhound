@@ -24,22 +24,22 @@ uses
 
 // encoding
 function ghSysEncoding(const S: string): string; inline;
-function ghExeEncoding(const S: string): string; inline;
+function ghAppEncoding(const S: string): string; inline;
 
-// exe
-function ghExeGetParam(AIndex: Integer): string;
-function ghExeGetPath: string;
-function ghExeGetName: string;
-function ghExeGetCurrDir: string;
-function ghExeSetCurrDir(const ANewDir: string): Boolean;
+// app
+function ghAppGetParam(AIndex: Integer): string;
+function ghAppGetPath: string;
+function ghAppGetName: string;
+function ghAppGetCurDir: string;
+function ghAppSetCurDir(const ANewDir: string): Boolean;
+function ghAppGetVersion: string;
 
-// util
-function ghUrlOpen(const AUrl: string): Boolean;
-
-// file and path
+// dir
 function ghDirExists(const ADir: string): Boolean;
 function ghDirForce(const ADir: string): Boolean;
 function ghDirAddDelim(const APath: string): string;
+
+// file
 function ghFileFindFirst(const APath: string; AAttr: LongInt; out ARec: TSearchRec): LongInt;
 function ghFileFindNext(var ARec: TSearchRec): LongInt;
 function ghFileExpandName(const AFileName: string): string;
@@ -54,6 +54,9 @@ function ghFileExtractNameOnly(const AFileName: string): string;
 function ghFileExtractExt(const AFileName: string): string;
 function ghFileChangeExt(const AFileName, AExt: string): string;
 
+// util
+function ghUrlOpen(const AUrl: string): Boolean;
+
 implementation
 
 function ghSysEncoding(const S: string): string;
@@ -61,39 +64,73 @@ begin
   Result := UTF8ToSys(S);
 end;
 
-function ghExeEncoding(const S: string): string;
+function ghAppEncoding(const S: string): string;
 begin
   Result := SysToUTF8(S);
 end;
 
-function ghExeGetParam(AIndex: Integer): string;
+function ghAppGetParam(AIndex: Integer): string;
 begin
-  Result := ghExeEncoding(ParamStr(AIndex));
+  Result := ghAppEncoding(ParamStr(AIndex));
 end;
 
-function ghExeGetPath: string;
+function ghAppGetPath: string;
 begin
-  Result := ghDirAddDelim(ghFileExtractDir(ghExeGetParam(0)));
+  Result := ghDirAddDelim(ghFileExtractDir(ghAppGetParam(0)));
 end;
 
-function ghExeGetName: string;
+function ghAppGetName: string;
 begin
-  Result := ghFileChangeExt(ghFileExtractName(ghExeGetParam(0)), '');
+  Result := ghFileChangeExt(ghFileExtractName(ghAppGetParam(0)), '');
 end;
 
-function ghExeGetCurrDir: string;
+function ghAppGetCurDir: string;
 begin
-  Result := ghExeEncoding(SysUtils.GetCurrentDir);
+  Result := ghAppEncoding(SysUtils.GetCurrentDir);
 end;
 
-function ghExeSetCurrDir(const ANewDir: string): Boolean;
+function ghAppSetCurDir(const ANewDir: string): Boolean;
 begin
   Result := SysUtils.SetCurrentDir(ghSysEncoding(ANewDir));
 end;
 
-function ghUrlOpen(const AUrl: string): Boolean;
+function ghAppGetVersion: string;
+const
+  NOVIDATA = '';
+var
+  dwInfoSize,
+  dwVerSize,
+  dwWnd: DWORD;
+  pffi: PVSFixedFileInfo;
+  ptrVerBuf: Pointer;
+  strFileName,
+  strVersion: string;
 begin
-  Result := LCLIntf.OpenURL(AUrl);
+  strFileName := ParamStr(0);
+  dwWnd := 0;
+  dwVerSize := 0;
+  dwInfoSize := GetFileVersionInfoSize(PChar(strFileName), dwWnd);
+
+  ZeroMemory(@pffi, SizeOf(pffi));
+  if (dwInfoSize = 0) then
+    Result := NOVIDATA
+  else
+  begin
+    GetMem(ptrVerBuf, dwInfoSize);
+    try
+      if GetFileVersionInfo(PChar(strFileName), dwWnd, dwInfoSize, ptrVerBuf) then
+      begin
+        if VerQueryValue(ptrVerBuf, '\', pffi, dwVerSize) then
+          strVersion :=
+            Format('%d.%d.%d.%d', [hiWord(pffi^.dwFileVersionMS),
+            loWord(pffi^.dwFileVersionMS), hiWord(pffi^.dwFileVersionLS),
+            loWord(pffi^.dwFileVersionLS)]);
+      end;
+    finally
+      FreeMem(ptrVerBuf);
+    end;
+  end;
+  Result := strVersion;
 end;
 
 function ghDirExists(const ADir: string): Boolean;
@@ -114,18 +151,18 @@ end;
 function ghFileFindFirst(const APath: string; AAttr: LongInt; out ARec: TSearchRec): LongInt;
 begin
   Result := SysUtils.FindFirst(ghSysEncoding(APath), AAttr, ARec);
-  ARec.Name := ghExeEncoding(ARec.Name);
+  ARec.Name := ghAppEncoding(ARec.Name);
 end;
 
 function ghFileFindNext(var ARec: TSearchRec): LongInt;
 begin
   Result := SysUtils.FindNext(ARec);
-  ARec.Name := ghExeEncoding(ARec.Name);
+  ARec.Name := ghAppEncoding(ARec.Name);
 end;
 
 function ghFileExpandName(const AFileName: string): string;
 begin
-  Result := ghExeEncoding(SysUtils.ExpandFileName(ghSysEncoding(AFileName)));
+  Result := ghAppEncoding(SysUtils.ExpandFileName(ghSysEncoding(AFileName)));
 end;
 
 function ghFileExists(const AFileName: string): Boolean;
@@ -150,32 +187,37 @@ end;
 
 function ghFileExtractDir(const AFileName: string): string;
 begin
-  Result := ghExeEncoding(SysUtils.ExtractFileDir(ghSysEncoding(AFileName)));
+  Result := ghAppEncoding(SysUtils.ExtractFileDir(ghSysEncoding(AFileName)));
 end;
 
 function ghFileExtractPath(const AFileName: string): string;
 begin
-  Result := ghExeEncoding(SysUtils.ExtractFilePath(ghSysEncoding(AFilename)));
+  Result := ghAppEncoding(SysUtils.ExtractFilePath(ghSysEncoding(AFilename)));
 end;
 
 function ghFileExtractName(const AFileName: string): string;
 begin
-  Result := ghExeEncoding(SysUtils.ExtractFileName(ghSysEncoding(AFilename)));
+  Result := ghAppEncoding(SysUtils.ExtractFileName(ghSysEncoding(AFilename)));
 end;
 
 function ghFileExtractNameOnly(const AFileName: string): string;
 begin
-  Result := ghExeEncoding(FileUtil.ExtractFileNameOnly(ghSysEncoding(AFilename)));
+  Result := ghAppEncoding(FileUtil.ExtractFileNameOnly(ghSysEncoding(AFilename)));
 end;
 
 function ghFileExtractExt(const AFileName: string): string;
 begin
-  Result := ghExeEncoding(SysUtils.ExtractFileExt(ghSysEncoding(AFileName)));
+  Result := ghAppEncoding(SysUtils.ExtractFileExt(ghSysEncoding(AFileName)));
 end;
 
 function ghFileChangeExt(const AFileName, AExt: string): string;
 begin
-  Result := ghExeEncoding(SysUtils.ChangeFileExt(ghSysEncoding(AFilename), AExt));
+  Result := ghAppEncoding(SysUtils.ChangeFileExt(ghSysEncoding(AFilename), AExt));
+end;
+
+function ghUrlOpen(const AUrl: string): Boolean;
+begin
+  Result := LCLIntf.OpenURL(AUrl);
 end;
 
 end.
