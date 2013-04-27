@@ -38,33 +38,33 @@ implementation
 
 procedure TghJSONDataAdapter.Adapt(ASource: TObject);
 var
-  i: Integer;
-  lJson: TJSONObject absolute ASource;
-  lName: string;
-  lData: TJSONData;
-  lParam: TParam;
+  I: Integer;
+  JsonSrc: TJSONObject absolute ASource;
+  JsonName: string;
+  JsonData: TJSONData;
+  Par: TParam;
 begin
   DataRow.Clear;
-  for i := 0 to lJson.Count-1 do
+  for I := 0 to JsonSrc.Count-1 do
   begin
-    lName := lJson.Names[i];
-    lData := lJson.Items[i];
-    lParam := DataRow[lName];
-    case lData.JSONType of
+    JsonName := JsonSrc.Names[I];
+    JsonData := JsonSrc.Items[I];
+    Par := DataRow[JsonName];
+    case JsonData.JSONType of
       jtNumber:
         begin
-          if lData is TJSONFloatNumber then
-            lParam.AsFloat := lData.AsFloat
+          if JsonData is TJSONFloatNumber then
+            Par.AsFloat := JsonData.AsFloat
           else
-          if lData is TJSONIntegerNumber then
-            lParam.AsInteger := lData.AsInteger
+          if JsonData is TJSONIntegerNumber then
+            Par.AsInteger := JsonData.AsInteger
         end;
       jtString:
-        lParam.AsString := lData.AsString;
+        Par.AsString := JsonData.AsString;
       jtBoolean:
-        lParam.AsBoolean := lData.AsBoolean;
+        Par.AsBoolean := JsonData.AsBoolean;
       jtNull:
-        lParam.Value := Null;
+        Par.Value := Null;
     else
       raise EghJSONDataError.Create(Self, 'JSONType not supported.');
     end;
