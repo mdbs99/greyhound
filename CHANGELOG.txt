@@ -1,6 +1,12 @@
 Release notes
 ==========================================================
 
+(2013-04-27)
+
+- TghSQLClient: implemented Params support for batch scripts.
+- New ghFile unit to work with Files and Directories.
+
+
 (2013-04-03)
 
 - Started the new version 0.1.6 in dev-0.1.6 branch.
