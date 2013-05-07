@@ -3,7 +3,8 @@ Release notes
 
 (2013-04-27)
 
-- TghSQLClient: implemented Params support for batch scripts.
+- TghSQLStatement: New ParamsCheck specifies whether the parameters is regenerated when the Script property changes.
+- TghSQLClient: Implemented Params support for batch scripts.
 - New ghFile unit to work with Files and Directories.
 
 
