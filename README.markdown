@@ -3,6 +3,48 @@
 Greyhound is a tiny ORM-ish for [Free Pascal](http://freepascal.org/).
 It is fast, clean and simple to use.
 
+<pre><code>
+{ a basic program }
+program t1;
+
+{$mode objfpc}{$H+}
+
+uses
+  Classes, SysUtils, ghSQL, ghSQLdbLib;
+var
+  Co: TghSQLConnector;
+  User: TghSQLTable;
+begin
+  Co := TghSQLConnector.Create(TghSQLite3Lib);
+  try
+    // set params
+    Co.Database := 'DB.sqlite';
+
+    // get the User table
+    User := Co.Tables['user'];
+    
+    // open using filters
+    User.Select('*').Where('id = %d', [2]).Open;
+
+    // editing the first record
+    User.Edit;
+    User['name'].AsString := 'Free Pascal';
+    
+    // post and checking for errors
+    if User.Post.HasErrors then
+    begin
+      WriteLn('ERROR: ' + User.GetErrors.Text);
+      User.Cancel;
+    end
+    else
+      User.Commit;
+  finally
+    Co.Free;
+  end;
+  writeln('Done.');
+  writeln;
+end.
+</code></pre>
 
 ##Features
 * It will help you with a thin layer to read/write data in a DBMS, but don't trying to simulate a pure object model;
