@@ -1,14 +1,11 @@
 #Greyhound
 
 Greyhound is a tiny ORM-ish for [Free Pascal](http://freepascal.org/).
+
 It is fast, clean and simple to use.
 
-<pre><code>
-{ a basic program }
-program t1;
-
+<pre><code>program t1;
 {$mode objfpc}{$H+}
-
 uses
   SysUtils, ghSQL, ghSQLdbLib;
 var
