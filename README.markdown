@@ -10,30 +10,21 @@ program t1;
 {$mode objfpc}{$H+}
 
 uses
-  Classes, SysUtils, ghSQL, ghSQLdbLib;
+  SysUtils, ghSQL, ghSQLdbLib;
 var
   Co: TghSQLConnector;
   User: TghSQLTable;
 begin
   Co := TghSQLConnector.Create(TghSQLite3Lib);
   try
-    // set params
     Co.Database := 'DB.sqlite';
-
-    // get the User table
     User := Co.Tables['user'];
-    
-    // open using filters
     User.Select('*').Where('id = %d', [2]).Open;
-
-    // editing the first record
     User.Edit;
     User['name'].AsString := 'Free Pascal';
-    
-    // post and checking for errors
     if User.Post.HasErrors then
     begin
-      WriteLn('ERROR: ' + User.GetErrors.Text);
+      writeln('ERROR: ' + User.GetErrors.Text);
       User.Cancel;
     end
     else
