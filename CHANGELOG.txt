@@ -1,6 +1,11 @@
 Release notes
 ==========================================================
 
+(2013-05-13)
+
+- Renamed GreyhoundLCL package name to GreyhoundExt.
+
+
 (2013-04-27)
 
 - TghSQLStatement: New ParamsCheck specifies whether the parameters is regenerated when the Script property changes.
