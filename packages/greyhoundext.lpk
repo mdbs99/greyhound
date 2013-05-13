@@ -2,7 +2,7 @@
 <CONFIG>
   <Package Version="4">
     <PathDelim Value="\"/>
-    <Name Value="GreyhoundLCL"/>
+    <Name Value="GreyhoundExt"/>
     <Author Value="Marcos Douglas B. dos Santos"/>
     <CompilerOptions>
       <Version Value="11"/>
@@ -10,7 +10,7 @@
       <SearchPaths>
         <IncludeFiles Value="..\src"/>
         <OtherUnitFiles Value="..\src"/>
-        <UnitOutputDirectory Value="lib\$(TargetCPU)-$(TargetOS)\"/>
+        <UnitOutputDirectory Value="lib\$(TargetCPU)-$(TargetOS)"/>
       </SearchPaths>
       <Other>
         <CompilerMessages>
@@ -19,9 +19,8 @@
         <CompilerPath Value="$(CompPath)"/>
       </Other>
     </CompilerOptions>
-    <Description Value="Greyhound LCL runtime package."/>
+    <Description Value="Greyhound runtime package."/>
     <License Value="See the file LICENSE, included in this distribution, for details about the copyright."/>
-    <Version Release="1"/>
     <Files Count="1">
       <Item1>
         <Filename Value="..\src\ghfile.pas"/>
