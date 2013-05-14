@@ -1,0 +1,7 @@
+object ConnectionModule: TConnectionModule
+  OldCreateOrder = False
+  Height = 194
+  HorizontalOffset = 244
+  VerticalOffset = 182
+  Width = 249
+end
