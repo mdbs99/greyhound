@@ -55,6 +55,8 @@ type
     constructor Create(AOwner: TComponent); override;
   end;
 
+  { TghSQLdbLib }
+
   TghSQLdbLib = class(TghSQLLib)
   protected
     FMyConn: TghSQLdbConnector;
@@ -74,6 +76,7 @@ type
     function Connected: Boolean; override;
     procedure Disconnect; override;
     procedure StartTransaction; override;
+    function InTransaction: Boolean; override;
     procedure Commit; override;
     procedure CommitRetaining; override;
     procedure Rollback; override;
@@ -378,6 +381,12 @@ procedure TghSQLdbLib.StartTransaction;
 begin
   if not FTran.Active then
     FTran.StartTransaction;
+  FMyConn.TransactionCount;
+end;
+
+function TghSQLdbLib.InTransaction: Boolean;
+begin
+  Result := FTran.Active;
 end;
 
 procedure TghSQLdbLib.Commit;
@@ -503,12 +512,12 @@ end;
 
 procedure TghMSSQLLib.StartTransaction;
 begin
-  FMyConn.ExecuteDirect('BEGIN TRAN');
+  FMyConn.ExecuteDirect('BEGIN TRANSACTION GH_TRAN_01');
 end;
 
 procedure TghMSSQLLib.Commit;
 begin
-  FMyConn.ExecuteDirect('COMMIT');
+  FMyConn.ExecuteDirect('COMMIT TRANSACTION GH_TRAN_01');
 end;
 
 procedure TghMSSQLLib.CommitRetaining;
@@ -518,7 +527,7 @@ end;
 
 procedure TghMSSQLLib.Rollback;
 begin
-  FMyConn.ExecuteDirect('ROLLBACK');
+  FMyConn.ExecuteDirect('ROLLBACK TRANSACTION GH_TRAN_01');
 end;
 
 procedure TghMSSQLLib.RollbackRetaining;
