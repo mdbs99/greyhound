@@ -21,6 +21,7 @@
     </CompilerOptions>
     <Description Value="Greyhound runtime package."/>
     <License Value="See the file LICENSE, included in this distribution, for details about the copyright."/>
+    <Version Build="1"/>
     <Files Count="1">
       <Item1>
         <Filename Value="..\src\ghfile.pas"/>
