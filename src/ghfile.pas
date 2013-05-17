@@ -198,7 +198,7 @@ var
   strFileName,
   strVersion: string;
 begin
-  strFileName := ParamStr(0);
+  strFileName := AFileName;
   dwWnd := 0;
   dwVerSize := 0;
   dwInfoSize := GetFileVersionInfoSize(PChar(strFileName), dwWnd);
