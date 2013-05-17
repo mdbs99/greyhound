@@ -305,6 +305,7 @@ type
     function Connected: Boolean; virtual; abstract;
     procedure Disconnect; virtual; abstract;
     procedure StartTransaction; virtual; abstract;
+    function InTransaction: Boolean; virtual; abstract;
     procedure Commit; virtual; abstract;
     procedure CommitRetaining; virtual; abstract;
     procedure Rollback; virtual; abstract;
@@ -1572,7 +1573,9 @@ procedure TghSQLConnector.StartTransaction;
 begin
   try
     if FTransCount = 0 then
+    begin
       FLib.StartTransaction;
+    end;
     Inc(FTransCount);
   except
     on e: Exception do
@@ -1582,7 +1585,7 @@ end;
 
 function TghSQLConnector.InTransaction: Boolean;
 begin
-  Result := (FTransCount > 0);
+  Result := (FTransCount > 0) or FLib.InTransaction;
 end;
 
 procedure TghSQLConnector.Commit;
