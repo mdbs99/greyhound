@@ -4,7 +4,8 @@ Greyhound is a tiny ORM-ish for [Free Pascal](http://freepascal.org/).
 
 It is fast, clean and simple to use.
 
-<pre><code>program t1;
+``` pascal
+program t1;
 {$mode objfpc}{$H+}
 uses
   SysUtils, ghSQL, ghSQLdbLib;
@@ -32,7 +33,7 @@ begin
   writeln('Done.');
   writeln;
 end.
-</code></pre>
+```
 
 ##Features
 * It will help you with a thin layer to read/write data in a DBMS, but don't trying to simulate a pure object model;
