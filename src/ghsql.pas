@@ -64,49 +64,48 @@ type
   end;
 
   EghSQLHandlerError = class(EghSQLError);
+  TghSQLHandlerExceptionEvent = procedure (Sender: TObject; E: Exception) of object;
   TghSQLHandler = class(TghSQLStatement)
   protected
     FIsBatch: Boolean;
     FPacketRecords: Integer;
     FPrepared: Boolean;
+    FBeforeOpen: TNotifyEvent;
+    FAfterOpen: TDataSetNotifyEvent;
+    FBeforePost: TNotifyEvent;
+    FAfterPost: TNotifyEvent;
+    FBeforeExecute: TNotifyEvent;
+    FAfterExecute: TNotifyEvent;
+    FOnException: TghSQLHandlerExceptionEvent;
     procedure SetPacketRecords(AValue: Integer); virtual;
+    procedure InternalOpen(Sender: TObject; out ADataSet: TDataSet; {%H-}AOwner: TComponent = nil); virtual;
+    function InternalExecute(Sender: TObject): NativeInt; virtual;
+    procedure DoBeforeOpen;
+    procedure DoAfterOpen(ADataSet: TDataSet);
+    procedure DoBeforePost;
+    procedure DoAfterPost;
+    procedure DoBeforeExecute;
+    procedure DoAfterExecute;
+    procedure DoOnException(E: Exception);
   public
     constructor Create; override;
     procedure Assign(ASource: TghSQLStatement); override;
     procedure Clear; override;
+    procedure Open(out ADataSet: TDataSet; AOwner: TComponent = nil); virtual;
+    function Execute: NativeInt; virtual;
     property IsBatch: Boolean read FIsBatch write FIsBatch;
     property PacketRecords: Integer read FPacketRecords write SetPacketRecords;
     property Prepared: Boolean read FPrepared write FPrepared;
-  end;
-
-  { TghSQLEventHandler }
-
-  TghSQLEventHandlerExceptionEvent = procedure (Sender: TObject; E: Exception) of object;
-  TghSQLEventHandler = class(TghSQLHandler)
-  protected
-    FBeforeOpen: TNotifyEvent;
-    FAfterOpen: TDataSetNotifyEvent;
-    FBeforeExecute: TNotifyEvent;
-    FAfterExecute: TNotifyEvent;
-    FOnException: TghSQLEventHandlerExceptionEvent;
-    procedure DoBeforeOpen;
-    procedure DoAfterOpen(ADataSet: TDataSet);
-    procedure DoBeforeExecute;
-    procedure DoAfterExecute;
-    procedure DoOnException(E: Exception);
-    procedure InternalOpen(Sender: TObject; out ADataSet: TDataSet; AOwner: TComponent = nil); virtual; abstract;
-    function InternalExecute(Sender: TObject): NativeInt; virtual; abstract;
-  public
-    procedure Open(out ADataSet: TDataSet; AOwner: TComponent = nil); virtual;
-    function Execute: NativeInt; virtual;
     property BeforeOpen: TNotifyEvent read FBeforeOpen write FBeforeOpen;
     property AfterOpen: TDataSetNotifyEvent read FAfterOpen write FAfterOpen;
+    property BeforePost: TNotifyEvent read FBeforePost write FBeforePost;
+    property AfterPost: TNotifyEvent read FAfterPost write FAfterPost;
     property BeforeExecute: TNotifyEvent read FBeforeExecute write FBeforeExecute;
     property AfterExecute: TNotifyEvent read FAfterExecute write FAfterExecute;
-    property OnException: TghSQLEventHandlerExceptionEvent read FOnException write FOnException;
+    property OnException: TghSQLHandlerExceptionEvent read FOnException write FOnException;
   end;
 
-  TghSQLClient = class(TghSQLEventHandler)
+  TghSQLClient = class(TghSQLHandler)
   protected
     FConnector: TghSQLConnector;
     procedure InternalOpen(Sender: TObject; out ADataSet: TDataSet; AOwner: TComponent = nil); override;
@@ -181,10 +180,6 @@ type
     FSelectColumns: string;
     FEnforceConstraints: Boolean;
     FUseRetaining: Boolean;
-    FBeforeOpen: TNotifyEvent;
-    FAfterOpen: TNotifyEvent;
-    FBeforePost: TNotifyEvent;
-    FAfterPost: TNotifyEvent;
     FBeforeCommit: TNotifyEvent;
     FAfterCommit: TNotifyEvent;
     class var FRelations: TFPHashObjectList;
@@ -213,10 +208,6 @@ type
     function CheckValues: Boolean; virtual;
     procedure SetDefaultValues; virtual;
     // events
-    procedure DoBeforeOpen; virtual;
-    procedure DoAfterOpen; virtual;
-    procedure DoBeforePost; virtual;
-    procedure DoAfterPost; virtual;
     procedure DoBeforeCommit; virtual;
     procedure DoAfterCommit; virtual;
     // callback
@@ -229,7 +220,7 @@ type
     procedure Assign(ASource: TghSQLStatement); override;
     procedure Clear; override;
     function Close: TghSQLTable;
-    function Open: TghSQLTable;
+    function Open: TghSQLTable; overload;
     function Insert: TghSQLTable;
     function Append: TghSQLTable;
     function Edit: TghSQLTable;
@@ -269,10 +260,6 @@ type
     property Constraints: TghSQLConstraintList read GetConstraints;
     property EnforceConstraints: Boolean read FEnforceConstraints;
     property UseRetaining: Boolean read FUseRetaining write FUseRetaining;
-    property BeforeOpen: TNotifyEvent read FBeforeOpen write FBeforeOpen;
-    property AfterOpen: TNotifyEvent read FAfterOpen write FAfterOpen;
-    property BeforePost: TNotifyEvent read FBeforePost write FBeforePost;
-    property AfterPost: TNotifyEvent read FAfterPost write FAfterPost;
     property BeforeCommit: TNotifyEvent read FBeforeCommit write FBeforeCommit;
     property AfterCommit: TNotifyEvent read FAfterCommit write FAfterCommit;
     property DataSet: TDataSet read GetDataset;
@@ -302,7 +289,7 @@ type
 
   EghSQLLibError = class(EghSQLError);
   TghSQLLibClass = class of TghSQLLib;
-  TghSQLLib = class abstract(TghSQLEventHandler)
+  TghSQLLib = class abstract(TghSQLHandler)
   protected
     FConnector: TghSQLConnector;
   public
@@ -413,6 +400,63 @@ begin
   FPacketRecords := AValue;
 end;
 
+procedure TghSQLHandler.InternalOpen(Sender: TObject; out ADataSet: TDataSet;
+  AOwner: TComponent);
+begin
+  ADataSet := nil;
+  raise EghSQLHandlerError.Create('The Open method was not implemented.');
+end;
+
+function TghSQLHandler.InternalExecute(Sender: TObject): NativeInt;
+begin
+  Result := -1;
+  raise EghSQLHandlerError.Create('The Open method was not implemented.');
+end;
+
+procedure TghSQLHandler.DoBeforeOpen;
+begin
+  if Assigned(FBeforeOpen) then
+    FBeforeOpen(Self);
+end;
+
+procedure TghSQLHandler.DoAfterOpen(ADataSet: TDataSet);
+begin
+  if Assigned(FAfterOpen) then
+    FAfterOpen(ADataSet);
+end;
+
+procedure TghSQLHandler.DoBeforePost;
+begin
+  if Assigned(FBeforePost) then
+    FBeforePost(Self);
+end;
+
+procedure TghSQLHandler.DoAfterPost;
+begin
+  if Assigned(FAfterPost) then
+    FAfterPost(Self);
+end;
+
+procedure TghSQLHandler.DoBeforeExecute;
+begin
+  if Assigned(FBeforeExecute) then
+    FBeforeExecute(Self);
+end;
+
+procedure TghSQLHandler.DoAfterExecute;
+begin
+  if Assigned(FAfterExecute) then
+    FAfterExecute(Self);
+end;
+
+procedure TghSQLHandler.DoOnException(E: Exception);
+begin
+  if Assigned(FOnException) then
+    FOnException(Self, E)
+  else
+    raise E;
+end;
+
 constructor TghSQLHandler.Create;
 begin
   inherited Create;
@@ -441,48 +485,14 @@ begin
   FPrepared := False;
 end;
 
-{ TghSQLEventHandler }
-
-procedure TghSQLEventHandler.DoBeforeOpen;
-begin
-  if Assigned(FBeforeOpen) then
-    FBeforeOpen(Self);
-end;
-
-procedure TghSQLEventHandler.DoAfterOpen(ADataSet: TDataSet);
-begin
-  if Assigned(FAfterOpen) then
-    FAfterOpen(ADataSet);
-end;
-
-procedure TghSQLEventHandler.DoBeforeExecute;
-begin
-  if Assigned(FBeforeExecute) then
-    FBeforeExecute(Self);
-end;
-
-procedure TghSQLEventHandler.DoAfterExecute;
-begin
-  if Assigned(FAfterExecute) then
-    FAfterExecute(Self);
-end;
-
-procedure TghSQLEventHandler.DoOnException(E: Exception);
-begin
-  if Assigned(FOnException) then
-    FOnException(Self, E)
-  else
-    raise E;
-end;
-
-procedure TghSQLEventHandler.Open(out ADataSet: TDataSet; AOwner: TComponent);
+procedure TghSQLHandler.Open(out ADataSet: TDataSet; AOwner: TComponent);
 begin
   DoBeforeOpen;
   InternalOpen(Self, ADataSet, AOwner);
   DoAfterOpen(ADataSet);
 end;
 
-function TghSQLEventHandler.Execute: NativeInt;
+function TghSQLHandler.Execute: NativeInt;
 begin
   DoBeforeExecute;
   Result := InternalExecute(Self);
@@ -1057,30 +1067,6 @@ begin
   end;
 end;
 
-procedure TghSQLTable.DoBeforeOpen;
-begin
-  if Assigned(FBeforeOpen) then
-    FBeforeOpen(Self);
-end;
-
-procedure TghSQLTable.DoAfterOpen;
-begin
-  if Assigned(FAfterOpen) then
-    FAfterOpen(Self);
-end;
-
-procedure TghSQLTable.DoBeforePost;
-begin
-  if Assigned(FBeforePost) then
-    FBeforePost(Self);
-end;
-
-procedure TghSQLTable.DoAfterPost;
-begin
-  if Assigned(FAfterPost) then
-    FAfterPost(Self);
-end;
-
 procedure TghSQLTable.DoBeforeCommit;
 begin
   if Assigned(FBeforeCommit) then
@@ -1227,7 +1213,7 @@ begin
     SC.Free;
   end;
   Result := Self;
-  DoAfterOpen;
+  DoAfterOpen(FData);
 end;
 
 function TghSQLTable.Insert: TghSQLTable;

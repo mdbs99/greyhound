@@ -18,7 +18,7 @@
       <StringTable ProductVersion=""/>
     </VersionInfo>
     <BuildModes Count="2">
-      <Item1 Name="Default" Default="True"/>
+      <Item1 Name="Run" Default="True"/>
       <Item2 Name="Debug">
         <CompilerOptions>
           <Version Value="11"/>

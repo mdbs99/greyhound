@@ -1,6 +1,13 @@
 Release notes
 ==========================================================
 
+(2013-05-28)
+
+- The TghSQLEventHandler was fused in TghSQLHandler class.
+- New TghSQLHandler.OnException property to catch all exceptions.
+- Now TghSQLClient and TghSQLLib classes inherit from TghSQLHandler.
+
+
 (2013-05-13)
 
 - Renamed GreyhoundLCL package name to GreyhoundExt.
