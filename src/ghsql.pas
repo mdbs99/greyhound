@@ -79,16 +79,21 @@ type
     property Prepared: Boolean read FPrepared write FPrepared;
   end;
 
+  { TghSQLEventHandler }
+
+  TghSQLEventHandlerExceptionEvent = procedure (Sender: TObject; E: Exception) of object;
   TghSQLEventHandler = class(TghSQLHandler)
   protected
     FBeforeOpen: TNotifyEvent;
     FAfterOpen: TDataSetNotifyEvent;
     FBeforeExecute: TNotifyEvent;
     FAfterExecute: TNotifyEvent;
+    FOnException: TghSQLEventHandlerExceptionEvent;
     procedure DoBeforeOpen;
     procedure DoAfterOpen(ADataSet: TDataSet);
     procedure DoBeforeExecute;
     procedure DoAfterExecute;
+    procedure DoOnException(E: Exception);
     procedure InternalOpen(Sender: TObject; out ADataSet: TDataSet; AOwner: TComponent = nil); virtual; abstract;
     function InternalExecute(Sender: TObject): NativeInt; virtual; abstract;
   public
@@ -98,6 +103,7 @@ type
     property AfterOpen: TDataSetNotifyEvent read FAfterOpen write FAfterOpen;
     property BeforeExecute: TNotifyEvent read FBeforeExecute write FBeforeExecute;
     property AfterExecute: TNotifyEvent read FAfterExecute write FAfterExecute;
+    property OnException: TghSQLEventHandlerExceptionEvent read FOnException write FOnException;
   end;
 
   TghSQLClient = class(TghSQLEventHandler)
@@ -461,6 +467,14 @@ begin
     FAfterExecute(Self);
 end;
 
+procedure TghSQLEventHandler.DoOnException(E: Exception);
+begin
+  if Assigned(FOnException) then
+    FOnException(Self, E)
+  else
+    raise E;
+end;
+
 procedure TghSQLEventHandler.Open(out ADataSet: TDataSet; AOwner: TComponent);
 begin
   DoBeforeOpen;
@@ -494,9 +508,12 @@ begin
       FConnector.Lib.Open(ADataSet, AOwner);
       FConnector.CommitRetaining;
     except
-      FConnector.RollbackRetaining;
-      ADataSet.Free;
-      raise;
+      on E: Exception do
+      begin
+        FConnector.RollbackRetaining;
+        ADataSet.Free;
+        DoOnException(E);
+      end;
     end;
   finally
     FConnector.Lib.Assign(OldHandler);
@@ -519,8 +536,11 @@ begin
       Result := FConnector.Lib.Execute;
       FConnector.CommitRetaining;
     except
-      FConnector.RollbackRetaining;
-      raise;
+      on E: Exception do
+      begin
+        FConnector.RollbackRetaining;
+        DoOnException(E);
+      end;
     end;
   finally
     FConnector.Lib.Assign(OldHandler);

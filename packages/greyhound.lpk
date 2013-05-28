@@ -21,7 +21,7 @@
     </CompilerOptions>
     <Description Value="Greyhound runtime package."/>
     <License Value="See the file LICENSE, included in this distribution, for details about the copyright."/>
-    <Version Minor="1" Release="6"/>
+    <Version Minor="1" Release="7"/>
     <Files Count="6">
       <Item1>
         <Filename Value="..\src\ghsqldblib.pas"/>
