@@ -1535,8 +1535,7 @@ begin
   if not Assigned(ALib) then
     raise EghSQLError.Create('Lib not assigned.');
 
-  if Assigned(FLib) then
-    FLib.Free;
+  FLib.Free;
   FLib := ALib.Create(Self);
 end;
 
