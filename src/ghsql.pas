@@ -167,9 +167,9 @@ type
     property OwnerTable: TghSQLTable read FOwnerTable write SetOwnerTable;
   end;
 
-  TghSQLTable = class(TghSQLHandler)
+  TghSQLTable = class(TghSQLClient)
   private
-    FConnector: TghSQLConnector;
+    //FConnector: TghSQLConnector;
     FTableName: string;
     FConditions: string;
     FErrors: TStrings;
@@ -196,7 +196,6 @@ type
     function GetIsEmpty: Boolean;
     function GetRecordCount: Longint;
     procedure FillAutoParams(ASource: TghSQLTable);
-    function GetDataset: TDataSet;
   protected
     FData: TDataSet;
     class procedure ClassInitialization;
@@ -213,7 +212,7 @@ type
     // callback
     procedure CallFoundTable(Sender: TObject; ATable: TghSQLTable); virtual;
   public
-    constructor Create(AConn: TghSQLConnector); virtual; overload;
+    constructor Create(AConn: TghSQLConnector); override; overload;
     constructor Create(AConn: TghSQLConnector; const ATableName: string); virtual; overload;
     constructor Create(AConn: TghSQLConnector; const ATableName: string; AOwnerTable: TghSQLTable); virtual; overload;
     destructor Destroy; override;
@@ -262,7 +261,6 @@ type
     property UseRetaining: Boolean read FUseRetaining write FUseRetaining;
     property BeforeCommit: TNotifyEvent read FBeforeCommit write FBeforeCommit;
     property AfterCommit: TNotifyEvent read FAfterCommit write FAfterCommit;
-    property DataSet: TDataSet read GetDataset;
   end;
 
   TghSQLTableNotifyEvent = procedure (Sender: TObject; ATable: TghSQLTable) of object;
@@ -915,11 +913,6 @@ begin
   end;
 end;
 
-function TghSQLTable.GetDataset: TDataSet;
-begin
-  Result := FData;
-end;
-
 class procedure TghSQLTable.ClassInitialization;
 begin
   FRelations := TFPHashObjectList.Create(True);
@@ -1107,9 +1100,9 @@ end;
 
 constructor TghSQLTable.Create(AConn: TghSQLConnector);
 begin
-  inherited Create;
+  inherited Create(AConn);
 
-  FConnector := AConn;
+//  FConnector := AConn;
 
   if Assigned(FConnector) then
     FConnector.Notify(Self, opInsert);
@@ -1183,34 +1176,27 @@ begin
 end;
 
 function TghSQLTable.Open: TghSQLTable;
-var
-  SC: TghSQLClient;
 begin
   DoBeforeOpen;
   FreeAndNil(FData);
-
-  SC := TghSQLClient.Create(FConnector);
   try
-    try
-      SC.Assign(Self);
-      // check if user is using your own script
-      if FScript.Count = 0 then
-      begin
-        SC.Script.Clear;
-        SC.Script.Add('select ' + FSelectColumns + ' from ' + FTableName);
-        SC.Script.Add('where 1=1');
-        if FConditions <> '' then
-          SC.Script.Add('and ' + FConditions);
-        if FOrderBy <> '' then
-          SC.Script.Add('order by ' + FOrderBy);
-      end;
-      SC.Open(FData, nil);
-    except
-      FreeAndNil(FData);
-      raise;
+    if FScript.Count = 0 then
+    begin
+      FScript.Clear;
+      FScript.Add('select ' + FSelectColumns + ' from ' + FTableName);
+      FScript.Add('where 1=1');
+      if FConditions <> '' then
+        FScript.Add('and ' + FConditions);
+      if FOrderBy <> '' then
+        FScript.Add('order by ' + FOrderBy);
     end;
-  finally
-    SC.Free;
+    Open(FData, nil);
+  except
+    on E: Exception do
+    begin
+      FreeAndNil(FData);
+      DoOnException(E);
+    end;
   end;
   Result := Self;
   DoAfterOpen(FData);
