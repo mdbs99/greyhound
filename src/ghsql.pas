@@ -269,7 +269,7 @@ type
     property AfterPost: TNotifyEvent read FAfterPost write FAfterPost;
     property BeforeCommit: TNotifyEvent read FBeforeCommit write FBeforeCommit;
     property AfterCommit: TNotifyEvent read FAfterCommit write FAfterCommit;
-    property DataSet: TDataSet read GetDataset;
+    property DataSet: TDataSet read GetDataset; deprecated;
   end;
 
   TghSQLTableNotifyEvent = procedure (Sender: TObject; ATable: TghSQLTable) of object;
