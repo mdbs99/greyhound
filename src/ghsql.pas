@@ -2,8 +2,8 @@
     Greyhound
     Copyright (C) 2012-2013  -  Marcos Douglas B. dos Santos
 
-    See the files COPYING.GH, included in this
-    distribution, for details about the copyright.
+    See the file LICENSE.txt, included in this distribution,
+    for details about the copyright.
 
     This program is distributed in the hope that it will be useful,
     but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -44,8 +44,6 @@ type
   end;
 
 { Classes }
-
-  { TghSQLStatement }
 
   TghSQLStatement = class(TghSQLObject)
   protected
@@ -169,7 +167,6 @@ type
 
   TghSQLTable = class(TghSQLClient)
   private
-    //FConnector: TghSQLConnector;
     FTableName: string;
     FConditions: string;
     FErrors: TStrings;
@@ -961,13 +958,13 @@ begin
     FErrors.Clear;
     DoAfterCommit;
   except
-    on e: Exception do
+    on E: Exception do
     begin
       if ARetaining then
         FConnector.RollbackRetaining
       else
         FConnector.Rollback;
-      raise EghSQLError.Create(Self, e.Message);
+      raise EghSQLError.Create(Self, E.Message);
     end;
   end;
 end;
@@ -1191,6 +1188,7 @@ begin
         FScript.Add('order by ' + FOrderBy);
     end;
     Open(FData, nil);
+    DoAfterOpen(FData);
   except
     on E: Exception do
     begin
@@ -1199,7 +1197,6 @@ begin
     end;
   end;
   Result := Self;
-  DoAfterOpen(FData);
 end;
 
 function TghSQLTable.Insert: TghSQLTable;
@@ -1395,7 +1392,7 @@ begin
 
   Result := FindByName(ATableName);
   if (Result = nil) and FLocked then
-    raise EghSQLError.Create(Self, 'Table not found.');
+    raise EghSQLError.CreateFmt(Self, 'Table "%s" not found.', [ATableName]);
 
   if (Result = nil) or (Result.Active and (not Result.Reuse)) then
   begin
@@ -1437,7 +1434,7 @@ begin
       begin
         // FIRST, close table!
         Close;
-        // now, disable notifications to Connector
+        // disable notifications to Connector
         Connector := nil;
       end;
     end;
@@ -1495,8 +1492,8 @@ begin
   try
     Result := FLib.Connected;
   except
-    on e: Exception do
-      raise EghSQLError.Create(e.Message);
+    on E: Exception do
+      raise EghSQLError.Create(E.Message);
   end;
 end;
 
@@ -1544,8 +1541,8 @@ begin
   try
     FLib.Connect;
   except
-    on e: Exception do
-      raise EghSQLError.Create(e.Message);
+    on E: Exception do
+      raise EghSQLError.Create(E.Message);
   end;
 end;
 
@@ -1555,8 +1552,8 @@ begin
     if Connected then
       FLib.Disconnect;
   except
-    on e: Exception do
-      raise EghSQLError.Create(e.Message);
+    on E: Exception do
+      raise EghSQLError.Create(E.Message);
   end;
 end;
 
@@ -1569,8 +1566,8 @@ begin
     end;
     Inc(FTransCount);
   except
-    on e: Exception do
-      raise EghSQLError.Create(e.Message);
+    on E: Exception do
+      raise EghSQLError.Create(E.Message);
   end;
 end;
 
@@ -1588,8 +1585,8 @@ begin
       FLib.Commit;
     Dec(FTransCount);
   except
-    on e: Exception do
-      raise EghSQLError.Create(e.Message);
+    on E: Exception do
+      raise EghSQLError.Create(E.Message);
   end;
 end;
 
@@ -1602,8 +1599,8 @@ begin
       FLib.CommitRetaining;
     Dec(FTransCount);
   except
-    on e: Exception do
-      raise EghSQLError.Create(e.Message);
+    on E: Exception do
+      raise EghSQLError.Create(E.Message);
   end;
 end;
 
@@ -1616,8 +1613,8 @@ begin
       FLib.Rollback;
     Dec(FTransCount);
   except
-    on e: Exception do
-      raise EghSQLError.Create(e.Message);
+    on E: Exception do
+      raise EghSQLError.Create(E.Message);
   end;
 end;
 
@@ -1630,8 +1627,8 @@ begin
       FLib.RollbackRetaining;
     Dec(FTransCount);
   except
-    on e: Exception do
-      raise EghSQLError.Create(e.Message);
+    on E: Exception do
+      raise EghSQLError.Create(E.Message);
   end;
 end;
 
