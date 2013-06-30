@@ -287,6 +287,7 @@ type
   TghSQLLib = class abstract(TghSQLHandler)
   protected
     FConnector: TghSQLConnector;
+    procedure ParamsToStrings(AStrings: TStrings); virtual;
   public
     constructor Create(var AConnector: TghSQLConnector); virtual; reintroduce;
     procedure Connect; virtual; abstract;
@@ -1473,6 +1474,18 @@ begin
 end;
 
 { TghSQLLib }
+
+procedure TghSQLLib.ParamsToStrings(AStrings: TStrings);
+var
+  I: Integer;
+  Par: TParam;
+begin
+  for I := 0 to FParams.Count-1 do
+  begin
+    Par := FParams.Items[I];
+    AStrings.Add(Par.Name + '=' + Par.AsString);
+  end;
+end;
 
 constructor TghSQLLib.Create(var AConnector: TghSQLConnector);
 begin
