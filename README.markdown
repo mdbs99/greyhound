@@ -52,6 +52,7 @@ Greyhound requires Free Pascal 2.6.0 or newer.
 
 
 ##Who uses?
+* [ghORM](https://github.com/leledumbo/ghorm)
 * [Brook framework](http://brookframework.org)
 * [fpcup](https://bitbucket.org/reiniero/fpcup/)
 * [luipack](http://code.google.com/p/luipack/)
