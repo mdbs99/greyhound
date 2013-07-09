@@ -364,6 +364,7 @@ constructor TghSQLStatement.Create;
 begin
   inherited;
   FParams := TghDataParams.Create;
+  FParamsCheck := True;
   FScript := TStringList.Create;
   FScript.OnChange := @DoChangeScript;
 end;
