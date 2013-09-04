@@ -15,10 +15,10 @@ var
 
 procedure ShowUser;
 var
-  lStr: string;
+  S: string;
 begin
-  lStr := Format('#%d %s', [User['id'].AsInteger, User['name'].AsString]);
-  writeln(lStr);
+  S := Format('#%d %s', [User['id'].AsInteger, User['name'].AsString]);
+  writeln(S);
 end;
 
 procedure ShowAll;
@@ -68,6 +68,19 @@ begin
     User.Append;
     User['id'].Value := Co.Lib.GetSequenceValue('GEN_USER');
     User['name'].AsString := 'User 2';
+    User.Post;
+
+    User.Commit;
+    ShowAll;
+
+    User.Close;
+    User.Where('id = 2').Open;
+    User.Edit;
+
+    // TODO: SQLdb::Firebird do not know the primary key automatically
+    User.GetColumns.FieldByName('id').ProviderFlags := [pfInKey, pfInWhere];
+
+    User['name'].AsString := 'User edited';
     User.Post;
 
     User.Commit;
