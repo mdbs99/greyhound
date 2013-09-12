@@ -103,6 +103,7 @@ type
     property OnException: TghSQLHandlerExceptionEvent read FOnException write FOnException;
   end;
 
+  EghSQLClientError = class(EghSQLHandlerError);
   TghSQLClient = class(TghSQLHandler)
   protected
     FConnector: TghSQLConnector;
@@ -165,6 +166,7 @@ type
     property OwnerTable: TghSQLTable read FOwnerTable write SetOwnerTable;
   end;
 
+  EghSQLTableError = class(EghSQLClientError);
   TghSQLTable = class(TghSQLClient)
   private
     FTableName: string;
@@ -209,13 +211,13 @@ type
     // callback
     procedure CallFoundTable(Sender: TObject; ATable: TghSQLTable); virtual;
   public
-    constructor Create(AConn: TghSQLConnector); override; overload;
-    constructor Create(AConn: TghSQLConnector; const ATableName: string); virtual; overload;
+    constructor Create(AConn: TghSQLConnector; const ATableName: string); virtual; reintroduce; overload;
     constructor Create(AConn: TghSQLConnector; const ATableName: string; AOwnerTable: TghSQLTable); virtual; overload;
     destructor Destroy; override;
     procedure Assign(ASource: TghSQLStatement); override;
     procedure Clear; override;
     function Close: TghSQLTable;
+    procedure Open(out ADataSet: TDataSet; AOwner: TComponent = nil); override; overload;
     function Open: TghSQLTable; overload;
     function Insert: TghSQLTable;
     function Append: TghSQLTable;
@@ -866,11 +868,14 @@ end;
 
 procedure TghSQLTable.SetTableName(const AValue: string);
 begin
+  if AValue = '' then
+    raise EghSQLTableError.Create(Self, 'Invalid TableName');
+
   if FTableName = AValue then
     Exit;
 
   if Self.Active then
-    raise EghSQLError.Create(Self, 'Table is active.');
+    raise EghSQLTableError.Create(Self, 'Table is active.');
 
   FTableName := AValue;
 end;
@@ -1097,29 +1102,24 @@ begin
   ATable.Open;
 end;
 
-constructor TghSQLTable.Create(AConn: TghSQLConnector);
+constructor TghSQLTable.Create(AConn: TghSQLConnector; const ATableName: string);
 begin
   inherited Create(AConn);
-
-//  FConnector := AConn;
 
   if Assigned(FConnector) then
     FConnector.Notify(Self, opInsert);
 
   FData := nil;
+  SetTableName(ATableName);
   FSelectColumns := '*';
   FUseRetaining := True;
   FEnforceConstraints := True;
+  FScript.Text := 'select * from ' + ATableName;
+
   FErrors := TStringList.Create;
   FLinks := TghSQLTableList.Create(Self, True);
   FLinks.OnNewTable := @CallFoundTable;
   FLinks.OnFoundTable := @CallFoundTable;
-end;
-
-constructor TghSQLTable.Create(AConn: TghSQLConnector; const ATableName: string);
-begin
-  Create(AConn);
-  FTableName := ATableName;
 end;
 
 constructor TghSQLTable.Create(AConn: TghSQLConnector; const ATableName: string;
@@ -1172,6 +1172,11 @@ begin
     FData.Close;
     FreeAndNil(FData);
   end;
+end;
+
+procedure TghSQLTable.Open(out ADataSet: TDataSet; AOwner: TComponent);
+begin
+  inherited Open(ADataSet, AOwner);
 end;
 
 function TghSQLTable.Open: TghSQLTable;

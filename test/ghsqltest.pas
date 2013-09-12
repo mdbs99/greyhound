@@ -17,7 +17,7 @@ unit ghSQLTest;
 interface
 
 uses
-  Classes, SysUtils, fpcunit, testregistry,
+  Classes, SysUtils, fpcunit, testregistry, DB,
   ghSQL, ghSQLdbLib;
 
 type
@@ -50,6 +50,7 @@ type
     procedure TestLinks_MtoN_Post;
     procedure TestPacketRecords;
     procedure TestUsingScript;
+    procedure TestOpenDataSet;
   end;
 
 implementation
@@ -77,8 +78,10 @@ end;
 procedure TghSQLTest.SetUp;
 begin
   FConn := TghSQLConnector.Create(TghSQLite3Lib);
-  FClient := TghSQLClient.Create(FConn);
   FConn.Database := DB_FILE;
+  FConn.Connect;
+
+  FClient := TghSQLClient.Create(FConn);
   ExecScript('script-1.sql');
 end;
 
@@ -205,7 +208,9 @@ var
   U: TghSQLTable;
   R: TghSQLTable;
 begin
-  U := FConn.Tables['user'].Open;
+  U := FConn.Tables['user'];
+  U.Where('role_id = 1').Open;
+
   U.Relations['role'].Where('id = :role_id');
 
   R := U.Links['role'];
@@ -341,9 +346,23 @@ begin
   AssertEquals(Count, U.RecordCount);
 end;
 
+procedure TghSQLTableTest.TestOpenDataSet;
+var
+  U: TghSQLTable;
+  DS: TDataSet;
+begin
+  U := FConn.Tables['user'];
+  U.Open(DS, nil);
+  try
+    AssertTrue(DS.Active);
+  finally
+    DS.Free;
+  end;
+end;
+
 initialization
-  RegisterTest('SQL Tests', TghSQLConnectorTest);
-  RegisterTest('SQL Tests', TghSQLTableTest);
+  RegisterTest('SQL Connector Tests', TghSQLConnectorTest);
+  RegisterTest('SQL Table Tests', TghSQLTableTest);
 
 end.
 
