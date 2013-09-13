@@ -17,7 +17,7 @@ unit ghSQLTest;
 interface
 
 uses
-  Classes, SysUtils, fpcunit, testregistry, DB, Dialogs,
+  Classes, SysUtils, fpcunit, testregistry, DB,
   ghSQL, ghSQLdbLib;
 
 type
@@ -213,10 +213,7 @@ begin
   AssertEquals(1, U.RecordCount);
 
   U.Relations['role'].Where('id = :role_id');
-
   R := U.Links['role'];
-
-  ShowMessage(R.Params['role_id'].AsString);
 
   // test auto open
   AssertTrue(R.Active);
