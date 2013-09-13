@@ -10,7 +10,7 @@ uses
 
 var
   Co: TghSQLConnector;
-  User: TghSQLTable;
+  User, Access: TghSQLTable;
   SQL: TghSQLClient;
 
 procedure ShowUser;
@@ -81,7 +81,8 @@ begin
       // Print access name using Link table:
       // The params values to open are obtained from owner table, ie, the user table.
       // It's auto open, just use it!
-      writeln(User.Links['access'].Columns['name'].AsString);
+      Access := User.Links['access'];
+      writeln(Access.Columns['name'].AsString);
       User.Next;
     end;
 

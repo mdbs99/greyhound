@@ -194,7 +194,7 @@ type
     function GetState: TDataSetState;
     function GetIsEmpty: Boolean;
     function GetRecordCount: Longint;
-    procedure FillAutoParams(ASource: TghSQLTable);
+    procedure FillAutoParams(ASourceValues: TghSQLTable);
   protected
     FData: TDataSet;
     class procedure ClassInitialization;
@@ -380,6 +380,7 @@ end;
 
 procedure TghSQLStatement.Assign(ASource: TghSQLStatement);
 begin
+  FParamsCheck := ASource.ParamsCheck;
   FScript.Assign(ASource.Script);
   FParams.Assign(ASource.Params);
 end;
@@ -466,7 +467,7 @@ procedure TghSQLHandler.Assign(ASource: TghSQLStatement);
 var
   Handler: TghSQLHandler;
 begin
-  inherited;
+  inherited Assign(ASource);
   if ASource is TghSQLHandler then
   begin
     Handler := TghSQLHandler(ASource);
@@ -502,58 +503,40 @@ end;
 
 procedure TghSQLClient.InternalOpen(Sender: TObject; out ADataSet: TDataSet;
   AOwner: TComponent);
-var
-  OldHandler: TghSQLHandler;
 begin
-  OldHandler := TghSQLHandler.Create;
+  ADataSet := nil;
   try
-    OldHandler.Assign(FConnector.Lib);
-    ADataSet := nil;
-    try
-      if not FConnector.Connected then
-        FConnector.Connect;
-      FConnector.StartTransaction;
-      FConnector.Lib.Assign(Self);
-      FConnector.Lib.Open(ADataSet, AOwner);
-      FConnector.CommitRetaining;
-    except
-      on E: Exception do
-      begin
-        FConnector.RollbackRetaining;
-        ADataSet.Free;
-        DoOnException(E);
-      end;
+    if not FConnector.Connected then
+      FConnector.Connect;
+    FConnector.StartTransaction;
+    FConnector.Lib.Assign(Self);
+    FConnector.Lib.Open(ADataSet, AOwner);
+    FConnector.CommitRetaining;
+  except
+    on E: Exception do
+    begin
+      FConnector.RollbackRetaining;
+      ADataSet.Free;
+      DoOnException(E);
     end;
-  finally
-    FConnector.Lib.Assign(OldHandler);
-    OldHandler.Free;
   end;
 end;
 
 function TghSQLClient.InternalExecute(Sender: TObject): NativeInt;
-var
-  OldHandler: TghSQLHandler;
 begin
-  OldHandler := TghSQLHandler.Create;
   try
-    OldHandler.Assign(FConnector.Lib);
-    try
-      if not FConnector.Connected then
-        FConnector.Connect;
-      FConnector.StartTransaction;
-      FConnector.Lib.Assign(Self);
-      Result := FConnector.Lib.Execute;
-      FConnector.CommitRetaining;
-    except
-      on E: Exception do
-      begin
-        FConnector.RollbackRetaining;
-        DoOnException(E);
-      end;
+    if not FConnector.Connected then
+      FConnector.Connect;
+    FConnector.StartTransaction;
+    FConnector.Lib.Assign(Self);
+    Result := FConnector.Lib.Execute;
+    FConnector.CommitRetaining;
+  except
+    on E: Exception do
+    begin
+      FConnector.RollbackRetaining;
+      DoOnException(E);
     end;
-  finally
-    FConnector.Lib.Assign(OldHandler);
-    OldHandler.Free;
   end;
 end;
 
@@ -898,21 +881,23 @@ begin
   Result := FData.RecordCount;
 end;
 
-procedure TghSQLTable.FillAutoParams(ASource: TghSQLTable);
+procedure TghSQLTable.FillAutoParams(ASourceValues: TghSQLTable);
 var
   I: Integer;
   Fld: TField;
   S: string;
 begin
-  S := LowerCase(Self.FConditions);
-  if S = '' then
+  if FConditions = '' then
     Exit;
-  for I := 0 to ASource.FData.Fields.Count-1 do
+
+  S := LowerCase(FConditions);
+
+  for I := 0 to ASourceValues.FData.Fields.Count-1 do
   begin
-    Fld := ASource.FData.Fields[I];
+    Fld := ASourceValues.FData.Fields[I];
     if Pos(':' + LowerCase(Fld.FieldName), S) > 0 then
     begin
-      Self.Params[Fld.FieldName].Value := Fld.Value;
+      FParams[Fld.FieldName].AssignField(Fld);
     end;
   end;
 end;
@@ -1096,8 +1081,8 @@ begin
   ATable.Assign(TableModel);
   ATable.FillAutoParams(Self);
 
-  if Assigned(TableModel.Params) then
-    ATable.Params.AssignValues(TableModel.Params);
+  //if Assigned(TableModel.Params) then
+  //  ATable.Params.AssignValues(TableModel.Params);
 
   ATable.Open;
 end;
@@ -1114,7 +1099,6 @@ begin
   FSelectColumns := '*';
   FUseRetaining := True;
   FEnforceConstraints := True;
-  FScript.Text := 'select * from ' + ATableName;
 
   FErrors := TStringList.Create;
   FLinks := TghSQLTableList.Create(Self, True);
@@ -1176,12 +1160,14 @@ end;
 
 procedure TghSQLTable.Open(out ADataSet: TDataSet; AOwner: TComponent);
 begin
+  if FScript.Count = 0 then
+    FScript.Text := 'select * from ' + FTableName;
+
   inherited Open(ADataSet, AOwner);
 end;
 
 function TghSQLTable.Open: TghSQLTable;
 begin
-  DoBeforeOpen;
   FreeAndNil(FData);
   try
     if FScript.Count = 0 then
@@ -1193,15 +1179,14 @@ begin
         FScript.Add('and ' + FConditions);
       if FOrderBy <> '' then
         FScript.Add('order by ' + FOrderBy);
+
+      if Assigned(OwnerTable) then
+        FParams.CopyParamValuesFromDataset(OwnerTable.FData, True);
     end;
     Open(FData, nil);
-    DoAfterOpen(FData);
   except
-    on E: Exception do
-    begin
-      FreeAndNil(FData);
-      DoOnException(E);
-    end;
+    FreeAndNil(FData);
+    raise;
   end;
   Result := Self;
 end;
