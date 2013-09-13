@@ -76,8 +76,6 @@ type
     FAfterExecute: TNotifyEvent;
     FOnException: TghSQLHandlerExceptionEvent;
     procedure SetPacketRecords(AValue: Integer); virtual;
-    procedure InternalOpen(Sender: TObject; out ADataSet: TDataSet; {%H-}AOwner: TComponent = nil); virtual;
-    function InternalExecute(Sender: TObject): NativeInt; virtual;
     procedure DoBeforeOpen;
     procedure DoAfterOpen(ADataSet: TDataSet);
     procedure DoBeforePost;
@@ -85,6 +83,8 @@ type
     procedure DoBeforeExecute;
     procedure DoAfterExecute;
     procedure DoOnException(E: Exception);
+    procedure InternalOpen(Sender: TObject; out ADataSet: TDataSet; {%H-}AOwner: TComponent = nil); virtual;
+    function InternalExecute(Sender: TObject): NativeInt; virtual;
   public
     constructor Create; override;
     procedure Assign(ASource: TghSQLStatement); override;
@@ -107,7 +107,8 @@ type
   TghSQLClient = class(TghSQLHandler)
   protected
     FConnector: TghSQLConnector;
-    procedure InternalOpen(Sender: TObject; out ADataSet: TDataSet; AOwner: TComponent = nil); override;
+    procedure InternalOpen(Sender: TObject; out ADataSet: TDataSet;
+      AOwner: TComponent); override;
     function InternalExecute(Sender: TObject): NativeInt; override;
   public
     constructor Create(AConn: TghSQLConnector); virtual; reintroduce;
@@ -305,7 +306,7 @@ type
     function GetSequenceValue(const ASequenceName: string): NativeInt; virtual; abstract;
   end;
 
-  TghSQLConnector = class(TghSQLObject)
+  TghSQLConnector = class(TghSQLHandler)
   strict private
     FTransCount: SmallInt;
     FHost: string;
@@ -315,6 +316,8 @@ type
     FTables: TghSQLTableList;
   protected
     FLib: TghSQLLib;
+    procedure InternalOpen(Sender: TObject; out ADataSet: TDataSet; AOwner: TComponent = nil); override;
+    function InternalExecute(Sender: TObject): NativeInt; override;
     function GetConnected: Boolean;
     // callback
     procedure CallNewTable(Sender: TObject; ATable: TghSQLTable); virtual;
@@ -400,19 +403,6 @@ begin
   FPacketRecords := AValue;
 end;
 
-procedure TghSQLHandler.InternalOpen(Sender: TObject; out ADataSet: TDataSet;
-  AOwner: TComponent);
-begin
-  ADataSet := nil;
-  raise EghSQLHandlerError.Create('The Open method was not implemented.');
-end;
-
-function TghSQLHandler.InternalExecute(Sender: TObject): NativeInt;
-begin
-  Result := -1;
-  raise EghSQLHandlerError.Create('The Open method was not implemented.');
-end;
-
 procedure TghSQLHandler.DoBeforeOpen;
 begin
   if Assigned(FBeforeOpen) then
@@ -457,6 +447,19 @@ begin
     raise E;
 end;
 
+procedure TghSQLHandler.InternalOpen(Sender: TObject; out ADataSet: TDataSet;
+  AOwner: TComponent);
+begin
+  ADataSet := nil;
+  raise EghSQLHandlerError.Create('This method was not implemented.');
+end;
+
+function TghSQLHandler.InternalExecute(Sender: TObject): NativeInt;
+begin
+  Result := -1;
+  raise EghSQLHandlerError.Create('This method was not implemented.');
+end;
+
 constructor TghSQLHandler.Create;
 begin
   inherited Create;
@@ -471,9 +474,18 @@ begin
   if ASource is TghSQLHandler then
   begin
     Handler := TghSQLHandler(ASource);
-    Self.IsBatch := Handler.IsBatch;
-    Self.Prepared := Handler.Prepared;
-    Self.PacketRecords := Handler.PacketRecords;
+    // properties
+    IsBatch := Handler.IsBatch;
+    Prepared := Handler.Prepared;
+    PacketRecords := Handler.PacketRecords;
+    // events
+    BeforeOpen := Handler.BeforeOpen;
+    AfterOpen := Handler.AfterOpen;
+    BeforePost := Handler.BeforePost;
+    AfterPost := Handler.AfterPost;
+    BeforeExecute := Handler.BeforeExecute;
+    AfterExecute := Handler.AfterExecute;
+    OnException := Handler.OnException;
   end;
 end;
 
@@ -1063,11 +1075,11 @@ end;
 
 procedure TghSQLTable.CallFoundTable(Sender: TObject; ATable: TghSQLTable);
 var
-  TableModel: TghSQLTable;
+  ModelTable: TghSQLTable;
 begin
   CheckData;
-  TableModel := GetRelations.FindByName(ATable.TableName);
-  if not Assigned(TableModel) then
+  ModelTable := GetRelations.FindByName(ATable.TableName);
+  if not Assigned(ModelTable) then
     raise EghSQLError.CreateFmt(Self, 'Model "%s" not found.', [ATable.TableName]);
 
   if not ATable.Active then
@@ -1078,7 +1090,7 @@ begin
   end;
 
   ATable.Close;
-  ATable.Assign(TableModel);
+  ATable.Assign(ModelTable);
   ATable.FillAutoParams(Self);
 
   ATable.Open;
@@ -1190,7 +1202,7 @@ end;
 function TghSQLTable.Insert: TghSQLTable;
 begin
   if not Active then
-    Self.Where('1=2').Open;
+    Where('1=2').Open;
   FData.Insert;
   SetDefaultValues;
   Result := Self;
@@ -1199,7 +1211,7 @@ end;
 function TghSQLTable.Append: TghSQLTable;
 begin
   if not Active then
-    Self.Where('1=2').Open;
+    Where('1=2').Open;
   FData.Append;
   SetDefaultValues;
   Result := Self;
@@ -1422,7 +1434,7 @@ begin
       begin
         // FIRST, close table!
         Close;
-        // disable notifications to Connector
+        // disable Connector notifications
         Connector := nil;
       end;
     end;
@@ -1486,6 +1498,33 @@ begin
 end;
 
 { TghSQLConnector }
+
+procedure TghSQLConnector.InternalOpen(Sender: TObject; out ADataSet: TDataSet;
+  AOwner: TComponent);
+var
+  SC: TghSQLClient;
+begin
+  SC := TghSQLClient.Create(Self);
+  try
+    SC.Assign(Self);
+    SC.Open(ADataSet, AOwner);
+  finally
+    SC.Free;
+  end;
+end;
+
+function TghSQLConnector.InternalExecute(Sender: TObject): NativeInt;
+var
+  SC: TghSQLClient;
+begin
+  SC := TghSQLClient.Create(Self);
+  try
+    SC.Assign(Self);
+    Result := SC.Execute;
+  finally
+    SC.Free;
+  end;
+end;
 
 function TghSQLConnector.GetConnected: Boolean;
 begin

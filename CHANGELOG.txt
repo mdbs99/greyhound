@@ -1,6 +1,14 @@
 Release notes
 ==========================================================
 
+(2013-09-13)
+
+- Now TghSQLConnector class inherit form TghSQLHandler: 
+  You can use Script/Params property and Open/Execute method using connector instance directly.
+- Many more improvements.
+- Version 0.1.8
+
+
 (2013-05-28)
 
 - The TghSQLEventHandler was fused in TghSQLHandler class.
