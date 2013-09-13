@@ -1081,9 +1081,6 @@ begin
   ATable.Assign(TableModel);
   ATable.FillAutoParams(Self);
 
-  //if Assigned(TableModel.Params) then
-  //  ATable.Params.AssignValues(TableModel.Params);
-
   ATable.Open;
 end;
 
