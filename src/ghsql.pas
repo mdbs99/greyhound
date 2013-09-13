@@ -1189,6 +1189,10 @@ begin
       if FOrderBy <> '' then
         FScript.Add('order by ' + FOrderBy);
     end;
+
+    if Assigned(OwnerTable) and Assigned(OwnerTable.FData) then
+      FParams.CopyParamValuesFromDataset(OwnerTable.FData, True);
+
     Open(FData, nil);
     DoAfterOpen(FData);
   except
