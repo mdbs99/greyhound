@@ -968,7 +968,7 @@ begin
         FConnector.RollbackRetaining
       else
         FConnector.Rollback;
-      raise EghSQLError.Create(Self, E.Message);
+      DoOnException(E);
     end;
   end;
 end;
@@ -1193,8 +1193,11 @@ begin
     end;
     Open(FData, nil);
   except
-    FreeAndNil(FData);
-    raise;
+    on E: Exception do
+    begin
+      FreeAndNil(FData);
+      DoOnException(E);
+    end;
   end;
   Result := Self;
 end;
@@ -1528,12 +1531,7 @@ end;
 
 function TghSQLConnector.GetConnected: Boolean;
 begin
-  try
-    Result := FLib.Connected;
-  except
-    on E: Exception do
-      raise EghSQLError.Create(E.Message);
-  end;
+  Result := FLib.Connected;
 end;
 
 procedure TghSQLConnector.CallNewTable(Sender: TObject; ATable: TghSQLTable);
@@ -1581,7 +1579,7 @@ begin
     FLib.Connect;
   except
     on E: Exception do
-      raise EghSQLError.Create(E.Message);
+      DoOnException(E);
   end;
 end;
 
@@ -1592,7 +1590,7 @@ begin
       FLib.Disconnect;
   except
     on E: Exception do
-      raise EghSQLError.Create(E.Message);
+      DoOnException(E);
   end;
 end;
 
@@ -1606,7 +1604,7 @@ begin
     Inc(FTransCount);
   except
     on E: Exception do
-      raise EghSQLError.Create(E.Message);
+      DoOnException(E);
   end;
 end;
 
@@ -1625,7 +1623,7 @@ begin
     Dec(FTransCount);
   except
     on E: Exception do
-      raise EghSQLError.Create(E.Message);
+      DoOnException(E);
   end;
 end;
 
@@ -1639,7 +1637,7 @@ begin
     Dec(FTransCount);
   except
     on E: Exception do
-      raise EghSQLError.Create(E.Message);
+      DoOnException(E);
   end;
 end;
 
@@ -1653,7 +1651,7 @@ begin
     Dec(FTransCount);
   except
     on E: Exception do
-      raise EghSQLError.Create(E.Message);
+      DoOnException(E);
   end;
 end;
 
@@ -1667,7 +1665,7 @@ begin
     Dec(FTransCount);
   except
     on E: Exception do
-      raise EghSQLError.Create(E.Message);
+      DoOnException(E);
   end;
 end;
 
