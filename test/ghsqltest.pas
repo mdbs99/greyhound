@@ -149,6 +149,18 @@ begin
   FConn.Database := DB_FILE;
   FConn.Connect;
 
+  with FConn.Tables['role'] do
+  begin
+//    Relations.Clear;
+//    Constraints.Clear;
+  end;
+
+  with FConn.Tables['user'] do
+  begin
+//    Relations.Clear;
+//    Constraints.Clear;
+  end;
+
   ExecScript('script-1.sql');
 end;
 
@@ -168,19 +180,24 @@ end;
 procedure TghSQLConnectorTest.TestTableNotification;
 var
   T: TghSQLTable;
+  TablesCount: Integer;
 begin
   T := FConn.Tables['user'].Open;
   AssertTrue(T.Active);
-  AssertEquals(1, FConn.Tables.Count);
+
+  TablesCount := FConn.Tables.Count;
+
   // notify connection
   T.Free;
-  AssertEquals(0, FConn.Tables.Count);
+  AssertEquals(TablesCount-1, FConn.Tables.Count);
+
+  TablesCount -= 1;
 
   // tables aren't reused
   T := FConn.Tables['user'].Open;
   T := FConn.Tables['user'].Open;
   T := FConn.Tables['user'].Open;
-  AssertEquals(3, FConn.Tables.Count);
+  AssertEquals(TablesCount+3, FConn.Tables.Count);
 end;
 
 procedure TghSQLConnectorTest.TestFindByName;
@@ -314,8 +331,10 @@ begin
 
   // test auto open
   AssertTrue(R.Active);
-  // test count
+
+  // test record count
   AssertEquals(1, R.RecordCount);
+
   // test same foreign key id
   AssertEquals(U['role_id'].AsInteger, R['id'].AsInteger);
 end;

@@ -195,7 +195,6 @@ type
     function GetState: TDataSetState;
     function GetIsEmpty: Boolean;
     function GetRecordCount: Longint;
-    procedure FillAutoParams(ASourceValues: TghSQLTable);
   protected
     FData: TDataSet;
     class procedure ClassInitialization;
@@ -206,6 +205,8 @@ type
     procedure InternalRollback(ARetaining: Boolean); virtual;
     function CheckValues: Boolean; virtual;
     procedure SetDefaultValues; virtual;
+    procedure CopyParamValuesFromOwnerTable;
+    procedure MakeScript; virtual;
     // events
     procedure DoBeforeCommit; virtual;
     procedure DoAfterCommit; virtual;
@@ -893,27 +894,6 @@ begin
   Result := FData.RecordCount;
 end;
 
-procedure TghSQLTable.FillAutoParams(ASourceValues: TghSQLTable);
-var
-  I: Integer;
-  Fld: TField;
-  S: string;
-begin
-  if FConditions = '' then
-    Exit;
-
-  S := LowerCase(FConditions);
-
-  for I := 0 to ASourceValues.FData.Fields.Count-1 do
-  begin
-    Fld := ASourceValues.FData.Fields[I];
-    if Pos(':' + LowerCase(Fld.FieldName), S) > 0 then
-    begin
-      FParams[Fld.FieldName].AssignField(Fld);
-    end;
-  end;
-end;
-
 class procedure TghSQLTable.ClassInitialization;
 begin
   FRelations := TFPHashObjectList.Create(True);
@@ -1001,6 +981,7 @@ begin
         Execute;
       end;
   end;
+
   Result := FErrors.Count = 0;
 end;
 
@@ -1009,20 +990,23 @@ var
   I: Integer;
   C: TghSQLConstraint;
 
-  procedure LocalFillFieldValues;
+  procedure LocalSetForeignKeyValues;
   var
     I, X: Integer;
     Fld: TField;
     Par: TParam;
     Templates: array[1..3] of string;
   begin
+    if not Assigned(OwnerTable) then
+      Exit;
+
     Templates[1] := 'id_'+OwnerTable.TableName; // id_table
     Templates[2] := OwnerTable.TableName+'_id'; // table_id
     Templates[3] := 'id'+OwnerTable.TableName;  // idtable
 
-    for I := 0 to Params.Count-1 do
+    for I := 0 to FParams.Count-1 do
     begin
-      Par := Params.Items[I];
+      Par := FParams.Items[I];
       // Check if table belongs_to owner
       // TODO: Test not only "id" name
       // TODO: Use OwnerTable.GetServerIndexDefs to get the right fields and
@@ -1053,12 +1037,30 @@ begin
     end;
   end;
 
-  // get default values in OwnerTable
-  if Assigned(OwnerTable) then
-  begin
-    LocalFillFieldValues;
-    FillAutoParams(OwnerTable);
-  end;
+  LocalSetForeignKeyValues;
+  CopyParamValuesFromOwnerTable;
+end;
+
+procedure TghSQLTable.CopyParamValuesFromOwnerTable;
+begin
+  if Assigned(OwnerTable) and Assigned(OwnerTable.FData) and OwnerTable.FData.Active then
+    FParams.CopyParamValuesFromDataset(OwnerTable.FData, True);
+end;
+
+procedure TghSQLTable.MakeScript;
+begin
+  if FScript.Count > 0 then
+    Exit;
+
+  FScript.Clear;
+  FScript.Add('select ' + FSelectColumns + ' from ' + FTableName);
+  FScript.Add('where 1=1');
+  if FConditions <> '' then
+    FScript.Add('and ' + FConditions);
+  if FOrderBy <> '' then
+    FScript.Add('order by ' + FOrderBy);
+
+  CopyParamValuesFromOwnerTable;
 end;
 
 procedure TghSQLTable.DoBeforeCommit;
@@ -1091,8 +1093,6 @@ begin
 
   ATable.Close;
   ATable.Assign(ModelTable);
-  ATable.FillAutoParams(Self);
-
   ATable.Open;
 end;
 
@@ -1179,18 +1179,7 @@ function TghSQLTable.Open: TghSQLTable;
 begin
   FreeAndNil(FData);
   try
-    if FScript.Count = 0 then
-    begin
-      FScript.Clear;
-      FScript.Add('select ' + FSelectColumns + ' from ' + FTableName);
-      FScript.Add('where 1=1');
-      if FConditions <> '' then
-        FScript.Add('and ' + FConditions);
-      if FOrderBy <> '' then
-        FScript.Add('order by ' + FOrderBy);
-      if Assigned(OwnerTable) and Assigned(OwnerTable.FData) then
-        FParams.CopyParamValuesFromDataset(OwnerTable.FData, True);
-    end;
+    MakeScript;
     Open(FData, nil);
   except
     on E: Exception do
