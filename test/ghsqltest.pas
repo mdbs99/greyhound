@@ -47,6 +47,7 @@ type
   published
     procedure TestExecute;
     procedure TestOpen;
+    procedure TestOnException;
   end;
 
   TghSQLTableTest = class(TghSQLTest)
@@ -89,7 +90,7 @@ begin
     SC.Script.Text := 'select * from user where login = :login';
 
     // Not call SC.Clear before so
-    // Test if parameters were clean when call Script was changed
+    // test if parameters were clean when call Script was changed
     AssertEquals('Params was not changed', 1, SC.Params.Count);
 
     SC.Params['login'].AsString := USER_LOGIN;
@@ -120,6 +121,21 @@ begin
   end;
 end;
 
+procedure TghSQLClientTest.TestOnException;
+var
+  SC: TghSQLClient;
+begin
+  // catch
+  SC := TghSQLClient.Create(FConn);
+  try
+    SC.OnException := @DoOnException;
+    SC.Script.Text := 'foo';
+    SC.Execute;
+  finally
+    SC.Free;
+  end;
+end;
+
 { TghSQLTest }
 
 procedure TghSQLTest.DoOnException(Sender: TObject; E: Exception);
@@ -144,21 +160,20 @@ begin
 end;
 
 procedure TghSQLTest.SetUp;
+var
+  I: Integer;
 begin
   FConn := TghSQLConnector.Create(TghSQLite3Lib);
   FConn.Database := DB_FILE;
   FConn.Connect;
 
-  with FConn.Tables['role'] do
+  for I := 0 to FConn.Tables.Count-1 do
   begin
-//    Relations.Clear;
-//    Constraints.Clear;
-  end;
-
-  with FConn.Tables['user'] do
-  begin
-//    Relations.Clear;
-//    Constraints.Clear;
+    with FConn.Tables.Items[I] do
+    begin
+      Relations.Clear;
+      Constraints.Clear;
+    end;
   end;
 
   ExecScript('script-1.sql');
@@ -180,24 +195,24 @@ end;
 procedure TghSQLConnectorTest.TestTableNotification;
 var
   T: TghSQLTable;
-  TablesCount: Integer;
+  TableCount: Integer;
 begin
   T := FConn.Tables['user'].Open;
   AssertTrue(T.Active);
 
-  TablesCount := FConn.Tables.Count;
+  TableCount := FConn.Tables.Count;
 
   // notify connection
   T.Free;
-  AssertEquals(TablesCount-1, FConn.Tables.Count);
+  AssertEquals(TableCount-1, FConn.Tables.Count);
 
-  TablesCount -= 1;
+  TableCount := FConn.Tables.Count;
 
   // tables aren't reused
-  T := FConn.Tables['user'].Open;
-  T := FConn.Tables['user'].Open;
-  T := FConn.Tables['user'].Open;
-  AssertEquals(TablesCount+3, FConn.Tables.Count);
+  T := FConn.Tables['user'].Open; Inc(TableCount);
+  T := FConn.Tables['user'].Open; Inc(TableCount);
+  T := FConn.Tables['user'].Open; Inc(TableCount);
+  AssertEquals(TableCount, FConn.Tables.Count);
 end;
 
 procedure TghSQLConnectorTest.TestFindByName;
@@ -232,7 +247,6 @@ procedure TghSQLConnectorTest.TestOnException;
 begin
   // catch
   FConn.OnException := @DoOnException;
-
   FConn.Script.Text := 'foo';
   FConn.Execute;
 end;

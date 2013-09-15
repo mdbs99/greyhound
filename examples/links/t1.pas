@@ -45,7 +45,6 @@ end;
 begin
   // create the connector an set configurations using SQLite
   Co := TghSQLConnector.Create(TghSQLite3Lib);
-
   SQL := TghSQLClient.Create(Co);
   try
     // set params
