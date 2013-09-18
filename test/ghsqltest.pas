@@ -17,14 +17,15 @@ unit ghSQLTest;
 interface
 
 uses
-  Classes, SysUtils, fpcunit, testregistry,
+  Classes, SysUtils, fpcunit, testregistry, DB,
   ghSQL, ghSQLdbLib;
 
 type
   TghSQLTest = class(TTestCase)
   protected
     FConn: TghSQLConnector;
-    FClient: TghSQLClient;
+    procedure DoOnException(Sender: TObject; E: Exception);
+
     procedure DeleteDB;
     procedure ExecScript(const AFileName: string);
 
@@ -37,6 +38,16 @@ type
     procedure TestGetTable;
     procedure TestTableNotification;
     procedure TestFindByName;
+    procedure TestExecute;
+    procedure TestOpen;
+    procedure TestCatchException;
+  end;
+
+  TghSQLClientTest = class(TghSQLTest)
+  published
+    procedure TestExecute;
+    procedure TestOpen;
+    procedure TestCatchException;
   end;
 
   TghSQLTableTest = class(TghSQLTest)
@@ -50,6 +61,7 @@ type
     procedure TestLinks_MtoN_Post;
     procedure TestPacketRecords;
     procedure TestUsingScript;
+    procedure TestOpenDataSet;
   end;
 
 implementation
@@ -60,6 +72,11 @@ const
 
 { TghSQLTest }
 
+procedure TghSQLTest.DoOnException(Sender: TObject; E: Exception);
+begin
+  AssertTrue(Assigned(E));
+end;
+
 procedure TghSQLTest.DeleteDB;
 begin
   if FileExists(DB_FILE) then
@@ -68,23 +85,37 @@ end;
 
 procedure TghSQLTest.ExecScript(const AFileName: string);
 begin
-  FClient.Clear;
-  FClient.Script.LoadFromFile(SCRIPT_PATH + AFileName);
-  FClient.IsBatch := True;
-  FClient.Execute;
+  FConn.Clear;
+  FConn.Script.LoadFromFile(SCRIPT_PATH + AFileName);
+  FConn.IsBatch := True;
+  FConn.Execute;
+
+  // IMPORTANT!
+  FConn.Clear;
 end;
 
 procedure TghSQLTest.SetUp;
+var
+  I: Integer;
 begin
   FConn := TghSQLConnector.Create(TghSQLite3Lib);
-  FClient := TghSQLClient.Create(FConn);
   FConn.Database := DB_FILE;
+  FConn.Connect;
+
+  for I := 0 to FConn.Tables.Count-1 do
+  begin
+    with FConn.Tables.Items[I] do
+    begin
+      Relations.Clear;
+      Constraints.Clear;
+    end;
+  end;
+
   ExecScript('script-1.sql');
 end;
 
 procedure TghSQLTest.TearDown;
 begin
-  FClient.Free;
   FConn.Free;
   DeleteDB;
 end;
@@ -99,25 +130,124 @@ end;
 procedure TghSQLConnectorTest.TestTableNotification;
 var
   T: TghSQLTable;
+  TableCount: Integer;
 begin
   T := FConn.Tables['user'].Open;
   AssertTrue(T.Active);
-  AssertEquals(1, FConn.Tables.Count);
+
+  TableCount := FConn.Tables.Count;
+
   // notify connection
   T.Free;
-  AssertEquals(0, FConn.Tables.Count);
+  AssertEquals(TableCount-1, FConn.Tables.Count);
+
+  TableCount := FConn.Tables.Count;
 
   // tables aren't reused
-  T := FConn.Tables['user'].Open;
-  T := FConn.Tables['user'].Open;
-  T := FConn.Tables['user'].Open;
-  AssertEquals(3, FConn.Tables.Count);
+  T := FConn.Tables['user'].Open; Inc(TableCount);
+  T := FConn.Tables['user'].Open; Inc(TableCount);
+  T := FConn.Tables['user'].Open; Inc(TableCount);
+  AssertEquals(TableCount, FConn.Tables.Count);
 end;
 
 procedure TghSQLConnectorTest.TestFindByName;
 begin
   AssertNull(FConn.Tables.FindByName('table_not_exists'));
   AssertEquals('user', FConn.Tables['user'].TableName);
+end;
+
+procedure TghSQLConnectorTest.TestExecute;
+begin
+  FConn.Script.Text := 'insert into user (login, passwd) values (:login, :passwd)';
+  FConn.Params['login'].AsString := 'user_x';
+  FConn.Params['passwd'].AsString := '123';
+  AssertEquals(1, FConn.Execute);
+end;
+
+procedure TghSQLConnectorTest.TestOpen;
+var
+  DS: TDataSet;
+begin
+  DS := nil;
+  try
+    FConn.Script.Text := 'select * from user';
+    FConn.Open(DS);
+    AssertTrue(DS.Active);
+  finally
+    DS.Free;
+  end;
+end;
+
+procedure TghSQLConnectorTest.TestCatchException;
+begin
+  FConn.OnException := @DoOnException;
+  FConn.Script.Text := 'foo';
+  FConn.Execute;
+end;
+
+{ TghSQLClientTest }
+
+procedure TghSQLClientTest.TestExecute;
+const
+  USER_LOGIN = 'user_client';
+var
+  SC: TghSQLClient;
+  DS: TDataSet;
+begin
+  DS := nil;
+  SC := TghSQLClient.Create(FConn);
+  try
+    SC.Script.Text := 'insert into user (login, passwd) values (:login, :passwd)';
+    SC.Params['login'].AsString := USER_LOGIN;
+    SC.Params['passwd'].AsString := '123';
+    AssertEquals(1, SC.Execute);
+
+    SC.Script.Text := 'select * from user where login = :login';
+
+    // Not call SC.Clear before so
+    // test if parameters were clean when call Script was changed
+    AssertEquals('Params was not changed', 1, SC.Params.Count);
+
+    SC.Params['login'].AsString := USER_LOGIN;
+    SC.Open(DS);
+
+    AssertEquals(1, DS.RecordCount);
+  finally
+    SC.Free;
+    DS.Free;
+  end;
+end;
+
+procedure TghSQLClientTest.TestOpen;
+var
+  DS: TDataSet;
+  SC: TghSQLClient;
+begin
+  DS := nil;
+  SC := TghSQLClient.Create(FConn);
+  try
+    SC.Clear;
+    SC.Script.Text := 'select * from user';
+    SC.Open(DS);
+    AssertTrue(DS.Active);
+  finally
+    DS.Free;
+    SC.Free;
+  end;
+end;
+
+procedure TghSQLClientTest.TestCatchException;
+var
+  SC: TghSQLClient;
+begin
+  SC := TghSQLClient.Create(FConn);
+  try
+    SC.OnException := @DoOnException;
+    SC.Script.Text := 'foo';
+    SC.Execute;
+  finally
+    SC.Free;
+  end;
 end;
 
 { TghSQLTableTest }
@@ -205,14 +335,19 @@ var
   U: TghSQLTable;
   R: TghSQLTable;
 begin
-  U := FConn.Tables['user'].Open;
-  U.Relations['role'].Where('id = :role_id');
+  U := FConn.Tables['user'];
+  U.Where(' login = ''admin'' ').Open;
+  AssertEquals(1, U.RecordCount);
 
+  U.Relations['role'].Where('id = :role_id');
   R := U.Links['role'];
+
   // test auto open
   AssertTrue(R.Active);
-  // test count
+
+  // test record count
   AssertEquals(1, R.RecordCount);
+
   // test same foreign key id
   AssertEquals(U['role_id'].AsInteger, R['id'].AsInteger);
 end;
@@ -341,9 +476,24 @@ begin
   AssertEquals(Count, U.RecordCount);
 end;
 
+procedure TghSQLTableTest.TestOpenDataSet;
+var
+  U: TghSQLTable;
+  DS: TDataSet;
+begin
+  U := FConn.Tables['user'];
+  U.Open(DS, nil);
+  try
+    AssertTrue(DS.Active);
+  finally
+    DS.Free;
+  end;
+end;
+
 initialization
-  RegisterTest('SQL Tests', TghSQLConnectorTest);
-  RegisterTest('SQL Tests', TghSQLTableTest);
+  RegisterTest('SQL Connector Tests', TghSQLConnectorTest);
+  RegisterTest('SQL Client Tests', TghSQLClientTest);
+  RegisterTest('SQL Table Tests', TghSQLTableTest);
 
 end.
 

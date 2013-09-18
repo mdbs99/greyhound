@@ -76,8 +76,6 @@ type
     FAfterExecute: TNotifyEvent;
     FOnException: TghSQLHandlerExceptionEvent;
     procedure SetPacketRecords(AValue: Integer); virtual;
-    procedure InternalOpen(Sender: TObject; out ADataSet: TDataSet; {%H-}AOwner: TComponent = nil); virtual;
-    function InternalExecute(Sender: TObject): NativeInt; virtual;
     procedure DoBeforeOpen;
     procedure DoAfterOpen(ADataSet: TDataSet);
     procedure DoBeforePost;
@@ -85,9 +83,12 @@ type
     procedure DoBeforeExecute;
     procedure DoAfterExecute;
     procedure DoOnException(E: Exception);
+    procedure InternalOpen(Sender: TObject; out ADataSet: TDataSet; {%H-}AOwner: TComponent = nil); virtual;
+    function InternalExecute(Sender: TObject): NativeInt; virtual;
   public
     constructor Create; override;
     procedure Assign(ASource: TghSQLStatement); override;
+    procedure AssignEvents(ASource: TghSQLHandler); virtual;
     procedure Clear; override;
     procedure Open(out ADataSet: TDataSet; AOwner: TComponent = nil); virtual;
     function Execute: NativeInt; virtual;
@@ -103,10 +104,12 @@ type
     property OnException: TghSQLHandlerExceptionEvent read FOnException write FOnException;
   end;
 
+  EghSQLClientError = class(EghSQLHandlerError);
   TghSQLClient = class(TghSQLHandler)
   protected
     FConnector: TghSQLConnector;
-    procedure InternalOpen(Sender: TObject; out ADataSet: TDataSet; AOwner: TComponent = nil); override;
+    procedure InternalOpen(Sender: TObject; out ADataSet: TDataSet;
+      AOwner: TComponent); override;
     function InternalExecute(Sender: TObject): NativeInt; override;
   public
     constructor Create(AConn: TghSQLConnector); virtual; reintroduce;
@@ -165,6 +168,7 @@ type
     property OwnerTable: TghSQLTable read FOwnerTable write SetOwnerTable;
   end;
 
+  EghSQLTableError = class(EghSQLClientError);
   TghSQLTable = class(TghSQLClient)
   private
     FTableName: string;
@@ -192,7 +196,6 @@ type
     function GetState: TDataSetState;
     function GetIsEmpty: Boolean;
     function GetRecordCount: Longint;
-    procedure FillAutoParams(ASource: TghSQLTable);
   protected
     FData: TDataSet;
     class procedure ClassInitialization;
@@ -203,19 +206,21 @@ type
     procedure InternalRollback(ARetaining: Boolean); virtual;
     function CheckValues: Boolean; virtual;
     procedure SetDefaultValues; virtual;
+    procedure CopyParamValuesFromOwnerTable;
+    procedure MakeScript; virtual;
     // events
     procedure DoBeforeCommit; virtual;
     procedure DoAfterCommit; virtual;
     // callback
     procedure CallFoundTable(Sender: TObject; ATable: TghSQLTable); virtual;
   public
-    constructor Create(AConn: TghSQLConnector); override; overload;
-    constructor Create(AConn: TghSQLConnector; const ATableName: string); virtual; overload;
+    constructor Create(AConn: TghSQLConnector; const ATableName: string); virtual; reintroduce; overload;
     constructor Create(AConn: TghSQLConnector; const ATableName: string; AOwnerTable: TghSQLTable); virtual; overload;
     destructor Destroy; override;
     procedure Assign(ASource: TghSQLStatement); override;
     procedure Clear; override;
     function Close: TghSQLTable;
+    procedure Open(out ADataSet: TDataSet; AOwner: TComponent = nil); override; overload;
     function Open: TghSQLTable; overload;
     function Insert: TghSQLTable;
     function Append: TghSQLTable;
@@ -303,7 +308,7 @@ type
     function GetSequenceValue(const ASequenceName: string): NativeInt; virtual; abstract;
   end;
 
-  TghSQLConnector = class(TghSQLObject)
+  TghSQLConnector = class(TghSQLHandler)
   strict private
     FTransCount: SmallInt;
     FHost: string;
@@ -313,6 +318,8 @@ type
     FTables: TghSQLTableList;
   protected
     FLib: TghSQLLib;
+    procedure InternalOpen(Sender: TObject; out ADataSet: TDataSet; AOwner: TComponent = nil); override;
+    function InternalExecute(Sender: TObject): NativeInt; override;
     function GetConnected: Boolean;
     // callback
     procedure CallNewTable(Sender: TObject; ATable: TghSQLTable); virtual;
@@ -378,6 +385,7 @@ end;
 
 procedure TghSQLStatement.Assign(ASource: TghSQLStatement);
 begin
+  FParamsCheck := ASource.ParamsCheck;
   FScript.Assign(ASource.Script);
   FParams.Assign(ASource.Params);
 end;
@@ -395,19 +403,6 @@ begin
   if FPacketRecords = AValue then
     Exit;
   FPacketRecords := AValue;
-end;
-
-procedure TghSQLHandler.InternalOpen(Sender: TObject; out ADataSet: TDataSet;
-  AOwner: TComponent);
-begin
-  ADataSet := nil;
-  raise EghSQLHandlerError.Create('The Open method was not implemented.');
-end;
-
-function TghSQLHandler.InternalExecute(Sender: TObject): NativeInt;
-begin
-  Result := -1;
-  raise EghSQLHandlerError.Create('The Open method was not implemented.');
 end;
 
 procedure TghSQLHandler.DoBeforeOpen;
@@ -447,11 +442,33 @@ begin
 end;
 
 procedure TghSQLHandler.DoOnException(E: Exception);
+var
+  NewError: EghSQLHandlerError;
 begin
   if Assigned(FOnException) then
     FOnException(Self, E)
   else
-    raise E;
+  begin
+    // call "raise E" do not works in FPC 2.6.2 maybe this is a bug
+    //raise E;
+
+    NewError := EghSQLHandlerError.Create(Self, E.Message);
+    NewError.InnerException := E;
+    raise NewError;
+  end;
+end;
+
+procedure TghSQLHandler.InternalOpen(Sender: TObject; out ADataSet: TDataSet;
+  AOwner: TComponent);
+begin
+  ADataSet := nil;
+  raise EghSQLHandlerError.Create('This method was not implemented.');
+end;
+
+function TghSQLHandler.InternalExecute(Sender: TObject): NativeInt;
+begin
+  Result := -1;
+  raise EghSQLHandlerError.Create('This method was not implemented.');
 end;
 
 constructor TghSQLHandler.Create;
@@ -464,14 +481,25 @@ procedure TghSQLHandler.Assign(ASource: TghSQLStatement);
 var
   Handler: TghSQLHandler;
 begin
-  inherited;
+  inherited Assign(ASource);
   if ASource is TghSQLHandler then
   begin
     Handler := TghSQLHandler(ASource);
-    Self.IsBatch := Handler.IsBatch;
-    Self.Prepared := Handler.Prepared;
-    Self.PacketRecords := Handler.PacketRecords;
+    FIsBatch := Handler.IsBatch;
+    FPrepared := Handler.Prepared;
+    FPacketRecords := Handler.PacketRecords;
   end;
+end;
+
+procedure TghSQLHandler.AssignEvents(ASource: TghSQLHandler);
+begin
+  FBeforeOpen := ASource.FBeforeOpen;
+  FAfterOpen := ASource.FAfterOpen;
+  FBeforePost := ASource.FBeforePost;
+  FAfterPost := ASource.FAfterPost;
+  FBeforeExecute := ASource.FBeforeExecute;
+  FAfterExecute := ASource.FAfterExecute;
+  FOnException := ASource.FOnException;
 end;
 
 procedure TghSQLHandler.Clear;
@@ -500,58 +528,40 @@ end;
 
 procedure TghSQLClient.InternalOpen(Sender: TObject; out ADataSet: TDataSet;
   AOwner: TComponent);
-var
-  OldHandler: TghSQLHandler;
 begin
-  OldHandler := TghSQLHandler.Create;
+  ADataSet := nil;
   try
-    OldHandler.Assign(FConnector.Lib);
-    ADataSet := nil;
-    try
-      if not FConnector.Connected then
-        FConnector.Connect;
-      FConnector.StartTransaction;
-      FConnector.Lib.Assign(Self);
-      FConnector.Lib.Open(ADataSet, AOwner);
-      FConnector.CommitRetaining;
-    except
-      on E: Exception do
-      begin
-        FConnector.RollbackRetaining;
-        ADataSet.Free;
-        DoOnException(E);
-      end;
+    if not FConnector.Connected then
+      FConnector.Connect;
+    FConnector.StartTransaction;
+    FConnector.Lib.Assign(Self);
+    FConnector.Lib.Open(ADataSet, AOwner);
+    FConnector.CommitRetaining;
+  except
+    on E: Exception do
+    begin
+      FConnector.RollbackRetaining;
+      ADataSet.Free;
+      DoOnException(E);
     end;
-  finally
-    FConnector.Lib.Assign(OldHandler);
-    OldHandler.Free;
   end;
 end;
 
 function TghSQLClient.InternalExecute(Sender: TObject): NativeInt;
-var
-  OldHandler: TghSQLHandler;
 begin
-  OldHandler := TghSQLHandler.Create;
   try
-    OldHandler.Assign(FConnector.Lib);
-    try
-      if not FConnector.Connected then
-        FConnector.Connect;
-      FConnector.StartTransaction;
-      FConnector.Lib.Assign(Self);
-      Result := FConnector.Lib.Execute;
-      FConnector.CommitRetaining;
-    except
-      on E: Exception do
-      begin
-        FConnector.RollbackRetaining;
-        DoOnException(E);
-      end;
+    if not FConnector.Connected then
+      FConnector.Connect;
+    FConnector.StartTransaction;
+    FConnector.Lib.Assign(Self);
+    Result := FConnector.Lib.Execute;
+    FConnector.CommitRetaining;
+  except
+    on E: Exception do
+    begin
+      FConnector.RollbackRetaining;
+      DoOnException(E);
     end;
-  finally
-    FConnector.Lib.Assign(OldHandler);
-    OldHandler.Free;
   end;
 end;
 
@@ -866,11 +876,14 @@ end;
 
 procedure TghSQLTable.SetTableName(const AValue: string);
 begin
+  if AValue = '' then
+    raise EghSQLTableError.Create(Self, 'Invalid TableName');
+
   if FTableName = AValue then
     Exit;
 
   if Self.Active then
-    raise EghSQLError.Create(Self, 'Table is active.');
+    raise EghSQLTableError.Create(Self, 'Table is active.');
 
   FTableName := AValue;
 end;
@@ -891,25 +904,6 @@ function TghSQLTable.GetRecordCount: Longint;
 begin
   CheckData;
   Result := FData.RecordCount;
-end;
-
-procedure TghSQLTable.FillAutoParams(ASource: TghSQLTable);
-var
-  I: Integer;
-  Fld: TField;
-  S: string;
-begin
-  S := LowerCase(Self.FConditions);
-  if S = '' then
-    Exit;
-  for I := 0 to ASource.FData.Fields.Count-1 do
-  begin
-    Fld := ASource.FData.Fields[I];
-    if Pos(':' + LowerCase(Fld.FieldName), S) > 0 then
-    begin
-      Self.Params[Fld.FieldName].Value := Fld.Value;
-    end;
-  end;
 end;
 
 class procedure TghSQLTable.ClassInitialization;
@@ -966,7 +960,7 @@ begin
         FConnector.RollbackRetaining
       else
         FConnector.Rollback;
-      raise EghSQLError.Create(Self, E.Message);
+      DoOnException(E);
     end;
   end;
 end;
@@ -999,6 +993,7 @@ begin
         Execute;
       end;
   end;
+
   Result := FErrors.Count = 0;
 end;
 
@@ -1007,20 +1002,23 @@ var
   I: Integer;
   C: TghSQLConstraint;
 
-  procedure LocalFillFieldValues;
+  procedure LocalSetForeignKeyValues;
   var
     I, X: Integer;
     Fld: TField;
     Par: TParam;
     Templates: array[1..3] of string;
   begin
+    if not Assigned(OwnerTable) then
+      Exit;
+
     Templates[1] := 'id_'+OwnerTable.TableName; // id_table
     Templates[2] := OwnerTable.TableName+'_id'; // table_id
     Templates[3] := 'id'+OwnerTable.TableName;  // idtable
 
-    for I := 0 to Params.Count-1 do
+    for I := 0 to FParams.Count-1 do
     begin
-      Par := Params.Items[I];
+      Par := FParams.Items[I];
       // Check if table belongs_to owner
       // TODO: Test not only "id" name
       // TODO: Use OwnerTable.GetServerIndexDefs to get the right fields and
@@ -1051,12 +1049,30 @@ begin
     end;
   end;
 
-  // get default values in OwnerTable
-  if Assigned(OwnerTable) then
-  begin
-    LocalFillFieldValues;
-    FillAutoParams(OwnerTable);
-  end;
+  LocalSetForeignKeyValues;
+  CopyParamValuesFromOwnerTable;
+end;
+
+procedure TghSQLTable.CopyParamValuesFromOwnerTable;
+begin
+  if Assigned(OwnerTable) and Assigned(OwnerTable.FData) and OwnerTable.FData.Active then
+    FParams.CopyParamValuesFromDataset(OwnerTable.FData, True);
+end;
+
+procedure TghSQLTable.MakeScript;
+begin
+  if FScript.Count > 0 then
+    Exit;
+
+  FScript.Clear;
+  FScript.Add('select ' + FSelectColumns + ' from ' + FTableName);
+  FScript.Add('where 1=1');
+  if FConditions <> '' then
+    FScript.Add('and ' + FConditions);
+  if FOrderBy <> '' then
+    FScript.Add('order by ' + FOrderBy);
+
+  CopyParamValuesFromOwnerTable;
 end;
 
 procedure TghSQLTable.DoBeforeCommit;
@@ -1073,11 +1089,11 @@ end;
 
 procedure TghSQLTable.CallFoundTable(Sender: TObject; ATable: TghSQLTable);
 var
-  TableModel: TghSQLTable;
+  ModelTable: TghSQLTable;
 begin
   CheckData;
-  TableModel := GetRelations.FindByName(ATable.TableName);
-  if not Assigned(TableModel) then
+  ModelTable := GetRelations.FindByName(ATable.TableName);
+  if not Assigned(ModelTable) then
     raise EghSQLError.CreateFmt(Self, 'Model "%s" not found.', [ATable.TableName]);
 
   if not ATable.Active then
@@ -1088,38 +1104,27 @@ begin
   end;
 
   ATable.Close;
-  ATable.Assign(TableModel);
-  ATable.FillAutoParams(Self);
-
-  if Assigned(TableModel.Params) then
-    ATable.Params.AssignValues(TableModel.Params);
-
+  ATable.Assign(ModelTable);
   ATable.Open;
 end;
 
-constructor TghSQLTable.Create(AConn: TghSQLConnector);
+constructor TghSQLTable.Create(AConn: TghSQLConnector; const ATableName: string);
 begin
   inherited Create(AConn);
-
-//  FConnector := AConn;
 
   if Assigned(FConnector) then
     FConnector.Notify(Self, opInsert);
 
   FData := nil;
+  SetTableName(ATableName);
   FSelectColumns := '*';
   FUseRetaining := True;
   FEnforceConstraints := True;
+
   FErrors := TStringList.Create;
   FLinks := TghSQLTableList.Create(Self, True);
   FLinks.OnNewTable := @CallFoundTable;
   FLinks.OnFoundTable := @CallFoundTable;
-end;
-
-constructor TghSQLTable.Create(AConn: TghSQLConnector; const ATableName: string);
-begin
-  Create(AConn);
-  FTableName := ATableName;
 end;
 
 constructor TghSQLTable.Create(AConn: TghSQLConnector; const ATableName: string;
@@ -1174,25 +1179,20 @@ begin
   end;
 end;
 
+procedure TghSQLTable.Open(out ADataSet: TDataSet; AOwner: TComponent);
+begin
+  if FScript.Count = 0 then
+    FScript.Text := 'select * from ' + FTableName;
+
+  inherited Open(ADataSet, AOwner);
+end;
+
 function TghSQLTable.Open: TghSQLTable;
 begin
-  DoBeforeOpen;
   FreeAndNil(FData);
   try
-    if FScript.Count = 0 then
-    begin
-      FScript.Clear;
-      FScript.Add('select ' + FSelectColumns + ' from ' + FTableName);
-      FScript.Add('where 1=1');
-      if FConditions <> '' then
-        FScript.Add('and ' + FConditions);
-      if FOrderBy <> '' then
-        FScript.Add('order by ' + FOrderBy);
-      if Assigned(OwnerTable) and Assigned(OwnerTable.FData) then
-        FParams.CopyParamValuesFromDataset(OwnerTable.FData, True);
-    end;
+    MakeScript;
     Open(FData, nil);
-    DoAfterOpen(FData);
   except
     on E: Exception do
     begin
@@ -1206,7 +1206,7 @@ end;
 function TghSQLTable.Insert: TghSQLTable;
 begin
   if not Active then
-    Self.Where('1=2').Open;
+    Where('1=2').Open;
   FData.Insert;
   SetDefaultValues;
   Result := Self;
@@ -1215,7 +1215,7 @@ end;
 function TghSQLTable.Append: TghSQLTable;
 begin
   if not Active then
-    Self.Where('1=2').Open;
+    Where('1=2').Open;
   FData.Append;
   SetDefaultValues;
   Result := Self;
@@ -1438,7 +1438,7 @@ begin
       begin
         // FIRST, close table!
         Close;
-        // disable notifications to Connector
+        // disable Connector notifications
         Connector := nil;
       end;
     end;
@@ -1503,14 +1503,38 @@ end;
 
 { TghSQLConnector }
 
+procedure TghSQLConnector.InternalOpen(Sender: TObject; out ADataSet: TDataSet;
+  AOwner: TComponent);
+var
+  SC: TghSQLClient;
+begin
+  SC := TghSQLClient.Create(Self);
+  try
+    SC.Assign(Self);
+    SC.AssignEvents(Self);
+    SC.Open(ADataSet, AOwner);
+  finally
+    SC.Free;
+  end;
+end;
+
+function TghSQLConnector.InternalExecute(Sender: TObject): NativeInt;
+var
+  SC: TghSQLClient;
+begin
+  SC := TghSQLClient.Create(Self);
+  try
+    SC.Assign(Self);
+    SC.AssignEvents(Self);
+    Result := SC.Execute;
+  finally
+    SC.Free;
+  end;
+end;
+
 function TghSQLConnector.GetConnected: Boolean;
 begin
-  try
-    Result := FLib.Connected;
-  except
-    on E: Exception do
-      raise EghSQLError.Create(E.Message);
-  end;
+  Result := FLib.Connected;
 end;
 
 procedure TghSQLConnector.CallNewTable(Sender: TObject; ATable: TghSQLTable);
@@ -1558,7 +1582,7 @@ begin
     FLib.Connect;
   except
     on E: Exception do
-      raise EghSQLError.Create(E.Message);
+      DoOnException(E);
   end;
 end;
 
@@ -1569,7 +1593,7 @@ begin
       FLib.Disconnect;
   except
     on E: Exception do
-      raise EghSQLError.Create(E.Message);
+      DoOnException(E);
   end;
 end;
 
@@ -1583,7 +1607,7 @@ begin
     Inc(FTransCount);
   except
     on E: Exception do
-      raise EghSQLError.Create(E.Message);
+      DoOnException(E);
   end;
 end;
 
@@ -1602,7 +1626,7 @@ begin
     Dec(FTransCount);
   except
     on E: Exception do
-      raise EghSQLError.Create(E.Message);
+      DoOnException(E);
   end;
 end;
 
@@ -1616,7 +1640,7 @@ begin
     Dec(FTransCount);
   except
     on E: Exception do
-      raise EghSQLError.Create(E.Message);
+      DoOnException(E);
   end;
 end;
 
@@ -1630,7 +1654,7 @@ begin
     Dec(FTransCount);
   except
     on E: Exception do
-      raise EghSQLError.Create(E.Message);
+      DoOnException(E);
   end;
 end;
 
@@ -1644,7 +1668,7 @@ begin
     Dec(FTransCount);
   except
     on E: Exception do
-      raise EghSQLError.Create(E.Message);
+      DoOnException(E);
   end;
 end;
 
