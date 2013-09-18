@@ -1,6 +1,12 @@
 Release notes
 ==========================================================
 
+(2013-09-18)
+
+- TghSQLTable has a new Alias property. 
+- TghSQLTable.Reuse was removed.
+
+
 (2013-09-13)
 
 - Now TghSQLConnector class inherit form TghSQLHandler: 

@@ -172,12 +172,12 @@ type
   TghSQLTable = class(TghSQLClient)
   private
     FTableName: string;
+    FAlias: string;
     FConditions: string;
     FErrors: TStrings;
     FLinks: TghSQLTableList;
     FOrderBy: string;
     FOwnerTable: TghSQLTable;
-    FReuse: Boolean;
     FSelectColumns: string;
     FEnforceConstraints: Boolean;
     FUseRetaining: Boolean;
@@ -190,8 +190,9 @@ type
     function GetEOF: Boolean;
     function GetConnector: TghSQLConnector;
     procedure SetConnector(AValue: TghSQLConnector);
-    function GetConstraints: TghSQLConstraintList;
     function GetRelations: TghSQLTableList;
+    function GetConstraints: TghSQLConstraintList;
+    procedure SetAlias(const AValue: string);
     procedure SetTableName(const AValue: string);
     function GetState: TDataSetState;
     function GetIsEmpty: Boolean;
@@ -254,8 +255,8 @@ type
     property IsEmpty: Boolean read GetIsEmpty;
     property Links: TghSQLTableList read FLinks;
     property OwnerTable: TghSQLTable read FOwnerTable write FOwnerTable;
-    property Reuse: Boolean read FReuse write FReuse;
     property RecordCount: Longint read GetRecordCount;
+    property Alias: string read FAlias write SetAlias;
     property TableName: string read FTableName write SetTableName;
     property Relations: TghSQLTableList read GetRelations;
     property Constraints: TghSQLConstraintList read GetConstraints;
@@ -279,6 +280,7 @@ type
   public
     constructor Create(AOwnerTable: TghSQLTable; AFreeObjects: Boolean = True); virtual; reintroduce;
     destructor Destroy; override;
+    function FindByAlias(const AAlias: string): TghSQLTable;
     function FindByName(const AName: string): TghSQLTable;
     procedure Lock;
     procedure UnLock;
@@ -874,6 +876,14 @@ begin
   end;
 end;
 
+procedure TghSQLTable.SetAlias(const AValue: string);
+begin
+  if FAlias = AValue then
+    Exit;
+
+  FAlias := AValue;
+end;
+
 procedure TghSQLTable.SetTableName(const AValue: string);
 begin
   if AValue = '' then
@@ -1100,7 +1110,6 @@ begin
   begin
     ATable.Connector := FConnector;
     ATable.OwnerTable := Self;
-    ATable.Reuse := False;  // TODO: important?
   end;
 
   ATable.Close;
@@ -1156,7 +1165,7 @@ begin
     FConditions := Table.FConditions;
     FOrderBy := Table.FOrderBy;
     FTableName := Table.FTableName;
-    FReuse := Table.FReuse;
+    FAlias := Table.FAlias;
   end;
 end;
 
@@ -1391,17 +1400,23 @@ end;
 
 function TghSQLTableList.GetTables(const ATableName: string): TghSQLTable;
 begin
+  Result := nil;
+
   if ATableName = '' then
     raise EghSQLError.Create(Self, 'TableName not defined.');
 
-  Result := FindByName(ATableName);
+  if ATableName[1] = '@' then
+    Result := FindByAlias(Copy(ATableName, 2, Length(ATableName)))
+  else
+    Result := FindByName(ATableName);
+
   if (Result = nil) and FLocked then
     raise EghSQLError.CreateFmt(Self, 'Table "%s" not found.', [ATableName]);
 
-  if (Result = nil) or (Result.Active and (not Result.Reuse)) then
+  if (Result = nil) or (Result.Active) then
   begin
     Result := TghSQLTable.Create(nil, ATableName);
-    Result.Reuse := False;
+    Result.Alias := IntToStr(NativeInt(@Result));
     Add(Result);
     DoNewTable(Result);
   end;
@@ -1445,6 +1460,25 @@ begin
   end;
 
   inherited Destroy;
+end;
+
+function TghSQLTableList.FindByAlias(const AAlias: string): TghSQLTable;
+var
+  I: Integer;
+  Table: TghSQLTable;
+begin
+  Result := nil;
+  for I := 0 to Count-1 do
+  begin
+    Table := Items[I];
+    // TODO: Check if Table.Reuse?
+    if (Table.Alias = AAlias) then
+    begin
+      Result := Table;
+      DoFoundTable(Result);
+      Exit;
+    end;
+  end;
 end;
 
 function TghSQLTableList.FindByName(const AName: string): TghSQLTable;
