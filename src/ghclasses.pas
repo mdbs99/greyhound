@@ -22,9 +22,13 @@ uses
 
 type
   EghError = class(Exception)
+  private
+    FInnerException: Exception;
+    procedure SetInnerException(AValue: Exception);
   public
     constructor Create(AInstance: TObject; const AMsg: string); overload;
     constructor CreateFmt(AInstance: TObject; const AMsg: string; const AArgs: array of const); overload;
+    property InnerException: Exception read FInnerException write SetInnerException;
   end;
 
   IghInterface = interface
@@ -40,6 +44,12 @@ type
 implementation
 
 { EghError }
+
+procedure EghError.SetInnerException(AValue: Exception);
+begin
+  if FInnerException = AValue then Exit;
+  FInnerException := AValue;
+end;
 
 constructor EghError.Create(AInstance: TObject; const AMsg: string);
 begin

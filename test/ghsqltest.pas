@@ -40,14 +40,14 @@ type
     procedure TestFindByName;
     procedure TestExecute;
     procedure TestOpen;
-    procedure TestOnException;
+    procedure TestCatchException;
   end;
 
   TghSQLClientTest = class(TghSQLTest)
   published
     procedure TestExecute;
     procedure TestOpen;
-    procedure TestOnException;
+    procedure TestCatchException;
   end;
 
   TghSQLTableTest = class(TghSQLTest)
@@ -70,72 +70,6 @@ const
   DB_FILE = 'DB.sqlite';
   SCRIPT_PATH = 'script' + DirectorySeparator;
 
-{ TghSQLClientTest }
-
-procedure TghSQLClientTest.TestExecute;
-const
-  USER_LOGIN = 'user_client';
-var
-  SC: TghSQLClient;
-  DS: TDataSet;
-begin
-  DS := nil;
-  SC := TghSQLClient.Create(FConn);
-  try
-    SC.Script.Text := 'insert into user (login, passwd) values (:login, :passwd)';
-    SC.Params['login'].AsString := USER_LOGIN;
-    SC.Params['passwd'].AsString := '123';
-    AssertEquals(1, SC.Execute);
-
-    SC.Script.Text := 'select * from user where login = :login';
-
-    // Not call SC.Clear before so
-    // test if parameters were clean when call Script was changed
-    AssertEquals('Params was not changed', 1, SC.Params.Count);
-
-    SC.Params['login'].AsString := USER_LOGIN;
-    SC.Open(DS);
-
-    AssertEquals(1, DS.RecordCount);
-  finally
-    SC.Free;
-    DS.Free;
-  end;
-end;
-
-procedure TghSQLClientTest.TestOpen;
-var
-  DS: TDataSet;
-  SC: TghSQLClient;
-begin
-  DS := nil;
-  SC := TghSQLClient.Create(FConn);
-  try
-    SC.Clear;
-    SC.Script.Text := 'select * from user';
-    SC.Open(DS);
-    AssertTrue(DS.Active);
-  finally
-    DS.Free;
-    SC.Free;
-  end;
-end;
-
-procedure TghSQLClientTest.TestOnException;
-var
-  SC: TghSQLClient;
-begin
-  // catch
-  SC := TghSQLClient.Create(FConn);
-  try
-    SC.OnException := @DoOnException;
-    SC.Script.Text := 'foo';
-    SC.Execute;
-  finally
-    SC.Free;
-  end;
-end;
-
 { TghSQLTest }
 
 procedure TghSQLTest.DoOnException(Sender: TObject; E: Exception);
@@ -156,7 +90,8 @@ begin
   FConn.IsBatch := True;
   FConn.Execute;
 
-  FConn.Clear; // IMPORTANT!
+  // IMPORTANT!
+  FConn.Clear;
 end;
 
 procedure TghSQLTest.SetUp;
@@ -243,12 +178,76 @@ begin
   end;
 end;
 
-procedure TghSQLConnectorTest.TestOnException;
+procedure TghSQLConnectorTest.TestCatchException;
 begin
-  // catch
   FConn.OnException := @DoOnException;
   FConn.Script.Text := 'foo';
   FConn.Execute;
+end;
+
+{ TghSQLClientTest }
+
+procedure TghSQLClientTest.TestExecute;
+const
+  USER_LOGIN = 'user_client';
+var
+  SC: TghSQLClient;
+  DS: TDataSet;
+begin
+  DS := nil;
+  SC := TghSQLClient.Create(FConn);
+  try
+    SC.Script.Text := 'insert into user (login, passwd) values (:login, :passwd)';
+    SC.Params['login'].AsString := USER_LOGIN;
+    SC.Params['passwd'].AsString := '123';
+    AssertEquals(1, SC.Execute);
+
+    SC.Script.Text := 'select * from user where login = :login';
+
+    // Not call SC.Clear before so
+    // test if parameters were clean when call Script was changed
+    AssertEquals('Params was not changed', 1, SC.Params.Count);
+
+    SC.Params['login'].AsString := USER_LOGIN;
+    SC.Open(DS);
+
+    AssertEquals(1, DS.RecordCount);
+  finally
+    SC.Free;
+    DS.Free;
+  end;
+end;
+
+procedure TghSQLClientTest.TestOpen;
+var
+  DS: TDataSet;
+  SC: TghSQLClient;
+begin
+  DS := nil;
+  SC := TghSQLClient.Create(FConn);
+  try
+    SC.Clear;
+    SC.Script.Text := 'select * from user';
+    SC.Open(DS);
+    AssertTrue(DS.Active);
+  finally
+    DS.Free;
+    SC.Free;
+  end;
+end;
+
+procedure TghSQLClientTest.TestCatchException;
+var
+  SC: TghSQLClient;
+begin
+  SC := TghSQLClient.Create(FConn);
+  try
+    SC.OnException := @DoOnException;
+    SC.Script.Text := 'foo';
+    SC.Execute;
+  finally
+    SC.Free;
+  end;
 end;
 
 { TghSQLTableTest }

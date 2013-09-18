@@ -273,10 +273,13 @@ begin
     Q.PacketRecords := FPacketRecords;
     Q.UsePrimaryKeyAsKey := True;
     Q.SQL.Text := FScript.Text;
+
     if Assigned(FParams) then
       Q.Params.Assign(FParams);
+
     if not FPrepared then
       Q.Prepare;
+
     Q.Open;
     ADataSet := Q;
   except

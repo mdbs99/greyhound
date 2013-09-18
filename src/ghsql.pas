@@ -88,6 +88,7 @@ type
   public
     constructor Create; override;
     procedure Assign(ASource: TghSQLStatement); override;
+    procedure AssignEvents(ASource: TghSQLHandler); virtual;
     procedure Clear; override;
     procedure Open(out ADataSet: TDataSet; AOwner: TComponent = nil); virtual;
     function Execute: NativeInt; virtual;
@@ -441,11 +442,20 @@ begin
 end;
 
 procedure TghSQLHandler.DoOnException(E: Exception);
+var
+  NewError: EghSQLHandlerError;
 begin
   if Assigned(FOnException) then
     FOnException(Self, E)
   else
-    raise E;
+  begin
+    // call "raise E" do not works in FPC 2.6.2 maybe this is a bug
+    //raise E;
+
+    NewError := EghSQLHandlerError.Create(Self, E.Message);
+    NewError.InnerException := E;
+    raise NewError;
+  end;
 end;
 
 procedure TghSQLHandler.InternalOpen(Sender: TObject; out ADataSet: TDataSet;
@@ -475,19 +485,21 @@ begin
   if ASource is TghSQLHandler then
   begin
     Handler := TghSQLHandler(ASource);
-    // properties
-    IsBatch := Handler.IsBatch;
-    Prepared := Handler.Prepared;
-    PacketRecords := Handler.PacketRecords;
-    // events
-    BeforeOpen := Handler.BeforeOpen;
-    AfterOpen := Handler.AfterOpen;
-    BeforePost := Handler.BeforePost;
-    AfterPost := Handler.AfterPost;
-    BeforeExecute := Handler.BeforeExecute;
-    AfterExecute := Handler.AfterExecute;
-    OnException := Handler.OnException;
+    FIsBatch := Handler.IsBatch;
+    FPrepared := Handler.Prepared;
+    FPacketRecords := Handler.PacketRecords;
   end;
+end;
+
+procedure TghSQLHandler.AssignEvents(ASource: TghSQLHandler);
+begin
+  FBeforeOpen := ASource.FBeforeOpen;
+  FAfterOpen := ASource.FAfterOpen;
+  FBeforePost := ASource.FBeforePost;
+  FAfterPost := ASource.FAfterPost;
+  FBeforeExecute := ASource.FBeforeExecute;
+  FAfterExecute := ASource.FAfterExecute;
+  FOnException := ASource.FOnException;
 end;
 
 procedure TghSQLHandler.Clear;
@@ -1499,6 +1511,7 @@ begin
   SC := TghSQLClient.Create(Self);
   try
     SC.Assign(Self);
+    SC.AssignEvents(Self);
     SC.Open(ADataSet, AOwner);
   finally
     SC.Free;
@@ -1512,6 +1525,7 @@ begin
   SC := TghSQLClient.Create(Self);
   try
     SC.Assign(Self);
+    SC.AssignEvents(Self);
     Result := SC.Execute;
   finally
     SC.Free;
