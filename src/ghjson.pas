@@ -55,9 +55,10 @@ begin
         begin
           if JsonData is TJSONFloatNumber then
             Par.AsFloat := JsonData.AsFloat
-          else
-          if JsonData is TJSONIntegerNumber then
+          else if JsonData is TJSONIntegerNumber then
             Par.AsInteger := JsonData.AsInteger
+          else if JsonData is TJSONInt64Number then
+            Par.AsLargeInt := JsonData.AsInt64
         end;
       jtString:
         Par.AsString := JsonData.AsString;
