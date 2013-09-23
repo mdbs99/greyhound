@@ -1406,15 +1406,19 @@ begin
     raise EghSQLError.Create(Self, 'TableName not defined.');
 
   if ATableName[1] = '@' then
-    Result := FindByAlias(Copy(ATableName, 2, Length(ATableName)))
-  else
-    Result := FindByName(ATableName);
-
-  if (Result = nil) and FLocked then
-    raise EghSQLError.CreateFmt(Self, 'Table "%s" not found.', [ATableName]);
-
-  if (Result = nil) or (Result.Active) then
   begin
+    Result := FindByAlias(Copy(ATableName, 2, Length(ATableName)));
+    if Assigned(Result) then
+      Exit;
+  end;
+
+  // default
+  Result := FindByName(ATableName);
+  if (Result = nil) or Result.Active then
+  begin
+    if FLocked then
+      raise EghSQLError.CreateFmt(Self, 'Table "%s" not found.', [ATableName]);
+
     Result := TghSQLTable.Create(nil, ATableName);
     Result.Alias := IntToStr(NativeInt(@Result));
     Add(Result);
