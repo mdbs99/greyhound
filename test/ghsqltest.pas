@@ -494,20 +494,16 @@ end;
 procedure TghSQLTableTest.TestFindByAlias;
 var
   U1, U2: TghSQLTable;
-  DS: TDataSet;
 begin
-  U1 := FConn.Tables['user'];
-  // set an alias
+  U1 := FConn.Tables['user'].Where('id=1').Open;
+
+  // set alias
   U1.Alias := 'u';
 
   // get the same table instance using the alias (@ is required)
   U2 := FConn.Tables['@u'];
-  U2.Open(DS, nil);
-  try
-    AssertTrue(DS.Active);
-  finally
-    DS.Free;
-  end;
+
+  AssertTrue(U1 = U2);
 end;
 
 initialization

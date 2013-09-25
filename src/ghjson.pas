@@ -39,14 +39,14 @@ implementation
 procedure TghJSONDataAdapter.Adapt(ASource: TObject);
 var
   I: Integer;
-  JSrc: TJSONObject absolute ASource;
-  Par: TParam;
+  lObj: TJSONObject absolute ASource;
+  lPar: TParam;
 begin
   DataRow.Clear;
-  for I := 0 to JSrc.Count-1 do
+  for I := 0 to lObj.Count-1 do
   begin
-    Par := DataRow[JSrc.Names[I]];
-    Par.Value := JSrc.Items[I].Value;
+    lPar := DataRow[lObj.Names[I]];
+    lPar.Value := lObj.Items[I].Value;
   end;
 end;
 

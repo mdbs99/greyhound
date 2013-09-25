@@ -37,12 +37,11 @@ type
   end;
 
   TghSQLdbQuery = class(TSQLQuery, IghSQLDataSetResolver)
-  private
+  protected
     FTableName: string;
+    FLib: TghSQLdbLib;
     procedure CallResolverError(Sender: TObject; DataSet: TCustomBufDataset;
       E: EUpdateError; UpdateKind: TUpdateKind; var Response: TResolverResponse); virtual;
-  protected
-    FLib: TghSQLdbLib;
     procedure ApplyRecUpdate(UpdateKind: TUpdateKind); override;
     { IghSQLDataSetResolver }
     function GetEOF: Boolean;
@@ -154,8 +153,8 @@ end;
 procedure TghSQLdbQuery.ApplyRecUpdate(UpdateKind: TUpdateKind);
 var
   I: Integer;
-  LastId: NativeInt;
-  Fld: TField;
+  lLastId: NativeInt;
+  lFld: TField;
 begin
   inherited;
 
@@ -164,16 +163,16 @@ begin
 
   for I := 0 to Fields.Count -1 do
   begin
-    Fld := Fields.Fields[I];
-    if Fld.IsNull and
-       ((Fld.DataType = ftAutoInc) or (LowerCase(Fld.FieldName) = 'id') and (Fld is TNumericField)) then
+    lFld := Fields.Fields[I];
+    if lFld.IsNull and
+       ((lFld.DataType = ftAutoInc) or (LowerCase(lFld.FieldName) = 'id') and (lFld is TNumericField)) then
     begin
-      LastId := FLib.GetLastAutoIncValue;
-      if LastId <= 0 then
+      lLastId := FLib.GetLastAutoIncValue;
+      if lLastId <= 0 then
         Exit;
 
       Edit;
-      Fields[I].SetData(@LastId);
+      Fields[I].SetData(@lLastId);
       Post;
       Exit;
     end;
@@ -265,57 +264,57 @@ end;
 procedure TghSQLdbLib.InternalQueryOpen(Sender: TObject; out ADataSet: TDataSet;
   AOwner: TComponent);
 var
-  Q: TghSQLdbQuery;
+  lQ: TghSQLdbQuery;
 begin
   ADataSet := nil;
-  Q := NewQuery(AOwner);
+  lQ := NewQuery(AOwner);
   try
-    Q.PacketRecords := FPacketRecords;
-    Q.UsePrimaryKeyAsKey := True;
-    Q.SQL.Text := FScript.Text;
+    lQ.PacketRecords := FPacketRecords;
+    lQ.UsePrimaryKeyAsKey := True;
+    lQ.SQL.Text := FScript.Text;
 
     if Assigned(FParams) then
-      Q.Params.Assign(FParams);
+      lQ.Params.Assign(FParams);
 
     if not FPrepared then
-      Q.Prepare;
+      lQ.Prepare;
 
-    Q.Open;
-    ADataSet := Q;
+    lQ.Open;
+    ADataSet := lQ;
   except
-    Q.Free;
+    lQ.Free;
     raise;
   end;
 end;
 
 function TghSQLdbLib.InternalQueryExecute(Sender: TObject): NativeInt;
 var
-  Q: TghSQLdbQuery;
+  lQ: TghSQLdbQuery;
 begin
-  Q := NewQuery;
+  lQ := NewQuery;
   try
-    if not Q.SQL.Equals(FScript) then
-      Q.SQL.Assign(FScript);
+    if not lQ.SQL.Equals(FScript) then
+      lQ.SQL.Assign(FScript);
 
     if not FPrepared then
-      Q.Prepare;
+      lQ.Prepare;
 
     if Assigned(FParams) then
-      Q.Params.Assign(FParams);
+      lQ.Params.Assign(FParams);
 
-    Q.ExecSQL;
-    Result := Q.RowsAffected;
+    lQ.ExecSQL;
+    Result := lQ.RowsAffected;
   finally
-    Q.Free;
+    lQ.Free;
   end;
 end;
 
 function TghSQLdbLib.InternalScriptExecute(Sender: TObject): NativeInt;
 var
   I: Integer;
-  Par: TParam;
-  ParValue: string;
-  S: string;
+  lPar: TParam;
+  lParValue: string;
+  lStr: string;
 begin
   with NewScript do
   try
@@ -325,17 +324,17 @@ begin
     // TSQLScript doesn't work with params (TParams) so, we need to simulate
     if Assigned(FParams) then
     begin
-      S := Script.Text;
+      lStr := Script.Text;
       for I := 0 to FParams.Count-1 do
       begin
-        Par := FParams.Items[I];
-        if Par.DataType in [ftString, ftMemo, ftFmtMemo, ftWideString, ftWideMemo] then
-          ParValue := QuotedStr(Par.AsString)
+        lPar := FParams.Items[I];
+        if lPar.DataType in [ftString, ftMemo, ftFmtMemo, ftWideString, ftWideMemo] then
+          lParValue := QuotedStr(lPar.AsString)
         else
-          ParValue := Par.AsString;
-        S := StringReplace(S, ':'+Par.Name, ParValue, [rfReplaceAll, rfIgnoreCase]);
+          lParValue := lPar.AsString;
+        lStr := StringReplace(lStr, ':'+lPar.Name, lParValue, [rfReplaceAll, rfIgnoreCase]);
       end;
-      Script.Text := S;
+      Script.Text := lStr;
     end;
 
     Execute;
@@ -425,15 +424,15 @@ end;
 
 function TghSQLite3Lib.GetLastAutoIncValue: NativeInt;
 var
-  Q: TghSQLdbQuery;
+  lQ: TghSQLdbQuery;
 begin
-  Q := NewQuery;
+  lQ := NewQuery;
   try
-    Q.SQL.Text := 'select last_insert_rowid() as id';
-    Q.Open;
-    Result := Q.FieldByName('id').AsInteger;
+    lQ.SQL.Text := 'select last_insert_rowid() as id';
+    lQ.Open;
+    Result := lQ.FieldByName('id').AsInteger;
   finally
-    Q.Free;
+    lQ.Free;
   end;
 end;
 
@@ -548,15 +547,15 @@ end;
 
 function TghMSSQLLib.GetLastAutoIncValue: NativeInt;
 var
-  Q: TghSQLdbQuery;
+  lQ: TghSQLdbQuery;
 begin
-  Q := NewQuery;
+  lQ := NewQuery;
   try
-    Q.SQL.Text := 'select scope_identity() as id';
-    Q.Open;
-    Result := Q.FieldByName('id').AsInteger;
+    lQ.SQL.Text := 'select scope_identity() as id';
+    lQ.Open;
+    Result := lQ.FieldByName('id').AsInteger;
   finally
-    Q.Free;
+    lQ.Free;
   end;
 end;
 

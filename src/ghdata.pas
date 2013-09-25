@@ -105,17 +105,17 @@ end;
 
 function TghDataParams.ParamByName(const AName: string): TParam;
 var
-  Par: TParam;
+  lPar: TParam;
 begin
-  Par := FindParam(AName);
-  if not Assigned(Par) then
+  lPar := FindParam(AName);
+  if not Assigned(lPar) then
   begin
     if FLocked then
       raise EghDataError.Create(Self, 'Params were locked.');
-    Par := TParam.Create(Self);
-    Par.Name := AName;
+    lPar := TParam.Create(Self);
+    lPar.Name := AName;
   end;
-  Result := Par as TParam;
+  Result := lPar as TParam;
 end;
 
 { TghDataAdapter }
