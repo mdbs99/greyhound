@@ -40,14 +40,12 @@ type
     procedure TestFindByName;
     procedure TestExecute;
     procedure TestOpen;
-    procedure TestCatchException;
   end;
 
   TghSQLClientTest = class(TghSQLTest)
   published
     procedure TestExecute;
     procedure TestOpen;
-    procedure TestCatchException;
   end;
 
   TghSQLTableTest = class(TghSQLTest)
@@ -179,13 +177,6 @@ begin
   end;
 end;
 
-procedure TghSQLConnectorTest.TestCatchException;
-begin
-  FConn.OnException := @DoOnException;
-  FConn.Script.Text := 'foo';
-  FConn.Execute;
-end;
-
 { TghSQLClientTest }
 
 procedure TghSQLClientTest.TestExecute;
@@ -233,20 +224,6 @@ begin
     AssertTrue(DS.Active);
   finally
     DS.Free;
-    SC.Free;
-  end;
-end;
-
-procedure TghSQLClientTest.TestCatchException;
-var
-  SC: TghSQLClient;
-begin
-  SC := TghSQLClient.Create(FConn);
-  try
-    SC.OnException := @DoOnException;
-    SC.Script.Text := 'foo';
-    SC.Execute;
-  finally
     SC.Free;
   end;
 end;

@@ -74,7 +74,6 @@ type
     FAfterPost: TNotifyEvent;
     FBeforeExecute: TNotifyEvent;
     FAfterExecute: TNotifyEvent;
-    FOnException: TghSQLHandlerExceptionEvent;
     procedure SetPacketRecords(AValue: Integer); virtual;
     procedure DoBeforeOpen;
     procedure DoAfterOpen(ADataSet: TDataSet);
@@ -82,7 +81,6 @@ type
     procedure DoAfterPost;
     procedure DoBeforeExecute;
     procedure DoAfterExecute;
-    procedure DoOnException(E: Exception);
     procedure InternalOpen(Sender: TObject; out ADataSet: TDataSet; {%H-}AOwner: TComponent = nil); virtual;
     function InternalExecute(Sender: TObject): NativeInt; virtual;
   public
@@ -101,7 +99,6 @@ type
     property AfterPost: TNotifyEvent read FAfterPost write FAfterPost;
     property BeforeExecute: TNotifyEvent read FBeforeExecute write FBeforeExecute;
     property AfterExecute: TNotifyEvent read FAfterExecute write FAfterExecute;
-    property OnException: TghSQLHandlerExceptionEvent read FOnException write FOnException;
   end;
 
   EghSQLClientError = class(EghSQLHandlerError);
@@ -443,23 +440,6 @@ begin
     FAfterExecute(Self);
 end;
 
-procedure TghSQLHandler.DoOnException(E: Exception);
-var
-  lNewError: EghSQLHandlerError;
-begin
-  if Assigned(FOnException) then
-    FOnException(Self, E)
-  else
-  begin
-    // call "raise E" do not works in FPC 2.6.2 maybe this is a bug
-    //raise E;
-
-    lNewError := EghSQLHandlerError.Create(Self, E.Message);
-    lNewError.InnerException := E;
-    raise lNewError;
-  end;
-end;
-
 procedure TghSQLHandler.InternalOpen(Sender: TObject; out ADataSet: TDataSet;
   AOwner: TComponent);
 begin
@@ -501,7 +481,6 @@ begin
   FAfterPost := ASource.FAfterPost;
   FBeforeExecute := ASource.FBeforeExecute;
   FAfterExecute := ASource.FAfterExecute;
-  FOnException := ASource.FOnException;
 end;
 
 procedure TghSQLHandler.Clear;
@@ -540,12 +519,9 @@ begin
     FConnector.Lib.Open(ADataSet, AOwner);
     FConnector.CommitRetaining;
   except
-    on E: Exception do
-    begin
-      FConnector.RollbackRetaining;
-      ADataSet.Free;
-      DoOnException(E);
-    end;
+    FConnector.RollbackRetaining;
+    ADataSet.Free;
+    raise;
   end;
 end;
 
@@ -559,11 +535,8 @@ begin
     Result := FConnector.Lib.Execute;
     FConnector.CommitRetaining;
   except
-    on E: Exception do
-    begin
-      FConnector.RollbackRetaining;
-      DoOnException(E);
-    end;
+    FConnector.RollbackRetaining;
+    raise;
   end;
 end;
 
@@ -964,14 +937,11 @@ begin
     FErrors.Clear;
     DoAfterCommit;
   except
-    on E: Exception do
-    begin
-      if ARetaining then
-        FConnector.RollbackRetaining
-      else
-        FConnector.Rollback;
-      DoOnException(E);
-    end;
+    if ARetaining then
+      FConnector.RollbackRetaining
+    else
+      FConnector.Rollback;
+    raise;
   end;
 end;
 
@@ -1203,11 +1173,8 @@ begin
     MakeScript;
     Open(FData, nil);
   except
-    on E: Exception do
-    begin
-      FreeAndNil(FData);
-      DoOnException(E);
-    end;
+    FreeAndNil(FData);
+    raise;
   end;
   Result := Self;
 end;
@@ -1616,37 +1583,22 @@ end;
 
 procedure TghSQLConnector.Connect;
 begin
-  try
-    FLib.Connect;
-  except
-    on E: Exception do
-      DoOnException(E);
-  end;
+  FLib.Connect;
 end;
 
 procedure TghSQLConnector.Disconnect;
 begin
-  try
-    if Connected then
-      FLib.Disconnect;
-  except
-    on E: Exception do
-      DoOnException(E);
-  end;
+  if Connected then
+    FLib.Disconnect;
 end;
 
 procedure TghSQLConnector.StartTransaction;
 begin
-  try
-    if FTransCount = 0 then
-    begin
-      FLib.StartTransaction;
-    end;
-    Inc(FTransCount);
-  except
-    on E: Exception do
-      DoOnException(E);
+  if FTransCount = 0 then
+  begin
+    FLib.StartTransaction;
   end;
+  Inc(FTransCount);
 end;
 
 function TghSQLConnector.InTransaction: Boolean;
@@ -1658,56 +1610,44 @@ procedure TghSQLConnector.Commit;
 begin
   if FTransCount = 0 then
     Exit;
-  try
-    if FTransCount = 1 then
-      FLib.Commit;
-    Dec(FTransCount);
-  except
-    on E: Exception do
-      DoOnException(E);
-  end;
+
+  if FTransCount = 1 then
+    FLib.Commit;
+
+  Dec(FTransCount);
 end;
 
 procedure TghSQLConnector.CommitRetaining;
 begin
   if FTransCount = 0 then
     Exit;
-  try
-    if FTransCount = 1 then
-      FLib.CommitRetaining;
-    Dec(FTransCount);
-  except
-    on E: Exception do
-      DoOnException(E);
-  end;
+
+  if FTransCount = 1 then
+    FLib.CommitRetaining;
+
+  Dec(FTransCount);
 end;
 
 procedure TghSQLConnector.Rollback;
 begin
   if FTransCount = 0 then
     Exit;
-  try
-    if FTransCount = 1 then
+
+  if FTransCount = 1 then
       FLib.Rollback;
-    Dec(FTransCount);
-  except
-    on E: Exception do
-      DoOnException(E);
-  end;
+
+  Dec(FTransCount);
 end;
 
 procedure TghSQLConnector.RollbackRetaining;
 begin
   if FTransCount = 0 then
     Exit;
-  try
-    if FTransCount = 1 then
-      FLib.RollbackRetaining;
-    Dec(FTransCount);
-  except
-    on E: Exception do
-      DoOnException(E);
-  end;
+
+  if FTransCount = 1 then
+    FLib.RollbackRetaining;
+
+  Dec(FTransCount);
 end;
 
 procedure TghSQLConnector.Notify(ATable: TghSQLTable; AOperation: TOperation);
