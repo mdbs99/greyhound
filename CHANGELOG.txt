@@ -1,6 +1,11 @@
 Release notes
 ==========================================================
 
+(2013-09-25)
+
+- TghSQLHandler.OnException event was removed.
+
+
 (2013-09-18)
 
 - TghSQLTable has a new Alias property. 
