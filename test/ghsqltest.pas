@@ -60,7 +60,7 @@ type
     procedure TestPacketRecords;
     procedure TestUsingScript;
     procedure TestOpenDataSet;
-    procedure TestFindByAlias;
+    procedure TestUsingAlias;
   end;
 
 implementation
@@ -468,7 +468,7 @@ begin
   end;
 end;
 
-procedure TghSQLTableTest.TestFindByAlias;
+procedure TghSQLTableTest.TestUsingAlias;
 var
   U1, U2: TghSQLTable;
 begin
