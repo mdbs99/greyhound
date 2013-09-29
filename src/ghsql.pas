@@ -211,6 +211,7 @@ type
     procedure DoAfterCommit; virtual;
     // callback
     procedure CallFoundTable(Sender: TObject; ATable: TghSQLTable); virtual;
+    procedure CallAfterScroll(ADataSet: TDataSet); virtual;
   public
     constructor Create(AConn: TghSQLConnector; const ATableName: string); virtual; reintroduce; overload;
     constructor Create(AConn: TghSQLConnector; const ATableName: string; AOwnerTable: TghSQLTable); virtual; overload;
@@ -385,8 +386,8 @@ end;
 procedure TghSQLStatement.Assign(ASource: TghSQLStatement);
 begin
   FParamsCheck := ASource.ParamsCheck;
-  FScript.Assign(ASource.Script);
   FParams.Assign(ASource.Params);
+  FScript.Assign(ASource.Script);
 end;
 
 procedure TghSQLStatement.Clear;
@@ -1040,19 +1041,19 @@ begin
 end;
 
 procedure TghSQLTable.MakeScript;
+var
+  lS: string;
 begin
-  if FScript.Count > 0 then
-    Exit;
+  lS := ' select ' + FSelectColumns
+      + ' from ' + FTableName
+      + ' where 1=1 ';
+  if FConditions <> '' then
+    lS := lS + ' and ' + FConditions;
+  if FOrderBy <> '' then
+    lS := lS + ' order by ' + FOrderBy;
 
   FScript.Clear;
-  FScript.Add('select ' + FSelectColumns + ' from ' + FTableName);
-  FScript.Add('where 1=1');
-  if FConditions <> '' then
-    FScript.Add('and ' + FConditions);
-  if FOrderBy <> '' then
-    FScript.Add('order by ' + FOrderBy);
-
-  CopyParamValuesFromOwnerTable;
+  FScript.Text := lS;
 end;
 
 procedure TghSQLTable.DoBeforeCommit;
@@ -1085,6 +1086,18 @@ begin
   ATable.Close;
   ATable.Assign(lModelTable);
   ATable.Open;
+end;
+
+procedure TghSQLTable.CallAfterScroll(ADataSet: TDataSet);
+var
+  I: Integer;
+  lTable: TghSQLTable;
+begin
+  for I := 0 to FLinks.Count -1 do
+  begin
+    lTable := FLinks.Items[I];
+  ///  lTable.Refresh;
+  end;
 end;
 
 constructor TghSQLTable.Create(AConn: TghSQLConnector; const ATableName: string);
@@ -1163,6 +1176,7 @@ begin
   if FScript.Count = 0 then
     FScript.Text := 'select * from ' + FTableName;
 
+  CopyParamValuesFromOwnerTable;
   inherited Open(ADataSet, AOwner);
 end;
 
@@ -1170,8 +1184,8 @@ function TghSQLTable.Open: TghSQLTable;
 begin
   FreeAndNil(FData);
   try
-    MakeScript;
     Open(FData, nil);
+    FData.AfterScroll := @CallAfterScroll;
   except
     FreeAndNil(FData);
     raise;
@@ -1308,23 +1322,26 @@ end;
 function TghSQLTable.Select(const AColumnNames: string): TghSQLTable;
 begin
   FSelectColumns := AColumnNames;
+  MakeScript;
   Result := Self;
 end;
 
 function TghSQLTable.Where(const AConditions: string): TghSQLTable;
 begin
   FConditions := AConditions;
+  MakeScript;
   Result := Self;
 end;
 
 function TghSQLTable.Where(const AConditionsFmt: string; AArgs: array of const): TghSQLTable;
 begin
-  Result := Self.Where(Format(AConditionsFmt, AArgs));
+  Result := Where(Format(AConditionsFmt, AArgs));
 end;
 
 function TghSQLTable.OrderBy(const AColumnNames: string): TghSQLTable;
 begin
   FOrderBy := AColumnNames;
+  MakeScript;
   Result := Self;
 end;
 
@@ -1442,7 +1459,6 @@ begin
   for I := 0 to Count-1 do
   begin
     lTable := Items[I];
-    // TODO: Check if Table.Reuse?
     if (lTable.Alias = AAlias) then
     begin
       Result := lTable;
@@ -1461,7 +1477,6 @@ begin
   for I := 0 to Count-1 do
   begin
     lTable := Items[I];
-    // TODO: Check if lTable.Reuse?
     if (lTable.TableName = AName) then
     begin
       Result := lTable;
