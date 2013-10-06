@@ -351,19 +351,19 @@ implementation
 
 procedure TghSQLStatement.DoChangeScript(Sender: TObject);
 var
-  lNewParams: TghDataParams;
+  NewPars: TghDataParams;
 begin
   if not FParamsCheck then
     Exit;
 
   // Preserve existing param values
-  lNewParams := TghDataParams.Create(nil);
+  NewPars := TghDataParams.Create(nil);
   try
-    lNewParams.ParseSQL(FScript.Text, True, True, True, psInterbase);
-    lNewParams.AssignValues(FParams);
-    FParams.Assign(lNewParams);
+    NewPars.ParseSQL(FScript.Text, True, True, True, psInterbase);
+    NewPars.AssignValues(FParams);
+    FParams.Assign(NewPars);
   finally
-    lNewParams.Free;
+    NewPars.Free;
   end;
 end;
 
@@ -462,15 +462,15 @@ end;
 
 procedure TghSQLHandler.Assign(ASource: TghSQLStatement);
 var
-  lHandler: TghSQLHandler;
+  Handler: TghSQLHandler;
 begin
   inherited Assign(ASource);
   if ASource is TghSQLHandler then
   begin
-    lHandler := TghSQLHandler(ASource);
-    FIsBatch := lHandler.IsBatch;
-    FPrepared := lHandler.Prepared;
-    FPacketRecords := lHandler.PacketRecords;
+    Handler := TghSQLHandler(ASource);
+    FIsBatch := Handler.IsBatch;
+    FPrepared := Handler.Prepared;
+    FPacketRecords := Handler.PacketRecords;
   end;
 end;
 
@@ -609,13 +609,13 @@ end;
 procedure TghSQLDefaultConstraint.Execute;
 var
   I: Integer;
-  lCol: TghDataColumn;
+  Col: TghDataColumn;
 begin
   for I := 0 to FParams.Count -1 do
   begin
-    lCol := FTable.GetColumns.FindField(FParams.Items[I].Name);
-    if Assigned(lCol) then
-      lCol.Value := FParams.Items[I].Value;
+    Col := FTable.GetColumns.FindField(FParams.Items[I].Name);
+    if Assigned(Col) then
+      Col.Value := FParams.Items[I].Value;
   end;
 end;
 
@@ -645,25 +645,25 @@ end;
 
 procedure TghSQLUniqueConstraint.Execute;
 var
-  lSC: TghSQLClient;
-  lDS: TDataSet;
+  SC: TghSQLClient;
+  DS: TDataSet;
 
   procedure FilterUsingIndexDefs;
   var
     I: Integer;
-    lIxDef: TIndexDef;
+    IxDef: TIndexDef;
   begin
     with FTable.FData as IghSQLDataSetResolver do
     begin
       for I := 0 to GetServerIndexDefs.Count -1 do
       begin
-        lIxDef := GetServerIndexDefs[I];
-        if ixPrimary in lIxDef.Options then
+        IxDef := GetServerIndexDefs[I];
+        if ixPrimary in IxDef.Options then
         begin
-          if not FTable[lIxDef.Fields].IsNull then
+          if not FTable[IxDef.Fields].IsNull then
           begin
-            lSC.Script.Add('and (' + lIxDef.Fields + ' <> :' + lIxDef.Fields + ')');
-            lSC.Params[lIxDef.Fields].Value := FTable[lIxDef.Fields].Value;
+            SC.Script.Add('and (' + IxDef.Fields + ' <> :' + IxDef.Fields + ')');
+            SC.Params[IxDef.Fields].Value := FTable[IxDef.Fields].Value;
           end;
         end;
       end;
@@ -673,33 +673,33 @@ var
   procedure FilterUsingParams;
   var
     I: Integer;
-    lPar: TParam;
-    lCol: TghDataColumn;
+    Par: TParam;
+    Col: TghDataColumn;
   begin
     for I := 0 to FParams.Count -1 do
     begin
-      lPar := FParams.Items[I];
-      lCol := FTable.GetColumns.FindField(lPar.Name);
-      if lCol = nil then
-        raise EghSQLError.CreateFmt(Self, 'Column "%s" not found.', [lPar.Name]);
-      lSC.Script.Add('and (' + lPar.Name + ' = :' + lPar.Name + ')');
-      lSC.Params[lPar.Name].Value := lCol.Value;
+      Par := FParams.Items[I];
+      Col := FTable.GetColumns.FindField(Par.Name);
+      if Col = nil then
+        raise EghSQLError.CreateFmt(Self, 'Column "%s" not found.', [Par.Name]);
+      SC.Script.Add('and (' + Par.Name + ' = :' + Par.Name + ')');
+      SC.Params[Par.Name].Value := Col.Value;
     end;
   end;
 
 begin
-  lSC := TghSQLClient.Create(FTable.Connector);
+  SC := TghSQLClient.Create(FTable.Connector);
   try
-    lSC.Script.Add('select 1 from ' + FTable.TableName);
-    lSC.Script.Add('where 1=1');
+    SC.Script.Add('select 1 from ' + FTable.TableName);
+    SC.Script.Add('where 1=1');
     FilterUsingIndexDefs;
     FilterUsingParams;
-    lSC.Open(lDS);
-    if not lDS.IsEmpty then
+    SC.Open(DS);
+    if not DS.IsEmpty then
       FTable.GetErrors.Add(GetError);
   finally
-    lDS.Free;
-    lSC.Free;
+    DS.Free;
+    SC.Free;
   end;
 end;
 
@@ -729,27 +729,27 @@ end;
 procedure TghSQLCheckConstraint.Execute;
 var
   I: Integer;
-  lPar: TParam;
-  lCol: TghDataColumn;
-  lSameValue: Boolean;
+  Par: TParam;
+  Col: TghDataColumn;
+  SameValue: Boolean;
 begin
-  lPar := FParams.Items[0];
-  lCol := FTable.GetColumns.FindField(lPar.Name);
+  Par := FParams.Items[0];
+  Col := FTable.GetColumns.FindField(Par.Name);
 
-  if lCol = nil then
-    raise EghSQLError.CreateFmt(Self, 'Column "%s" not found.', [lPar.Name]);
+  if Col = nil then
+    raise EghSQLError.CreateFmt(Self, 'Column "%s" not found.', [Par.Name]);
 
-  lSameValue := False;
+  SameValue := False;
   for I := 0 to FParams.Count -1 do
   begin
-    if lCol.Value = FParams.Items[I].Value then
+    if Col.Value = FParams.Items[I].Value then
     begin
-      lSameValue := True;
+      SameValue := True;
       Break;
     end;
   end;
 
-  if not lSameValue then
+  if not SameValue then
     FTable.GetErrors.Add(GetError);
 end;
 
@@ -763,31 +763,31 @@ end;
 
 function TghSQLConstraintList.AddDefault(const AColumName: string; AValue: Variant): Integer;
 var
-  lConst: TghSQLConstraint;
+  Cntr: TghSQLConstraint;
 begin
-  lConst := TghSQLDefaultConstraint.Create(AColumName, AValue);
-  lConst.Table := FOwnerTable;
-  Result := Add(lConst);
+  Cntr := TghSQLDefaultConstraint.Create(AColumName, AValue);
+  Cntr.Table := FOwnerTable;
+  Result := Add(Cntr);
 end;
 
 function TghSQLConstraintList.AddUnique(const AColumNames: array of string;
   const AError: string = ''): Integer;
 var
-  lConst: TghSQLConstraint;
+  Cntr: TghSQLConstraint;
 begin
-  lConst := TghSQLUniqueConstraint.Create(AColumNames, AError);
-  lConst.Table := FOwnerTable;
-  Result := Add(lConst);
+  Cntr := TghSQLUniqueConstraint.Create(AColumNames, AError);
+  Cntr.Table := FOwnerTable;
+  Result := Add(Cntr);
 end;
 
 function TghSQLConstraintList.AddCheck(const AColumName: string;
   AValues: array of Variant; const AError: string): Integer;
 var
-  lConst: TghSQLConstraint;
+  Cntr: TghSQLConstraint;
 begin
-  lConst := TghSQLCheckConstraint.Create(AColumName, AValues, AError);
-  lConst.Table := FOwnerTable;
-  Result := Add(lConst);
+  Cntr := TghSQLCheckConstraint.Create(AColumName, AValues, AError);
+  Cntr.Table := FOwnerTable;
+  Result := Add(Cntr);
 end;
 
 { TghSQLTable }
@@ -981,37 +981,37 @@ end;
 procedure TghSQLTable.SetDefaultValues;
 var
   I: Integer;
-  lConst: TghSQLConstraint;
+  Cntr: TghSQLConstraint;
 
   procedure LocalSetForeignKeyValues;
   var
     I, X: Integer;
-    lFld: TField;
-    lPar: TParam;
-    lTemplates: array[1..3] of string;
+    Fld: TField;
+    Par: TParam;
+    Templates: array[1..3] of string;
   begin
     if not Assigned(OwnerTable) then
       Exit;
 
-    lTemplates[1] := 'id_'+OwnerTable.TableName; // id_table
-    lTemplates[2] := OwnerTable.TableName+'_id'; // table_id
-    lTemplates[3] := 'id'+OwnerTable.TableName;  // idtable
+    Templates[1] := 'id_'+OwnerTable.TableName; // id_table
+    Templates[2] := OwnerTable.TableName+'_id'; // table_id
+    Templates[3] := 'id'+OwnerTable.TableName;  // idtable
 
     for I := 0 to FParams.Count-1 do
     begin
-      lPar := FParams.Items[I];
+      Par := FParams.Items[I];
       // Check if table belongs_to owner
       // TODO: Test not only "id" name
       // TODO: Use OwnerTable.GetServerIndexDefs to get the right fields and
       //       to know which fields should be initialized , eg, user_id = :id
-      if SameText('id', lPar.Name) then
+      if SameText('id', Par.Name) then
       begin
-        for X := Low(lTemplates) to High(lTemplates) do
+        for X := Low(Templates) to High(Templates) do
         begin
-          lFld := FData.Fields.FindField(lTemplates[X]);
-          if Assigned(lFld) then
+          Fld := FData.Fields.FindField(Templates[X]);
+          if Assigned(Fld) then
           begin
-            lFld.Value := lPar.Value;
+            Fld.Value := Par.Value;
             Break;
           end;
         end;
@@ -1022,11 +1022,11 @@ var
 begin
   for I := 0 to GetConstraints.Count -1 do
   begin
-    lConst := GetConstraints[I];
-    if lConst is TghSQLDefaultConstraint then
+    Cntr := GetConstraints[I];
+    if Cntr is TghSQLDefaultConstraint then
     begin
-      lConst.Table := Self;
-      TghSQLDefaultConstraint(lConst).Execute;
+      Cntr.Table := Self;
+      TghSQLDefaultConstraint(Cntr).Execute;
     end;
   end;
 
@@ -1042,18 +1042,18 @@ end;
 
 procedure TghSQLTable.MakeScript;
 var
-  lS: string;
+  S: string;
 begin
-  lS := ' select ' + FSelectColumns
-      + ' from ' + FTableName
-      + ' where 1=1 ';
+  S := ' select ' + FSelectColumns
+     + ' from ' + FTableName
+     + ' where 1=1 ';
   if FConditions <> '' then
-    lS := lS + ' and ' + FConditions;
+    S := S + ' and ' + FConditions;
   if FOrderBy <> '' then
-    lS := lS + ' order by ' + FOrderBy;
+    S := S + ' order by ' + FOrderBy;
 
   FScript.Clear;
-  FScript.Text := lS;
+  FScript.Text := S;
 end;
 
 procedure TghSQLTable.DoBeforeCommit;
@@ -1070,11 +1070,11 @@ end;
 
 procedure TghSQLTable.CallFoundTable(Sender: TObject; ATable: TghSQLTable);
 var
-  lModelTable: TghSQLTable;
+  ModelTable: TghSQLTable;
 begin
   CheckData;
-  lModelTable := GetRelations.FindByName(ATable.TableName);
-  if not Assigned(lModelTable) then
+  ModelTable := GetRelations.FindByName(ATable.TableName);
+  if not Assigned(ModelTable) then
     raise EghSQLError.CreateFmt(Self, 'Model "%s" not found.', [ATable.TableName]);
 
   if not ATable.Active then
@@ -1084,19 +1084,19 @@ begin
   end;
 
   ATable.Close;
-  ATable.Assign(lModelTable);
+  ATable.Assign(ModelTable);
   ATable.Open;
 end;
 
 procedure TghSQLTable.CallAfterScroll(ADataSet: TDataSet);
 var
   I: Integer;
-  lTable: TghSQLTable;
+  TmpTable: TghSQLTable;
 begin
   for I := 0 to FLinks.Count -1 do
   begin
-    lTable := FLinks.Items[I];
-  ///  lTable.Refresh;
+    TmpTable := FLinks.Items[I];
+    TmpTable.Open;
   end;
 end;
 
@@ -1138,17 +1138,17 @@ end;
 
 procedure TghSQLTable.Assign(ASource: TghSQLStatement);
 var
-  lTable: TghSQLTable;
+  TmpTable: TghSQLTable;
 begin
   inherited Assign(ASource);
   if ASource is TghSQLTable then
   begin
-    lTable := TghSQLTable(ASource);
-    FSelectColumns := lTable.FSelectColumns;
-    FConditions := lTable.FConditions;
-    FOrderBy := lTable.FOrderBy;
-    FTableName := lTable.FTableName;
-    FAlias := lTable.FAlias;
+    TmpTable := TghSQLTable(ASource);
+    FSelectColumns := TmpTable.FSelectColumns;
+    FConditions := TmpTable.FConditions;
+    FOrderBy := TmpTable.FOrderBy;
+    FTableName := TmpTable.FTableName;
+    FAlias := TmpTable.FAlias;
   end;
 end;
 
@@ -1364,19 +1364,19 @@ end;
 procedure TghSQLTable.SetDataRow(ADataRow: TghDataRow);
 var
   I: Integer;
-  lCol: TghDataColumn;
-  lPar: TParam;
+  Col: TghDataColumn;
+  Par: TParam;
 begin
   for I := 0 to ADataRow.Count-1 do
   begin
-    lPar := ADataRow.Items[I];
-    lCol := GetColumns.FindField(lPar.Name);
-    if not Assigned(lCol) then
+    Par := ADataRow.Items[I];
+    Col := GetColumns.FindField(Par.Name);
+    if not Assigned(Col) then
       Continue;
-    if lPar.IsNull then
-      lCol.Clear
+    if Par.IsNull then
+      Col.Clear
     else
-      lCol.Value := lPar.Value;
+      Col.Value := Par.Value;
   end;
 end;
 
@@ -1453,15 +1453,15 @@ end;
 function TghSQLTableList.FindByAlias(const AAlias: string): TghSQLTable;
 var
   I: Integer;
-  lTable: TghSQLTable;
+  TmpTable: TghSQLTable;
 begin
   Result := nil;
   for I := 0 to Count-1 do
   begin
-    lTable := Items[I];
-    if (lTable.Alias = AAlias) then
+    TmpTable := Items[I];
+    if (TmpTable.Alias = AAlias) then
     begin
-      Result := lTable;
+      Result := TmpTable;
       DoFoundTable(Result);
       Exit;
     end;
@@ -1471,15 +1471,15 @@ end;
 function TghSQLTableList.FindByName(const AName: string): TghSQLTable;
 var
   I: Integer;
-  lTable: TghSQLTable;
+  TmpTable: TghSQLTable;
 begin
   Result := nil;
   for I := 0 to Count-1 do
   begin
-    lTable := Items[I];
-    if (lTable.TableName = AName) then
+    TmpTable := Items[I];
+    if (TmpTable.TableName = AName) then
     begin
-      Result := lTable;
+      Result := TmpTable;
       DoFoundTable(Result);
       Exit;
     end;
@@ -1501,12 +1501,12 @@ end;
 procedure TghSQLLib.ParamsToStrings(AStrings: TStrings);
 var
   I: Integer;
-  lPar: TParam;
+  Par: TParam;
 begin
   for I := 0 to FParams.Count-1 do
   begin
-    lPar := FParams.Items[I];
-    AStrings.Add(lPar.Name + '=' + lPar.AsString);
+    Par := FParams.Items[I];
+    AStrings.Add(Par.Name + '=' + Par.AsString);
   end;
 end;
 
@@ -1526,29 +1526,29 @@ end;
 procedure TghSQLConnector.InternalOpen(Sender: TObject; out ADataSet: TDataSet;
   AOwner: TComponent);
 var
-  lSC: TghSQLClient;
+  SC: TghSQLClient;
 begin
-  lSC := TghSQLClient.Create(Self);
+  SC := TghSQLClient.Create(Self);
   try
-    lSC.Assign(Self);
-    lSC.AssignEvents(Self);
-    lSC.Open(ADataSet, AOwner);
+    SC.Assign(Self);
+    SC.AssignEvents(Self);
+    SC.Open(ADataSet, AOwner);
   finally
-    lSC.Free;
+    SC.Free;
   end;
 end;
 
 function TghSQLConnector.InternalExecute(Sender: TObject): NativeInt;
 var
-  lSC: TghSQLClient;
+  SC: TghSQLClient;
 begin
-  lSC := TghSQLClient.Create(Self);
+  SC := TghSQLClient.Create(Self);
   try
-    lSC.Assign(Self);
-    lSC.AssignEvents(Self);
-    Result := lSC.Execute;
+    SC.Assign(Self);
+    SC.AssignEvents(Self);
+    Result := SC.Execute;
   finally
-    lSC.Free;
+    SC.Free;
   end;
 end;
 
@@ -1572,15 +1572,15 @@ end;
 
 destructor TghSQLConnector.Destroy;
 var
-  lTable: TghSQLTable;
+  TmpTable: TghSQLTable;
 begin
   while FTables.Count > 0 do
   begin
-    lTable := FTables.Items[0];
-    lTable.Close;
-    lTable.Connector := nil;
-    Notify(lTable, opRemove);
-    lTable.Free;
+    TmpTable := FTables.Items[0];
+    TmpTable.Close;
+    TmpTable.Connector := nil;
+    Notify(TmpTable, opRemove);
+    TmpTable.Free;
   end;
   FTables.Free;
   FLib.Free;

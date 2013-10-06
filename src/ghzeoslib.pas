@@ -132,35 +132,35 @@ end;
 procedure TghZeosLib.InternalOpen(Sender: TObject; out ADataSet: TDataSet;
   AOwner: TComponent);
 var
-  lQ: TghZeosQuery;
+  Q: TghZeosQuery;
 begin
   ADataSet := nil;
-  lQ := NewQuery(AOwner);
+  Q := NewQuery(AOwner);
   try
-    lQ.SQL.Text := FScript.Text;
+    Q.SQL.Text := FScript.Text;
     if Assigned(FParams) then
-      lQ.Params.Assign(FParams);
-    lQ.Open;
-    ADataSet := lQ;
+      Q.Params.Assign(FParams);
+    Q.Open;
+    ADataSet := Q;
   except
-    lQ.Free;
+    Q.Free;
     raise;
   end;
 end;
 
 function TghZeosLib.InternalExecute(Sender: TObject): NativeInt;
 var
-  lQ: TghZeosQuery;
+  Q: TghZeosQuery;
 begin
-  lQ := NewQuery;
+  Q := NewQuery;
   try
-    lQ.SQL.Text := FScript.Text;
+    Q.SQL.Text := FScript.Text;
     if Assigned(FParams) then
-      lQ.Params.Assign(FParams);
-    lQ.ExecSQL;
-    Result := lQ.RowsAffected;
+      Q.Params.Assign(FParams);
+    Q.ExecSQL;
+    Result := Q.RowsAffected;
   finally
-    lQ.Free;
+    Q.Free;
   end;
 end;
 
