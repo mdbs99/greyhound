@@ -1,6 +1,19 @@
 Release notes
 ==========================================================
 
+
+(2013-10-06)
+
+- Auto scroll for Table links (master/detail).
+- TghSQLHandler.OnException event was removed.
+
+
+(2013-09-18)
+
+- TghSQLTable has a new Alias property. 
+- TghSQLTable.Reuse was removed.
+- Version 0.1.9
+
 (2013-09-13)
 
 - Now TghSQLConnector class inherit form TghSQLHandler: 

@@ -37,12 +37,11 @@ type
   end;
 
   TghSQLdbQuery = class(TSQLQuery, IghSQLDataSetResolver)
-  private
+  protected
     FTableName: string;
+    FLib: TghSQLdbLib;
     procedure CallResolverError(Sender: TObject; DataSet: TCustomBufDataset;
       E: EUpdateError; UpdateKind: TUpdateKind; var Response: TResolverResponse); virtual;
-  protected
-    FLib: TghSQLdbLib;
     procedure ApplyRecUpdate(UpdateKind: TUpdateKind); override;
     { IghSQLDataSetResolver }
     function GetEOF: Boolean;

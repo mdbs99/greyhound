@@ -74,7 +74,6 @@ type
     FAfterPost: TNotifyEvent;
     FBeforeExecute: TNotifyEvent;
     FAfterExecute: TNotifyEvent;
-    FOnException: TghSQLHandlerExceptionEvent;
     procedure SetPacketRecords(AValue: Integer); virtual;
     procedure DoBeforeOpen;
     procedure DoAfterOpen(ADataSet: TDataSet);
@@ -82,7 +81,6 @@ type
     procedure DoAfterPost;
     procedure DoBeforeExecute;
     procedure DoAfterExecute;
-    procedure DoOnException(E: Exception);
     procedure InternalOpen(Sender: TObject; out ADataSet: TDataSet; {%H-}AOwner: TComponent = nil); virtual;
     function InternalExecute(Sender: TObject): NativeInt; virtual;
   public
@@ -101,7 +99,6 @@ type
     property AfterPost: TNotifyEvent read FAfterPost write FAfterPost;
     property BeforeExecute: TNotifyEvent read FBeforeExecute write FBeforeExecute;
     property AfterExecute: TNotifyEvent read FAfterExecute write FAfterExecute;
-    property OnException: TghSQLHandlerExceptionEvent read FOnException write FOnException;
   end;
 
   EghSQLClientError = class(EghSQLHandlerError);
@@ -172,12 +169,12 @@ type
   TghSQLTable = class(TghSQLClient)
   private
     FTableName: string;
+    FAlias: string;
     FConditions: string;
     FErrors: TStrings;
     FLinks: TghSQLTableList;
     FOrderBy: string;
     FOwnerTable: TghSQLTable;
-    FReuse: Boolean;
     FSelectColumns: string;
     FEnforceConstraints: Boolean;
     FUseRetaining: Boolean;
@@ -190,8 +187,9 @@ type
     function GetEOF: Boolean;
     function GetConnector: TghSQLConnector;
     procedure SetConnector(AValue: TghSQLConnector);
-    function GetConstraints: TghSQLConstraintList;
     function GetRelations: TghSQLTableList;
+    function GetConstraints: TghSQLConstraintList;
+    procedure SetAlias(const AValue: string);
     procedure SetTableName(const AValue: string);
     function GetState: TDataSetState;
     function GetIsEmpty: Boolean;
@@ -213,6 +211,7 @@ type
     procedure DoAfterCommit; virtual;
     // callback
     procedure CallFoundTable(Sender: TObject; ATable: TghSQLTable); virtual;
+    procedure CallAfterScroll(ADataSet: TDataSet); virtual;
   public
     constructor Create(AConn: TghSQLConnector; const ATableName: string); virtual; reintroduce; overload;
     constructor Create(AConn: TghSQLConnector; const ATableName: string; AOwnerTable: TghSQLTable); virtual; overload;
@@ -254,8 +253,8 @@ type
     property IsEmpty: Boolean read GetIsEmpty;
     property Links: TghSQLTableList read FLinks;
     property OwnerTable: TghSQLTable read FOwnerTable write FOwnerTable;
-    property Reuse: Boolean read FReuse write FReuse;
     property RecordCount: Longint read GetRecordCount;
+    property Alias: string read FAlias write SetAlias;
     property TableName: string read FTableName write SetTableName;
     property Relations: TghSQLTableList read GetRelations;
     property Constraints: TghSQLConstraintList read GetConstraints;
@@ -279,6 +278,7 @@ type
   public
     constructor Create(AOwnerTable: TghSQLTable; AFreeObjects: Boolean = True); virtual; reintroduce;
     destructor Destroy; override;
+    function FindByAlias(const AAlias: string): TghSQLTable;
     function FindByName(const AName: string): TghSQLTable;
     procedure Lock;
     procedure UnLock;
@@ -351,19 +351,19 @@ implementation
 
 procedure TghSQLStatement.DoChangeScript(Sender: TObject);
 var
-  NewParams: TghDataParams;
+  NewPars: TghDataParams;
 begin
   if not FParamsCheck then
     Exit;
 
   // Preserve existing param values
-  NewParams := TghDataParams.Create(nil);
+  NewPars := TghDataParams.Create(nil);
   try
-    NewParams.ParseSQL(FScript.Text, True, True, True, psInterbase);
-    NewParams.AssignValues(FParams);
-    FParams.Assign(NewParams);
+    NewPars.ParseSQL(FScript.Text, True, True, True, psInterbase);
+    NewPars.AssignValues(FParams);
+    FParams.Assign(NewPars);
   finally
-    NewParams.Free;
+    NewPars.Free;
   end;
 end;
 
@@ -386,8 +386,8 @@ end;
 procedure TghSQLStatement.Assign(ASource: TghSQLStatement);
 begin
   FParamsCheck := ASource.ParamsCheck;
-  FScript.Assign(ASource.Script);
   FParams.Assign(ASource.Params);
+  FScript.Assign(ASource.Script);
 end;
 
 procedure TghSQLStatement.Clear;
@@ -441,23 +441,6 @@ begin
     FAfterExecute(Self);
 end;
 
-procedure TghSQLHandler.DoOnException(E: Exception);
-var
-  NewError: EghSQLHandlerError;
-begin
-  if Assigned(FOnException) then
-    FOnException(Self, E)
-  else
-  begin
-    // call "raise E" do not works in FPC 2.6.2 maybe this is a bug
-    //raise E;
-
-    NewError := EghSQLHandlerError.Create(Self, E.Message);
-    NewError.InnerException := E;
-    raise NewError;
-  end;
-end;
-
 procedure TghSQLHandler.InternalOpen(Sender: TObject; out ADataSet: TDataSet;
   AOwner: TComponent);
 begin
@@ -499,7 +482,6 @@ begin
   FAfterPost := ASource.FAfterPost;
   FBeforeExecute := ASource.FBeforeExecute;
   FAfterExecute := ASource.FAfterExecute;
-  FOnException := ASource.FOnException;
 end;
 
 procedure TghSQLHandler.Clear;
@@ -538,12 +520,9 @@ begin
     FConnector.Lib.Open(ADataSet, AOwner);
     FConnector.CommitRetaining;
   except
-    on E: Exception do
-    begin
-      FConnector.RollbackRetaining;
-      ADataSet.Free;
-      DoOnException(E);
-    end;
+    FConnector.RollbackRetaining;
+    ADataSet.Free;
+    raise;
   end;
 end;
 
@@ -557,11 +536,8 @@ begin
     Result := FConnector.Lib.Execute;
     FConnector.CommitRetaining;
   except
-    on E: Exception do
-    begin
-      FConnector.RollbackRetaining;
-      DoOnException(E);
-    end;
+    FConnector.RollbackRetaining;
+    raise;
   end;
 end;
 
@@ -755,7 +731,7 @@ var
   I: Integer;
   Par: TParam;
   Col: TghDataColumn;
-  Bo: Boolean;
+  SameValue: Boolean;
 begin
   Par := FParams.Items[0];
   Col := FTable.GetColumns.FindField(Par.Name);
@@ -763,17 +739,17 @@ begin
   if Col = nil then
     raise EghSQLError.CreateFmt(Self, 'Column "%s" not found.', [Par.Name]);
 
-  Bo := False;
+  SameValue := False;
   for I := 0 to FParams.Count -1 do
   begin
     if Col.Value = FParams.Items[I].Value then
     begin
-      Bo := True;
+      SameValue := True;
       Break;
     end;
   end;
 
-  if not Bo then
+  if not SameValue then
     FTable.GetErrors.Add(GetError);
 end;
 
@@ -787,31 +763,31 @@ end;
 
 function TghSQLConstraintList.AddDefault(const AColumName: string; AValue: Variant): Integer;
 var
-  C: TghSQLConstraint;
+  Cntr: TghSQLConstraint;
 begin
-  C := TghSQLDefaultConstraint.Create(AColumName, AValue);
-  C.Table := FOwnerTable;
-  Result := Add(C);
+  Cntr := TghSQLDefaultConstraint.Create(AColumName, AValue);
+  Cntr.Table := FOwnerTable;
+  Result := Add(Cntr);
 end;
 
 function TghSQLConstraintList.AddUnique(const AColumNames: array of string;
   const AError: string = ''): Integer;
 var
-  C: TghSQLConstraint;
+  Cntr: TghSQLConstraint;
 begin
-  C := TghSQLUniqueConstraint.Create(AColumNames, AError);
-  C.Table := FOwnerTable;
-  Result := Add(C);
+  Cntr := TghSQLUniqueConstraint.Create(AColumNames, AError);
+  Cntr.Table := FOwnerTable;
+  Result := Add(Cntr);
 end;
 
 function TghSQLConstraintList.AddCheck(const AColumName: string;
   AValues: array of Variant; const AError: string): Integer;
 var
-  C: TghSQLConstraint;
+  Cntr: TghSQLConstraint;
 begin
-  C := TghSQLCheckConstraint.Create(AColumName, AValues, AError);
-  C.Table := FOwnerTable;
-  Result := Add(C);
+  Cntr := TghSQLCheckConstraint.Create(AColumName, AValues, AError);
+  Cntr.Table := FOwnerTable;
+  Result := Add(Cntr);
 end;
 
 { TghSQLTable }
@@ -872,6 +848,14 @@ begin
     Result.OwnerTable := Self;
     FConstraints.Add(FTableName, Result);
   end;
+end;
+
+procedure TghSQLTable.SetAlias(const AValue: string);
+begin
+  if FAlias = AValue then
+    Exit;
+
+  FAlias := AValue;
 end;
 
 procedure TghSQLTable.SetTableName(const AValue: string);
@@ -954,14 +938,11 @@ begin
     FErrors.Clear;
     DoAfterCommit;
   except
-    on E: Exception do
-    begin
-      if ARetaining then
-        FConnector.RollbackRetaining
-      else
-        FConnector.Rollback;
-      DoOnException(E);
-    end;
+    if ARetaining then
+      FConnector.RollbackRetaining
+    else
+      FConnector.Rollback;
+    raise;
   end;
 end;
 
@@ -1000,7 +981,7 @@ end;
 procedure TghSQLTable.SetDefaultValues;
 var
   I: Integer;
-  C: TghSQLConstraint;
+  Cntr: TghSQLConstraint;
 
   procedure LocalSetForeignKeyValues;
   var
@@ -1041,11 +1022,11 @@ var
 begin
   for I := 0 to GetConstraints.Count -1 do
   begin
-    C := GetConstraints[I];
-    if C is TghSQLDefaultConstraint then
+    Cntr := GetConstraints[I];
+    if Cntr is TghSQLDefaultConstraint then
     begin
-      C.Table := Self;
-      TghSQLDefaultConstraint(C).Execute;
+      Cntr.Table := Self;
+      TghSQLDefaultConstraint(Cntr).Execute;
     end;
   end;
 
@@ -1060,19 +1041,19 @@ begin
 end;
 
 procedure TghSQLTable.MakeScript;
+var
+  S: string;
 begin
-  if FScript.Count > 0 then
-    Exit;
+  S := ' select ' + FSelectColumns
+     + ' from ' + FTableName
+     + ' where 1=1 ';
+  if FConditions <> '' then
+    S := S + ' and ' + FConditions;
+  if FOrderBy <> '' then
+    S := S + ' order by ' + FOrderBy;
 
   FScript.Clear;
-  FScript.Add('select ' + FSelectColumns + ' from ' + FTableName);
-  FScript.Add('where 1=1');
-  if FConditions <> '' then
-    FScript.Add('and ' + FConditions);
-  if FOrderBy <> '' then
-    FScript.Add('order by ' + FOrderBy);
-
-  CopyParamValuesFromOwnerTable;
+  FScript.Text := S;
 end;
 
 procedure TghSQLTable.DoBeforeCommit;
@@ -1100,12 +1081,23 @@ begin
   begin
     ATable.Connector := FConnector;
     ATable.OwnerTable := Self;
-    ATable.Reuse := False;  // TODO: important?
   end;
 
   ATable.Close;
   ATable.Assign(ModelTable);
   ATable.Open;
+end;
+
+procedure TghSQLTable.CallAfterScroll(ADataSet: TDataSet);
+var
+  I: Integer;
+  TmpTable: TghSQLTable;
+begin
+  for I := 0 to FLinks.Count -1 do
+  begin
+    TmpTable := FLinks.Items[I];
+    TmpTable.Open;
+  end;
 end;
 
 constructor TghSQLTable.Create(AConn: TghSQLConnector; const ATableName: string);
@@ -1146,17 +1138,17 @@ end;
 
 procedure TghSQLTable.Assign(ASource: TghSQLStatement);
 var
-  Table: TghSQLTable;
+  TmpTable: TghSQLTable;
 begin
   inherited Assign(ASource);
   if ASource is TghSQLTable then
   begin
-    Table := TghSQLTable(ASource);
-    FSelectColumns := Table.FSelectColumns;
-    FConditions := Table.FConditions;
-    FOrderBy := Table.FOrderBy;
-    FTableName := Table.FTableName;
-    FReuse := Table.FReuse;
+    TmpTable := TghSQLTable(ASource);
+    FSelectColumns := TmpTable.FSelectColumns;
+    FConditions := TmpTable.FConditions;
+    FOrderBy := TmpTable.FOrderBy;
+    FTableName := TmpTable.FTableName;
+    FAlias := TmpTable.FAlias;
   end;
 end;
 
@@ -1184,6 +1176,7 @@ begin
   if FScript.Count = 0 then
     FScript.Text := 'select * from ' + FTableName;
 
+  CopyParamValuesFromOwnerTable;
   inherited Open(ADataSet, AOwner);
 end;
 
@@ -1191,14 +1184,11 @@ function TghSQLTable.Open: TghSQLTable;
 begin
   FreeAndNil(FData);
   try
-    MakeScript;
     Open(FData, nil);
+    FData.AfterScroll := @CallAfterScroll;
   except
-    on E: Exception do
-    begin
-      FreeAndNil(FData);
-      DoOnException(E);
-    end;
+    FreeAndNil(FData);
+    raise;
   end;
   Result := Self;
 end;
@@ -1332,23 +1322,26 @@ end;
 function TghSQLTable.Select(const AColumnNames: string): TghSQLTable;
 begin
   FSelectColumns := AColumnNames;
+  MakeScript;
   Result := Self;
 end;
 
 function TghSQLTable.Where(const AConditions: string): TghSQLTable;
 begin
   FConditions := AConditions;
+  MakeScript;
   Result := Self;
 end;
 
 function TghSQLTable.Where(const AConditionsFmt: string; AArgs: array of const): TghSQLTable;
 begin
-  Result := Self.Where(Format(AConditionsFmt, AArgs));
+  Result := Where(Format(AConditionsFmt, AArgs));
 end;
 
 function TghSQLTable.OrderBy(const AColumnNames: string): TghSQLTable;
 begin
   FOrderBy := AColumnNames;
+  MakeScript;
   Result := Self;
 end;
 
@@ -1391,17 +1384,27 @@ end;
 
 function TghSQLTableList.GetTables(const ATableName: string): TghSQLTable;
 begin
+  Result := nil;
+
   if ATableName = '' then
     raise EghSQLError.Create(Self, 'TableName not defined.');
 
-  Result := FindByName(ATableName);
-  if (Result = nil) and FLocked then
-    raise EghSQLError.CreateFmt(Self, 'Table "%s" not found.', [ATableName]);
-
-  if (Result = nil) or (Result.Active and (not Result.Reuse)) then
+  if ATableName[1] = '@' then
   begin
+    Result := FindByAlias(Copy(ATableName, 2, Length(ATableName)));
+    if Assigned(Result) then
+      Exit;
+  end;
+
+  // default
+  Result := FindByName(ATableName);
+  if (Result = nil) or Result.Active then
+  begin
+    if FLocked then
+      raise EghSQLError.CreateFmt(Self, 'Table "%s" not found.', [ATableName]);
+
     Result := TghSQLTable.Create(nil, ATableName);
-    Result.Reuse := False;
+    Result.Alias := IntToStr(NativeInt(@Result));
     Add(Result);
     DoNewTable(Result);
   end;
@@ -1447,19 +1450,36 @@ begin
   inherited Destroy;
 end;
 
-function TghSQLTableList.FindByName(const AName: string): TghSQLTable;
+function TghSQLTableList.FindByAlias(const AAlias: string): TghSQLTable;
 var
   I: Integer;
-  Table: TghSQLTable;
+  TmpTable: TghSQLTable;
 begin
   Result := nil;
   for I := 0 to Count-1 do
   begin
-    Table := Items[I];
-    // TODO: Check if Table.Reuse?
-    if (Table.TableName = AName) then
+    TmpTable := Items[I];
+    if (TmpTable.Alias = AAlias) then
     begin
-      Result := Table;
+      Result := TmpTable;
+      DoFoundTable(Result);
+      Exit;
+    end;
+  end;
+end;
+
+function TghSQLTableList.FindByName(const AName: string): TghSQLTable;
+var
+  I: Integer;
+  TmpTable: TghSQLTable;
+begin
+  Result := nil;
+  for I := 0 to Count-1 do
+  begin
+    TmpTable := Items[I];
+    if (TmpTable.TableName = AName) then
+    begin
+      Result := TmpTable;
       DoFoundTable(Result);
       Exit;
     end;
@@ -1552,15 +1572,15 @@ end;
 
 destructor TghSQLConnector.Destroy;
 var
-  Table: TghSQLTable;
+  TmpTable: TghSQLTable;
 begin
   while FTables.Count > 0 do
   begin
-    Table := FTables.Items[0];
-    Table.Close;
-    Table.Connector := nil;
-    Notify(Table, opRemove);
-    Table.Free;
+    TmpTable := FTables.Items[0];
+    TmpTable.Close;
+    TmpTable.Connector := nil;
+    Notify(TmpTable, opRemove);
+    TmpTable.Free;
   end;
   FTables.Free;
   FLib.Free;
@@ -1578,37 +1598,22 @@ end;
 
 procedure TghSQLConnector.Connect;
 begin
-  try
-    FLib.Connect;
-  except
-    on E: Exception do
-      DoOnException(E);
-  end;
+  FLib.Connect;
 end;
 
 procedure TghSQLConnector.Disconnect;
 begin
-  try
-    if Connected then
-      FLib.Disconnect;
-  except
-    on E: Exception do
-      DoOnException(E);
-  end;
+  if Connected then
+    FLib.Disconnect;
 end;
 
 procedure TghSQLConnector.StartTransaction;
 begin
-  try
-    if FTransCount = 0 then
-    begin
-      FLib.StartTransaction;
-    end;
-    Inc(FTransCount);
-  except
-    on E: Exception do
-      DoOnException(E);
+  if FTransCount = 0 then
+  begin
+    FLib.StartTransaction;
   end;
+  Inc(FTransCount);
 end;
 
 function TghSQLConnector.InTransaction: Boolean;
@@ -1620,56 +1625,44 @@ procedure TghSQLConnector.Commit;
 begin
   if FTransCount = 0 then
     Exit;
-  try
-    if FTransCount = 1 then
-      FLib.Commit;
-    Dec(FTransCount);
-  except
-    on E: Exception do
-      DoOnException(E);
-  end;
+
+  if FTransCount = 1 then
+    FLib.Commit;
+
+  Dec(FTransCount);
 end;
 
 procedure TghSQLConnector.CommitRetaining;
 begin
   if FTransCount = 0 then
     Exit;
-  try
-    if FTransCount = 1 then
-      FLib.CommitRetaining;
-    Dec(FTransCount);
-  except
-    on E: Exception do
-      DoOnException(E);
-  end;
+
+  if FTransCount = 1 then
+    FLib.CommitRetaining;
+
+  Dec(FTransCount);
 end;
 
 procedure TghSQLConnector.Rollback;
 begin
   if FTransCount = 0 then
     Exit;
-  try
-    if FTransCount = 1 then
+
+  if FTransCount = 1 then
       FLib.Rollback;
-    Dec(FTransCount);
-  except
-    on E: Exception do
-      DoOnException(E);
-  end;
+
+  Dec(FTransCount);
 end;
 
 procedure TghSQLConnector.RollbackRetaining;
 begin
   if FTransCount = 0 then
     Exit;
-  try
-    if FTransCount = 1 then
-      FLib.RollbackRetaining;
-    Dec(FTransCount);
-  except
-    on E: Exception do
-      DoOnException(E);
-  end;
+
+  if FTransCount = 1 then
+    FLib.RollbackRetaining;
+
+  Dec(FTransCount);
 end;
 
 procedure TghSQLConnector.Notify(ATable: TghSQLTable; AOperation: TOperation);

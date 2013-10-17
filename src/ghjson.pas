@@ -39,36 +39,14 @@ implementation
 procedure TghJSONDataAdapter.Adapt(ASource: TObject);
 var
   I: Integer;
-  JsonSrc: TJSONObject absolute ASource;
-  JsonName: string;
-  JsonData: TJSONData;
+  Obj: TJSONObject absolute ASource;
   Par: TParam;
 begin
   DataRow.Clear;
-  for I := 0 to JsonSrc.Count-1 do
+  for I := 0 to Obj.Count-1 do
   begin
-    JsonName := JsonSrc.Names[I];
-    JsonData := JsonSrc.Items[I];
-    Par := DataRow[JsonName];
-    case JsonData.JSONType of
-      jtNumber:
-        begin
-          if JsonData is TJSONFloatNumber then
-            Par.AsFloat := JsonData.AsFloat
-          else if JsonData is TJSONIntegerNumber then
-            Par.AsInteger := JsonData.AsInteger
-          else if JsonData is TJSONInt64Number then
-            Par.AsLargeInt := JsonData.AsInt64
-        end;
-      jtString:
-        Par.AsString := JsonData.AsString;
-      jtBoolean:
-        Par.AsBoolean := JsonData.AsBoolean;
-      jtNull:
-        Par.Value := Null;
-    else
-      raise EghJSONDataError.Create(Self, 'JSONType not supported.');
-    end;
+    Par := DataRow[Obj.Names[I]];
+    Par.Value := Obj.Items[I].Value;
   end;
 end;
 

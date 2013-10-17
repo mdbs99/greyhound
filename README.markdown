@@ -11,27 +11,25 @@ uses
   SysUtils, ghSQL, ghSQLdbLib;
 var
   Co: TghSQLConnector;
-  User: TghSQLTable;
 begin
   Co := TghSQLConnector.Create(TghSQLite3Lib);
   try
     Co.Database := 'DB.sqlite';
-    User := Co.Tables['user'];
-    User.Select('*').Where('id = %d', [2]).Open;
-    User.Edit;
-    User['name'].AsString := 'Free Pascal';
-    if User.Post.HasErrors then
-    begin
-      writeln('ERROR: ' + User.GetErrors.Text);
-      User.Cancel;
-    end
-    else
-      User.Commit;
+    with Co.Tables['compilers'] do
+	begin
+      Select('*').Where('lang = :lang');
+	  Params['lang'].AsString := 'pascal';
+	  Open;
+      Append;
+      Columns['name'].AsString := 'FPC';
+      Columns['description'].AsString := 'FreePascal Compiler';
+      Commit;
+	end;
   finally
     Co.Free;
   end;
   writeln('Done.');
-  writeln;
+
 end.
 ```
 

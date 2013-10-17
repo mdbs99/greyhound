@@ -3,10 +3,10 @@
     Copyright (C) 2012-2013  -  Marcos Douglas B. dos Santos
 
     See the file LICENSE.txt, included in this distribution,
-	for details about the copyright.
+    for details about the copyright.
 
     This program is distributed in the hope that it will be useful,
-    but WITHOUT A WARRANTY; without even the implied warranty of
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
 }
 
@@ -40,14 +40,12 @@ type
     procedure TestFindByName;
     procedure TestExecute;
     procedure TestOpen;
-    procedure TestCatchException;
   end;
 
   TghSQLClientTest = class(TghSQLTest)
   published
     procedure TestExecute;
     procedure TestOpen;
-    procedure TestCatchException;
   end;
 
   TghSQLTableTest = class(TghSQLTest)
@@ -59,9 +57,11 @@ type
     procedure TestLinks_1toN;
     procedure TestLinks_MtoN;
     procedure TestLinks_MtoN_Post;
+    procedure TestLinksAutoScroll;
     procedure TestPacketRecords;
     procedure TestUsingScript;
     procedure TestOpenDataSet;
+    procedure TestUsingAlias;
   end;
 
 implementation
@@ -129,25 +129,25 @@ end;
 
 procedure TghSQLConnectorTest.TestTableNotification;
 var
-  T: TghSQLTable;
-  TableCount: Integer;
+  User: TghSQLTable;
+  TableCnt: Integer;
 begin
-  T := FConn.Tables['user'].Open;
-  AssertTrue(T.Active);
+  User := FConn.Tables['user'].Open;
+  AssertTrue(User.Active);
 
-  TableCount := FConn.Tables.Count;
+  TableCnt := FConn.Tables.Count;
 
   // notify connection
-  T.Free;
-  AssertEquals(TableCount-1, FConn.Tables.Count);
+  User.Free;
+  AssertEquals(TableCnt-1, FConn.Tables.Count);
 
-  TableCount := FConn.Tables.Count;
+  TableCnt := FConn.Tables.Count;
 
-  // tables aren't reused
-  T := FConn.Tables['user'].Open; Inc(TableCount);
-  T := FConn.Tables['user'].Open; Inc(TableCount);
-  T := FConn.Tables['user'].Open; Inc(TableCount);
-  AssertEquals(TableCount, FConn.Tables.Count);
+  // tables aren'User reused
+  User := FConn.Tables['user'].Open; Inc(TableCnt);
+  User := FConn.Tables['user'].Open; Inc(TableCnt);
+  User := FConn.Tables['user'].Open; Inc(TableCnt);
+  AssertEquals(TableCnt, FConn.Tables.Count);
 end;
 
 procedure TghSQLConnectorTest.TestFindByName;
@@ -176,13 +176,6 @@ begin
   finally
     DS.Free;
   end;
-end;
-
-procedure TghSQLConnectorTest.TestCatchException;
-begin
-  FConn.OnException := @DoOnException;
-  FConn.Script.Text := 'foo';
-  FConn.Execute;
 end;
 
 { TghSQLClientTest }
@@ -236,20 +229,6 @@ begin
   end;
 end;
 
-procedure TghSQLClientTest.TestCatchException;
-var
-  SC: TghSQLClient;
-begin
-  SC := TghSQLClient.Create(FConn);
-  try
-    SC.OnException := @DoOnException;
-    SC.Script.Text := 'foo';
-    SC.Execute;
-  finally
-    SC.Free;
-  end;
-end;
-
 { TghSQLTableTest }
 
 procedure TghSQLTableTest.TestOpen;
@@ -259,154 +238,173 @@ end;
 
 procedure TghSQLTableTest.TestConstraints;
 var
-  U: TghSQLTable;
+  User: TghSQLTable;
 begin
-  U := FConn.Tables['user'].Open;
+  User := FConn.Tables['user'].Open;
 
   // DEFAULT CONSTRAINT
-  U.Constraints.Clear;
-  U.Constraints.AddDefault('login', 'guest');
-  U.Constraints.AddDefault('passwd', '123');
-  U.Constraints.AddDefault('role_id', 2);
-  AssertEquals(3, U.Constraints.Count);
+  User.Constraints.Clear;
+  User.Constraints.AddDefault('login', 'guest');
+  User.Constraints.AddDefault('passwd', '123');
+  User.Constraints.AddDefault('role_id', 2);
+  AssertEquals(3, User.Constraints.Count);
 
-  U.Insert;
-  AssertEquals(U['login'].AsString, 'guest');
-  AssertEquals(U['passwd'].AsString, '123');
-  AssertEquals(U['role_id'].AsInteger, 2);
-  U.Cancel;
+  User.Insert;
+  AssertEquals(User['login'].AsString, 'guest');
+  AssertEquals(User['passwd'].AsString, '123');
+  AssertEquals(User['role_id'].AsInteger, 2);
+  User.Cancel;
 
   // CHECK CONSTRAINT
-  U.Constraints.Clear;
-  U.Constraints.AddCheck('login', ['user1', 'user2', 'user3']);
-  AssertEquals(1, U.Constraints.Count);
+  User.Constraints.Clear;
+  User.Constraints.AddCheck('login', ['user1', 'user2', 'user3']);
+  AssertEquals(1, User.Constraints.Count);
   // test using a valid value
-  U.Insert;
-  U['login'].AsString := 'user1';
-  AssertFalse('Check constraint is not running.', U.Post.HasErrors);
+  User.Insert;
+  User['login'].AsString := 'user1';
+  AssertFalse('Check constraint is not running.', User.Post.HasErrors);
   // test using a invalid value
-  U.Insert;
-  U['login'].AsString := 'foo';
-  AssertTrue('Check constraint is not running.', U.Post.HasErrors);
-  U.Cancel;
+  User.Insert;
+  User['login'].AsString := 'foo';
+  AssertTrue('Check constraint is not running.', User.Post.HasErrors);
+  User.Cancel;
 
   // UNIQUE CONSTRAINT
-  U.Constraints.Clear;
-  U.Constraints.AddUnique(['login']);
-  U.Insert;
-  U['login'].AsString := 'foo';
-  U.Post.Commit;
-  U.Insert;
-  U['login'].AsString := 'foo';
-  U.Post;
-  AssertTrue('Unique constraint is not running.', U.HasErrors);
+  User.Constraints.Clear;
+  User.Constraints.AddUnique(['login']);
+  User.Insert;
+  User['login'].AsString := 'foo';
+  User.Post.Commit;
+  User.Insert;
+  User['login'].AsString := 'foo';
+  User.Post;
+  AssertTrue('Unique constraint is not running.', User.HasErrors);
 end;
 
 procedure TghSQLTableTest.TestAutoInc;
 var
-  U: TghSQLTable;
+  User: TghSQLTable;
   LastId: Integer;
 begin
-  U := FConn.Tables['user'].Open;
-  LastId := U.Last.Columns['id'].AsInteger;
+  User := FConn.Tables['user'].Open;
+  LastId := User.Last.Columns['id'].AsInteger;
 
-  U.Insert;
-  U['login'].Value := 'user1';
-  U.Commit;
+  User.Insert;
+  User['login'].Value := 'user1';
+  User.Commit;
 
-  AssertEquals(LastId+1, U['id'].AsInteger);
+  AssertEquals(LastId+1, User['id'].AsInteger);
 end;
 
 procedure TghSQLTableTest.TestBypassAutoInc;
 var
-  U: TghSQLTable;
+  User: TghSQLTable;
 begin
-  U := FConn.Tables['user'].Open;
-  U.Insert;
-  U['id'].Value := 333;
-  U['login'].Value := 'user1';
-  U.Commit;
+  User := FConn.Tables['user'].Open;
+  User.Insert;
+  User['id'].Value := 333;
+  User['login'].Value := 'user1';
+  User.Commit;
 
-  AssertEquals(333, U['id'].AsInteger);
+  AssertEquals(333, User['id'].AsInteger);
 end;
 
 procedure TghSQLTableTest.TestLinks_1toN;
 var
-  U: TghSQLTable;
-  R: TghSQLTable;
+  User: TghSQLTable;
+  Role: TghSQLTable;
 begin
-  U := FConn.Tables['user'];
-  U.Where(' login = ''admin'' ').Open;
-  AssertEquals(1, U.RecordCount);
+  User := FConn.Tables['user'];
+  User.Where(' login = ''admin'' ').Open;
+  AssertEquals(1, User.RecordCount);
 
-  U.Relations['role'].Where('id = :role_id');
-  R := U.Links['role'];
+  User.Relations['role'].Where('id = :role_id');
+  Role := User.Links['role'];
 
   // test auto open
-  AssertTrue(R.Active);
+  AssertTrue(Role.Active);
 
   // test record count
-  AssertEquals(1, R.RecordCount);
+  AssertEquals(1, Role.RecordCount);
 
   // test same foreign key id
-  AssertEquals(U['role_id'].AsInteger, R['id'].AsInteger);
+  AssertEquals(User['role_id'].AsInteger, Role['id'].AsInteger);
 end;
 
 procedure TghSQLTableTest.TestLinks_MtoN;
 var
-  U: TghSQLTable;
-  R: TghSQLTable;
+  User: TghSQLTable;
+  Role: TghSQLTable;
 begin
   ExecScript('script-2.sql');
 
-  U := FConn.Tables['user'].Open;
+  User := FConn.Tables['user'].Open;
 
-  with U.Relations['role']  do
+  with User.Relations['role']  do
   begin
     Where('id in (select role_id from role_user where user_id = :id)');
     OrderBy('id');
   end;
 
-  R := U.Links['role'];
+  Role := User.Links['role'];
 
   // test auto open
-  AssertTrue(R.Active);
+  AssertTrue(Role.Active);
 
   // test role
-  AssertEquals(2, R.RecordCount);
-  AssertEquals('admin', R['name'].AsString);
+  AssertEquals(2, Role.RecordCount);
+  AssertEquals('admin', Role['name'].AsString);
 
   // move to next role
-  AssertEquals('analyst', R.Next['name'].AsString);
+  AssertEquals('analyst', Role.Next['name'].AsString);
 
   // move to next user
-  AssertEquals('jonh', U.Next['name'].AsString);
+  AssertEquals('jonh', User.Next['name'].AsString);
 
   // refresh roles for the current user
-  R := U.Links['role'];
-  AssertEquals(2, R.RecordCount);
-  AssertEquals('analyst', R['name'].AsString);
-  AssertEquals('programmer', R.Next['name'].AsString);
+  Role := User.Links['role'];
+  AssertEquals(2, Role.RecordCount);
+  AssertEquals('analyst', Role['name'].AsString);
+  AssertEquals('programmer', Role.Next['name'].AsString);
 end;
 
 procedure TghSQLTableTest.TestLinks_MtoN_Post;
 var
-  U, RU: TghSQLTable;
+  User, RoleUser: TghSQLTable;
 begin
   ExecScript('script-2.sql');
 
   // make the relationship
-  U := FConn.Tables['user'].Open;
-  U.Relations['role_user'].Where('user_id = :id');
+  User := FConn.Tables['user'].Open;
+  User.Relations['role_user'].Where('user_id = :id');
 
-  RU := U.Links['role_user'];
-  RU.Insert;
+  RoleUser := User.Links['role_user'];
+  RoleUser.Insert;
   //... user_id column will be fill automatically
-  RU['role_id'].AsInteger := 1;
-  RU.Commit;
+  RoleUser['role_id'].AsInteger := 1;
+  RoleUser.Commit;
 
   // check if got the user_id automatically
-  AssertEquals(RU['user_id'].AsInteger, U['id'].AsInteger);
+  AssertEquals(RoleUser['user_id'].AsInteger, User['id'].AsInteger);
+end;
+
+procedure TghSQLTableTest.TestLinksAutoScroll;
+var
+  User: TghSQLTable;
+  Role: TghSQLTable;
+begin
+  User := FConn.Tables['user'].Open;
+
+  User.Relations['role'].Where('id = :role_id');
+  Role := User.Links['role'];
+
+  while not User.EOF do
+  begin
+    // test same foreign key id
+    AssertEquals(User['role_id'].AsInteger, Role['id'].AsInteger);
+
+    User.Next; // auto scroll Role table
+  end;
 end;
 
 procedure TghSQLTableTest.TestPacketRecords;
@@ -414,80 +412,95 @@ const
   TOTAL_REC = 50;
   PACKET_REC = 10;
 var
-  U: TghSQLTable;
   I: Integer;
+  User: TghSQLTable;
 begin
-  U := FConn.Tables['user'].Open;
-  U.DeleteAll;
+  User := FConn.Tables['user'].Open;
+  User.DeleteAll;
 
   for I := 1 to TOTAL_REC do
   begin
-    U.Append;
-    U['login'].AsString := Format('user%d', [I]);
-    U['passwd'].AsInteger := I;
-    U.Post;
+    User.Append;
+    User['login'].AsString := Format('user%d', [I]);
+    User['passwd'].AsInteger := I;
+    User.Post;
   end;
-  U.Commit;
+  User.Commit;
 
   // get first packet
-  U.PacketRecords := PACKET_REC;
-  U.Open;
-  AssertEquals(U.PacketRecords, u.RecordCount);
+  User.PacketRecords := PACKET_REC;
+  User.Open;
+  AssertEquals(User.PacketRecords, User.RecordCount);
 
   // get 2 packets
-  U.PacketRecords := PACKET_REC*2;
-  U.Open;
-  AssertEquals(U.PacketRecords, u.RecordCount);
+  User.PacketRecords := PACKET_REC*2;
+  User.Open;
+  AssertEquals(User.PacketRecords, User.RecordCount);
 
   // get all
-  U.Last;
-  AssertEquals(TOTAL_REC, u.RecordCount);
+  User.Last;
+  AssertEquals(TOTAL_REC, User.RecordCount);
 end;
 
 procedure TghSQLTableTest.TestUsingScript;
 var
-  U: TghSQLTable;
-  Count: Integer;
+  User: TghSQLTable;
+  Cnt: Integer;
 begin
-  U := FConn.Tables['user'].Open;
-  Count := U.RecordCount;
+  User := FConn.Tables['user'].Open;
+  Cnt := User.RecordCount;
 
   // insert new
-  U.Append;
-  U['login'].AsString := 'bob';
-  U.Commit;
-  Count += 1;
+  User.Append;
+  User['login'].AsString := 'bob';
+  User.Commit;
+  Cnt += 1;
 
   // open using script
-  U.Close;
-  U.Script.Text := 'select u.* '#13
-                 + 'from user u '#13
-                 + 'left join role r '#13
-                 + '  on r.id = u.role_id '#13
-                 + 'where u.login = :login';
-  U.Params['login'].AsString := 'bob';
-  U.Open;
-  AssertEquals('bob', U['login'].AsString);
-  AssertEquals(1, U.RecordCount);
+  User.Close;
+  User.Script.Text := 'select User.* '#13
+                     + 'from user User '#13
+                     + 'left join role r '#13
+                     + '  on r.id = User.role_id '#13
+                     + 'where User.login = :login';
+  User.Params['login'].AsString := 'bob';
+  User.Open;
+  AssertEquals('bob', User['login'].AsString);
+  AssertEquals(1, User.RecordCount);
 
   // refresh data
-  U.Close;
-  U.Open;
-  AssertEquals(Count, U.RecordCount);
+  User.Close;
+  User.Open;
+  AssertEquals(Cnt, User.RecordCount);
 end;
 
 procedure TghSQLTableTest.TestOpenDataSet;
 var
-  U: TghSQLTable;
+  User: TghSQLTable;
   DS: TDataSet;
 begin
-  U := FConn.Tables['user'];
-  U.Open(DS, nil);
+  User := FConn.Tables['user'];
+  User.Open(DS, nil);
   try
     AssertTrue(DS.Active);
   finally
     DS.Free;
   end;
+end;
+
+procedure TghSQLTableTest.TestUsingAlias;
+var
+  User1, User2: TghSQLTable;
+begin
+  User1 := FConn.Tables['user'].Where('id=1').Open;
+
+  // set alias
+  User1.Alias := 'u';
+
+  // get the same table instance using the alias (@ is required)
+  User2 := FConn.Tables['@u'];
+
+  AssertTrue(User1 = User2);
 end;
 
 initialization
