@@ -1524,30 +1524,26 @@ end;
 
 procedure TghSQLConnector.InternalOpen(Sender: TObject; out ADataSet: TDataSet;
   AOwner: TComponent);
-var
-  SC: TghSQLClient;
 begin
-  SC := TghSQLClient.Create(Self);
+  with TghSQLClient.Create(Self) do
   try
-    SC.Assign(Self);
-    SC.AssignEvents(Self);
-    SC.Open(ADataSet, AOwner);
+    Assign(Self);
+    AssignEvents(Self);
+    Open(ADataSet, AOwner);
   finally
-    SC.Free;
+    Free;
   end;
 end;
 
 function TghSQLConnector.InternalExecute(Sender: TObject): NativeInt;
-var
-  SC: TghSQLClient;
 begin
-  SC := TghSQLClient.Create(Self);
+  with TghSQLClient.Create(Self) do
   try
-    SC.Assign(Self);
-    SC.AssignEvents(Self);
-    Result := SC.Execute;
+    Assign(Self);
+    AssignEvents(Self);
+    Result := Execute;
   finally
-    SC.Free;
+    Free;
   end;
 end;
 
