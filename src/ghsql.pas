@@ -62,7 +62,6 @@ type
   end;
 
   EghSQLHandlerError = class(EghSQLError);
-  TghSQLHandlerExceptionEvent = procedure (Sender: TObject; E: Exception) of object;
   TghSQLHandler = class(TghSQLStatement)
   protected
     FIsBatch: Boolean;
