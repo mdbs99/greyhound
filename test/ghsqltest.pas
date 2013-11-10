@@ -417,6 +417,7 @@ var
 begin
   User := FConn.Tables['user'].Open;
   User.DeleteAll;
+  User.Commit;
 
   for I := 1 to TOTAL_REC do
   begin
