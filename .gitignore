@@ -8,6 +8,6 @@
 *.so
 *.bat
 *.compiled
-todo.txt
+TODO.txt
 bin/
 test/lib/
