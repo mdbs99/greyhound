@@ -156,7 +156,7 @@ type
     procedure SetOwnerTable(AValue: TghSQLTable);
   public
     // Add a Default constraint
-    function AddDefault(const AColumName: string; AValue: Variant): Integer; overload;
+    function AddDefault(const AColumName: string; AValue: Variant): Integer;
     // Add a Unique constraint
     function AddUnique(const AColumNames: array of string; const AError: string = ''): Integer;
     // Add a Check constraint
@@ -164,6 +164,7 @@ type
     property OwnerTable: TghSQLTable read FOwnerTable write SetOwnerTable;
   end;
 
+  { TODO 3 -omdbs99 -cSQL : Make an "UpdateSQL" component }
   EghSQLTableError = class(EghSQLClientError);
   TghSQLTable = class(TghSQLClient)
   private
@@ -212,8 +213,8 @@ type
     procedure CallFoundTable(Sender: TObject; ATable: TghSQLTable); virtual;
     procedure CallAfterScroll(ADataSet: TDataSet); virtual;
   public
-    constructor Create(AConn: TghSQLConnector; const ATableName: string); virtual; reintroduce; overload;
-    constructor Create(AConn: TghSQLConnector; const ATableName: string; AOwnerTable: TghSQLTable); virtual; overload;
+    constructor Create(AConn: TghSQLConnector; const ATableName: string); virtual; reintroduce;
+    constructor Create(AConn: TghSQLConnector; const ATableName: string; AOwnerTable: TghSQLTable); virtual;
     destructor Destroy; override;
     procedure Assign(ASource: TghSQLStatement); override;
     procedure Clear; override;
@@ -291,7 +292,6 @@ type
   TghSQLLib = class abstract(TghSQLHandler)
   protected
     FConnector: TghSQLConnector;
-    procedure ParamsToStrings(AStrings: TStrings); virtual;
   public
     constructor Create(var AConnector: TghSQLConnector); virtual; reintroduce;
     procedure Connect; virtual; abstract;
@@ -1496,18 +1496,6 @@ begin
 end;
 
 { TghSQLLib }
-
-procedure TghSQLLib.ParamsToStrings(AStrings: TStrings);
-var
-  I: Integer;
-  Par: TParam;
-begin
-  for I := 0 to FParams.Count-1 do
-  begin
-    Par := FParams.Items[I];
-    AStrings.Add(Par.Name + '=' + Par.AsString);
-  end;
-end;
 
 constructor TghSQLLib.Create(var AConnector: TghSQLConnector);
 begin

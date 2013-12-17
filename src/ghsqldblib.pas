@@ -124,7 +124,6 @@ type
   protected
     function InternalExecute(Sender: TObject): NativeInt; override;
     function NewConnector: TghSQLdbConnector; override;
-    procedure ParamsToStrings(AStrings: TStrings); override;
   public
     constructor Create(var AConnector: TghSQLConnector); override;
     procedure StartTransaction; override;
@@ -220,7 +219,7 @@ end;
 procedure TghSQLdbLib.InternalOpen(Sender: TObject; out ADataSet: TDataSet;
   AOwner: TComponent);
 begin
-  FConn.IsBatch := Self.IsBatch;
+  FConn.IsBatch := FIsBatch;
   try
     InternalQueryOpen(Sender, ADataSet, AOwner);
   finally
@@ -230,9 +229,9 @@ end;
 
 function TghSQLdbLib.InternalExecute(Sender: TObject): NativeInt;
 begin
-  FConn.IsBatch := Self.IsBatch;
+  FConn.IsBatch := FIsBatch;
   try
-    if Self.IsBatch then
+    if FIsBatch then
       Result := InternalScriptExecute(Sender)
     else
       Result := InternalQueryExecute(Sender);
@@ -362,8 +361,6 @@ end;
 
 procedure TghSQLdbLib.Connect;
 begin
-  ParamsToStrings(FConn.Params);
-
   FConn.HostName := FConnector.Host;
   FConn.DatabaseName := FConnector.Database;
   FConn.UserName := FConnector.User;
@@ -507,17 +504,12 @@ begin
   Result := TghMSSQLConnector.Create(nil);
 end;
 
-procedure TghMSSQLLib.ParamsToStrings(AStrings: TStrings);
-begin
-  inherited ParamsToStrings(AStrings);
-  FConn.Params.Add('TEXTSIZE=2147483647');
-  FConn.Params.Add('AUTOCOMMIT=True');
-end;
-
 constructor TghMSSQLLib.Create(var AConnector: TghSQLConnector);
 begin
   inherited;
   FConn.ConnectorType := TMSSQLConnectionDef.TypeName;
+  FConn.Params.Add('TEXTSIZE=2147483647');
+  FConn.Params.Add('AUTOCOMMIT=True');
 end;
 
 procedure TghMSSQLLib.StartTransaction;
