@@ -61,7 +61,8 @@ type
     procedure TestPacketRecords;
     procedure TestUsingScript;
     procedure TestOpenDataSet;
-    procedure TestUsingAlias;
+    procedure TestFindByName;
+    procedure TestFindByAlias;
   end;
 
 implementation
@@ -489,7 +490,28 @@ begin
   end;
 end;
 
-procedure TghSQLTableTest.TestUsingAlias;
+procedure TghSQLTableTest.TestFindByName;
+var
+  T1, T2: TghSQLTable;
+begin
+  T1 := FConn.Tables['user'].Where('id=1');
+
+  // table active
+  T1.Open;
+  // new instance
+  T2 := FConn.Tables['user'];
+
+  AssertTrue('Tables are equals', T1 <> T2);
+
+  // if close first table
+  T1.Close;
+  // now get the same instance
+  T2 := FConn.Tables['user'];
+
+  AssertTrue('Tables are not equals', T1 = T2);
+end;
+
+procedure TghSQLTableTest.TestFindByAlias;
 var
   User1, User2: TghSQLTable;
 begin

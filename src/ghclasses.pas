@@ -47,7 +47,8 @@ implementation
 
 procedure EghError.SetInnerException(AValue: Exception);
 begin
-  if FInnerException = AValue then Exit;
+  if FInnerException = AValue then
+    Exit;
   FInnerException := AValue;
 end;
 

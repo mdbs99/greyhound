@@ -1137,17 +1137,17 @@ end;
 
 procedure TghSQLTable.Assign(ASource: TghSQLStatement);
 var
-  TmpTable: TghSQLTable;
+  SourceTable: TghSQLTable;
 begin
   inherited Assign(ASource);
   if ASource is TghSQLTable then
   begin
-    TmpTable := TghSQLTable(ASource);
-    FSelectColumns := TmpTable.FSelectColumns;
-    FConditions := TmpTable.FConditions;
-    FOrderBy := TmpTable.FOrderBy;
-    FTableName := TmpTable.FTableName;
-    FAlias := TmpTable.FAlias;
+    SourceTable := TghSQLTable(ASource);
+    FSelectColumns := SourceTable.FSelectColumns;
+    FConditions := SourceTable.FConditions;
+    FOrderBy := SourceTable.FOrderBy;
+    FTableName := SourceTable.FTableName;
+    FAlias := SourceTable.FAlias;
   end;
 end;
 
@@ -1397,6 +1397,8 @@ begin
 
   // default
   Result := FindByName(ATableName);
+
+  // do not use an active table
   if (Result = nil) or Result.Active then
   begin
     if FLocked then
