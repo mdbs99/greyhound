@@ -211,7 +211,7 @@ type
     procedure DoAfterCommit; virtual;
     // callback
     procedure CallFoundTable(Sender: TObject; ATable: TghSQLTable); virtual;
-    procedure CallAfterScroll(ADataSet: TDataSet); virtual;
+    procedure CallAfterScroll({%H-}ADataSet: TDataSet); virtual;
   public
     constructor Create(AConn: TghSQLConnector; const ATableName: string); virtual; reintroduce;
     constructor Create(AConn: TghSQLConnector; const ATableName: string; AOwnerTable: TghSQLTable); virtual;
@@ -245,6 +245,7 @@ type
     function HasErrors: Boolean;
     function GetErrors: TStrings;
     procedure SetDataRow(ADataRow: TghDataRow);
+    function Locate(const AKeyFields: string; const AKeyValues: Variant; AOptions: TLocateOptions): Boolean;
     property Active: Boolean read GetActive;
     property Columns[const AName: string]: TghDataColumn read GetColumn; default;
     property Connector: TghSQLConnector read GetConnector write SetConnector;
@@ -1379,6 +1380,13 @@ begin
   end;
 end;
 
+function TghSQLTable.Locate(const AKeyFields: string; const AKeyValues: Variant;
+  AOptions: TLocateOptions): Boolean;
+begin
+  CheckData;
+  Result := FData.Locate(AKeyFields, AKeyValues, AOptions);
+end;
+
 { TghSQLTableList }
 
 function TghSQLTableList.GetTables(const ATableName: string): TghSQLTable;
@@ -1405,7 +1413,7 @@ begin
       raise EghSQLError.CreateFmt(Self, 'Table "%s" not found.', [ATableName]);
 
     Result := TghSQLTable.Create(nil, ATableName);
-    Result.Alias := IntToStr(NativeInt(@Result));
+    Result.Alias := IntToStr(Result.GetHashCode);
     Add(Result);
     DoNewTable(Result);
   end;
