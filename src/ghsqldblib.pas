@@ -99,7 +99,7 @@ type
   end;
   {$ENDIF}
 
-  { IB and Firebird especialization }
+  { IB especialization }
 
   TghIBLib = class(TghSQLdbLib)
   public
@@ -107,8 +107,13 @@ type
     function GetSequenceValue(const ASequenceName: string): NativeInt; override;
   end;
 
-  TghFirebirdLib = TghIBLib;
-
+  { Firebird especialization }
+  
+  TghFirebirdLib = class(TghIBLib)
+  public
+    constructor Create(var AConnector: TghSQLConnector); override;
+  end;
+ 
   { MSSQLServer and Sybase especialization }
 
   {$IFDEF MSSQL_LIB}
@@ -472,6 +477,16 @@ begin
   finally
     Free;
   end;
+end;
+
+{ TghFirebirdLib }
+
+constructor TghFirebirdLib.Create(var AConnector: TghSQLConnector);
+begin
+  inherited;
+  FConn.Transaction.Params.Add('isc_tpb_read_committed');
+  FConn.Transaction.Params.Add('isc_tpb_rec_version');
+  FConn.Transaction.Params.Add('isc_tpb_nowait');
 end;
 
 {$IFDEF MSSQL_LIB}
