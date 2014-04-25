@@ -175,6 +175,9 @@ begin
       if LastId <= 0 then
         Exit;
 
+      if Fld.ReadOnly then
+        Fld.ReadOnly := False;
+
       Edit;
       Fields[I].SetData(@LastId);
       Post;
